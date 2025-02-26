@@ -1,8 +1,8 @@
 pragma solidity ^0.8.19;
 
-import {BaseScript} from "./BaseScript.sol";
-import {NetworkConstants} from "../src/libraries/NetworkConstants.sol";
 import {CREATE3_FACTORY} from "../lib/create3-factory/src/ICREATE3Factory.sol";
+import {NetworkConstants} from "../src/libraries/NetworkConstants.sol";
+import {BaseScript} from "./BaseScript.sol";
 
 contract DeployNetworkConstants is BaseScript {
 
@@ -25,11 +25,7 @@ contract DeployNetworkConstants is BaseScript {
 
         vm.stopBroadcast();
 
-        string memory subkey = vm.serializeAddress(
-            "sepolia",
-            "networkConstants",
-            libraryAddress
-        );
+        string memory subkey = vm.serializeAddress("sepolia", "networkConstants", libraryAddress);
 
         string memory finalJson = vm.serializeString("libraries", "sepolia", subkey);
 

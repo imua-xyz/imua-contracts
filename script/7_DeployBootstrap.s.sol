@@ -101,8 +101,7 @@ contract DeployBootstrapOnly is BaseScript {
             new ClientChainGateway(address(clientChainLzEndpoint), config, address(rewardVaultBeacon));
 
         // then the client chain initialization
-        bytes memory initialization =
-            abi.encodeWithSelector(clientGatewayLogic.initialize.selector, owner.addr);
+        bytes memory initialization = abi.encodeWithSelector(clientGatewayLogic.initialize.selector, owner.addr);
 
         // bootstrap proxy, it should be deployed using CREATE3
         bytes memory bootstrapInit = abi.encodeCall(
