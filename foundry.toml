@@ -17,6 +17,7 @@ deny_warnings = true
 optimizer = true
 optimizer_runs = 200
 solc = "0.8.28"
+libraries = ["src/libraries/NetworkConstants.sol:NetworkConstants:0xf718DcEC914835d47a5e428A5397BF2F7276808b"]
 
 [profile.test]
 # for tests, use the Eth mainnet chain_id for NetworkConstants to work.
