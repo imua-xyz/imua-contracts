@@ -24,6 +24,8 @@ libraries = ["src/libraries/NetworkConstants.sol:NetworkConstants:0xf718DcEC9148
 # do not specify this in the default profile to pacify forge script
 # running on non-Eth mainnet chains.
 chain_id = 1
+# clear the libraries to avoid errors in tests
+libraries = []
 
 [fmt]
 number_underscore = "thousands"
