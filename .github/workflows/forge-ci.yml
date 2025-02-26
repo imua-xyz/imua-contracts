@@ -198,8 +198,8 @@ jobs:
 
           # Note that
           # (0) we use the logic addresses to match the comparison code: eg. Bootstrap is
-                compared against BootstrapLogic instead of Bootstrap because Bootstrap is
-                a proxy contract that points to the logic contract.
+          #     compared against BootstrapLogic instead of Bootstrap because Bootstrap is
+          #     a proxy contract that points to the logic contract.
           # (1) keys of the input json dict below are sourced from `deployedContracts.json`
           # (2) keys of the output json dict below are case sensitive and must match the
           #     keys `x.deployed.json` defined in `compareLayouts.js` exactly.
