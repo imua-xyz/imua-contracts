@@ -309,8 +309,7 @@ contract DeployContracts is Script {
         ];
         string[3] memory names = ["validator1", "validator2", "validator3"];
         // the mnemonics corresponding to the consensus public keys are given here. to recover,
-        // echo "${MNEMONIC}" | imuad init localnet --chain-id exocorelocal_233-1 --recover
-        // not sure if the chain-id above should be updated to imuachainlocal_233-1
+        // echo "${MNEMONIC}" | imuad init localnet --chain-id imuachainlocalnet_232-1 --recover
         // the value in this script is this one
         // imuad keys consensus-pubkey-to-bytes --output json | jq -r .bytes
         bytes32[3] memory pubKeys = [
