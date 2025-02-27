@@ -102,7 +102,7 @@ The final output would be stored under `script/deployments/utxogateway.json`
 ```bash
 # Clone the repository
 # TODO: transfer out to imua-xyz after upgrading the org plan
-git clone https://github.com/ExocoreNetwork/utxo-restaking.git
+git clone https://github.com/imua-xyz/utxo-restaking.git
 cd utxo-restaking
 git checkout btc-restaking-v2
 ```

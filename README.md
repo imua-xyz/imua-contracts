@@ -12,7 +12,7 @@ The imua-contracts repository contains a set of smart contracts deployed on both
 
 ### Basics
 
-Our docs site is [here](https://docs.exocore.network/components/smart-contracts). It contains tutorials, explainers, and smart contract documentation. If you'd like to view these docs on github instead, check out [the docs](/docs) repo:
+Our docs site is [here](https://docs.imua.xyz/components/smart-contracts). It contains tutorials, explainers, and smart contract documentation. If you'd like to view these docs on github instead, check out [the docs](/docs) repo:
 
 - [Contracts summary](./docs/summary.md)
 - [Architecture diagrams](/docs/architecture.svg)
