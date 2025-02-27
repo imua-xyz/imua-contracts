@@ -10,7 +10,11 @@ import {ImuachainGateway} from "../src/core/ImuachainGateway.sol";
 import {BaseScript} from "./BaseScript.sol";
 import "forge-std/Script.sol";
 
+import {CREATE3_FACTORY} from "../lib/create3-factory/src/ICREATE3Factory.sol";
+
 contract DeployImuachainGatewayOnly is BaseScript {
+
+    bytes32 salt;
 
     function setUp() public virtual override {
         // load keys
@@ -21,25 +25,24 @@ contract DeployImuachainGatewayOnly is BaseScript {
         require(address(imuachainLzEndpoint) != address(0), "imuachain l0 endpoint should not be empty");
         // fork
         imuachain = vm.createSelectFork(imuachainRPCURL);
+        salt = keccak256(abi.encodePacked("imuachaintestnet_233-8"));
     }
 
     function run() public {
         vm.selectFork(imuachain);
-        vm.startBroadcast(deployer.privateKey);
-
+        // use the owner so that it owns the ProxyAdmin
+        vm.startBroadcast(owner.privateKey);
         ProxyAdmin imuachainProxyAdmin = new ProxyAdmin();
         ImuachainGateway imuachainGatewayLogic = new ImuachainGateway(address(imuachainLzEndpoint));
-        imuachainGateway = ImuachainGateway(
-            payable(
-                address(
-                    new TransparentUpgradeableProxy(
-                        address(imuachainGatewayLogic),
-                        address(imuachainProxyAdmin),
-                        abi.encodeWithSelector(imuachainGatewayLogic.initialize.selector, payable(owner.addr))
-                    )
-                )
-            )
+
+        bytes memory initialization =
+            abi.encodeWithSelector(imuachainGatewayLogic.initialize.selector, payable(owner.addr));
+
+        bytes memory creationCode = abi.encodePacked(
+            type(TransparentUpgradeableProxy).creationCode,
+            abi.encode(address(imuachainGatewayLogic), address(imuachainProxyAdmin), initialization)
         );
+        ImuachainGateway imuachainGateway = ImuachainGateway(payable(CREATE3_FACTORY.deploy(salt, creationCode)));
 
         vm.stopBroadcast();
 
