@@ -32,9 +32,9 @@
     "vaultImplementation": "0x9A6735c19f293500C24886cC829870cD725a98b6"
   },
   "imuachain": {
-    "imuachainGateway": "0xEAf4E4D09b9CeB936492518A852026c914beb11E",
-    "imuachainGatewayLogic": "0x651a66c43F6A257a878F62BD124c668D5F3bd1AF",
-    "imuachainProxyAdmin": "0x9bBDDb68B47b88d3Dd2eF7E1682C1EFE4E2e2315",
+    "imuachainGateway": "0xdDf5218Dbff297ADdF17fB7977E2469D774545ED",
+    "imuachainGatewayLogic": "0x71C95911E9a5D330f4D621842EC243EE1343292e",
+    "imuachainProxyAdmin": "0x8464135c8F25Da09e49BC8782676a84730C318bC",
     "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f"
   }
 }
