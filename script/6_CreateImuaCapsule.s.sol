@@ -2,7 +2,7 @@ pragma solidity ^0.8.19;
 
 import "../src/interfaces/IClientChainGateway.sol";
 
-import "../src/interfaces/IExocoreGateway.sol";
+import "../src/interfaces/IImuachainGateway.sol";
 import "../src/interfaces/IVault.sol";
 
 import "../src/storage/GatewayStorage.sol";
@@ -29,23 +29,23 @@ contract DepositScript is BaseScript {
             IClientChainGateway(payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway")));
         require(address(clientGateway) != address(0), "clientGateway address should not be empty");
 
-        if (!useExocorePrecompileMock) {
+        if (!useImuachainPrecompileMock) {
             _bindPrecompileMocks();
         }
 
-        // transfer some gas fee to depositor, relayer and exocore gateway
+        // transfer some gas fee to depositor, relayer and imuachain gateway
         clientChain = vm.createSelectFork(clientChainRPCURL);
         _topUpPlayer(clientChain, address(0), deployer, depositor.addr, 0.2 ether);
 
-        exocore = vm.createSelectFork(exocoreRPCURL);
-        _topUpPlayer(exocore, address(0), exocoreGenesis, address(exocoreGateway), 1 ether);
+        imuachain = vm.createSelectFork(imuachainRPCURL);
+        _topUpPlayer(imuachain, address(0), imuachainGenesis, address(imuachainGateway), 1 ether);
     }
 
     function run() public {
         vm.selectFork(clientChain);
         vm.startBroadcast(depositor.privateKey);
 
-        address capsule = clientGateway.createExoCapsule();
+        address capsule = clientGateway.createImuaCapsule();
 
         vm.stopBroadcast();
 

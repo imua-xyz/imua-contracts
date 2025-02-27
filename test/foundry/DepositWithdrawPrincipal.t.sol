@@ -1,21 +1,21 @@
 pragma solidity ^0.8.19;
 
-import "../../src/core/ExoCapsule.sol";
-import "../../src/core/ExocoreGateway.sol";
+import "../../src/core/ImuaCapsule.sol";
+import "../../src/core/ImuachainGateway.sol";
 import "../mocks/AssetsMock.sol";
 
-import {IExoCapsule} from "../../src/interfaces/IExoCapsule.sol";
+import {IImuaCapsule} from "../../src/interfaces/IImuaCapsule.sol";
 import {ILSTRestakingController} from "../../src/interfaces/ILSTRestakingController.sol";
 
 import {Action, GatewayStorage} from "../../src/storage/GatewayStorage.sol";
-import "./ExocoreDeployer.t.sol";
+import "./ImuachainDeployer.t.sol";
 import "forge-std/Test.sol";
 
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/AddressCast.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
 
-contract DepositWithdrawPrincipalTest is ExocoreDeployer {
+contract DepositWithdrawPrincipalTest is ImuachainDeployer {
 
     using AddressCast for address;
     using stdStorage for StdStorage;
@@ -38,15 +38,15 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
 
     function test_LSTDepositWithdrawByLayerZero() public {
         Player memory depositor = players[0];
-        vm.startPrank(exocoreValidatorSet.addr);
+        vm.startPrank(owner.addr);
         restakeToken.transfer(depositor.addr, 1_000_000);
         vm.stopPrank();
 
         // transfer some gas fee to depositor
         deal(depositor.addr, 1e22);
-        // transfer some gas fee to exocore gateway as it has to pay for the relay fee to layerzero endpoint when
+        // transfer some gas fee to imuachain gateway as it has to pay for the relay fee to layerzero endpoint when
         // sending back response
-        deal(address(exocoreGateway), 1e22);
+        deal(address(imuachainGateway), 1e22);
 
         uint256 depositAmount = 10_000;
         uint256 withdrawAmount = 100;
@@ -106,9 +106,9 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // client chain layerzero endpoint should emit the message packet including deposit payload.
         vm.expectEmit(true, true, true, true, address(clientChainLzEndpoint));
         emit NewPacket(
-            exocoreChainId,
+            imuachainChainId,
             address(clientGateway),
-            address(exocoreGateway).toBytes32(),
+            address(imuachainGateway).toBytes32(),
             outboundNonces[clientChainId],
             depositRequestPayload
         );
@@ -122,8 +122,8 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // second layerzero relayers should watch the request message packet and relay the message to destination
         // endpoint
 
-        // exocore gateway should emit LSTTransfer event
-        vm.expectEmit(address(exocoreGateway));
+        // imuachain gateway should emit LSTTransfer event
+        vm.expectEmit(address(imuachainGateway));
         emit LSTTransfer(
             true, // isDeposit
             true, // success
@@ -132,12 +132,12 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
             depositAmount
         );
 
-        vm.expectEmit(address(exocoreGateway));
-        emit MessageExecuted(Action.REQUEST_DEPOSIT_LST, inboundNonces[exocoreChainId]++);
-        // inboundNonces[exocoreChainId]++;
-        exocoreLzEndpoint.lzReceive(
-            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
-            address(exocoreGateway),
+        vm.expectEmit(address(imuachainGateway));
+        emit MessageExecuted(Action.REQUEST_DEPOSIT_LST, inboundNonces[imuachainChainId]++);
+        // inboundNonces[imuachainChainId]++;
+        imuachainLzEndpoint.lzReceive(
+            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[imuachainChainId] - 1),
+            address(imuachainGateway),
             depositRequestId,
             depositRequestPayload,
             bytes("")
@@ -163,9 +163,9 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // client chain layerzero endpoint should emit the message packet including withdraw payload.
         vm.expectEmit(true, true, true, true, address(clientChainLzEndpoint));
         emit NewPacket(
-            exocoreChainId,
+            imuachainChainId,
             address(clientGateway),
-            address(exocoreGateway).toBytes32(),
+            address(imuachainGateway).toBytes32(),
             outboundNonces[clientChainId],
             withdrawRequestPayload
         );
@@ -174,17 +174,19 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         emit MessageSent(
             Action.REQUEST_WITHDRAW_LST, withdrawRequestId, outboundNonces[clientChainId]++, withdrawRequestNativeFee
         );
-        clientGateway.claimPrincipalFromExocore{value: withdrawRequestNativeFee}(address(restakeToken), withdrawAmount);
+        clientGateway.claimPrincipalFromImuachain{value: withdrawRequestNativeFee}(
+            address(restakeToken), withdrawAmount
+        );
 
         // second layerzero relayers should watch the request message packet and relay the message to destination
         // endpoint
 
         lastlyUpdatedPrincipalBalance -= withdrawAmount;
         bytes memory withdrawResponsePayload = abi.encodePacked(Action.RESPOND, outboundNonces[clientChainId] - 1, true);
-        uint256 withdrawResponseNativeFee = exocoreGateway.quote(clientChainId, withdrawResponsePayload);
-        bytes32 withdrawResponseId = generateUID(outboundNonces[exocoreChainId], false);
+        uint256 withdrawResponseNativeFee = imuachainGateway.quote(clientChainId, withdrawResponsePayload);
+        bytes32 withdrawResponseId = generateUID(outboundNonces[imuachainChainId], false);
 
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        vm.expectEmit(true, true, true, true, address(imuachainGateway));
         emit LSTTransfer(
             false, // isDeposit (false for withdrawal)
             true, // success
@@ -193,26 +195,26 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
             withdrawAmount
         );
 
-        // exocore gateway should return response message to exocore network layerzero endpoint
-        vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
+        // imuachain gateway should return response message to imuachain network layerzero endpoint
+        vm.expectEmit(true, true, true, true, address(imuachainLzEndpoint));
         emit NewPacket(
             clientChainId,
-            address(exocoreGateway),
+            address(imuachainGateway),
             address(clientGateway).toBytes32(),
-            outboundNonces[exocoreChainId],
+            outboundNonces[imuachainChainId],
             withdrawResponsePayload
         );
-        // exocore gateway should emit MessageSent event
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        // imuachain gateway should emit MessageSent event
+        vm.expectEmit(true, true, true, true, address(imuachainGateway));
         emit MessageSent(
-            Action.RESPOND, withdrawResponseId, outboundNonces[exocoreChainId]++, withdrawResponseNativeFee
+            Action.RESPOND, withdrawResponseId, outboundNonces[imuachainChainId]++, withdrawResponseNativeFee
         );
 
-        vm.expectEmit(address(exocoreGateway));
-        emit MessageExecuted(Action.REQUEST_WITHDRAW_LST, inboundNonces[exocoreChainId]++);
-        exocoreLzEndpoint.lzReceive(
-            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
-            address(exocoreGateway),
+        vm.expectEmit(address(imuachainGateway));
+        emit MessageExecuted(Action.REQUEST_WITHDRAW_LST, inboundNonces[imuachainChainId]++);
+        imuachainLzEndpoint.lzReceive(
+            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[imuachainChainId] - 1),
+            address(imuachainGateway),
             withdrawRequestId,
             withdrawRequestPayload,
             bytes("")
@@ -229,7 +231,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         vm.expectEmit(address(clientGateway));
         emit MessageExecuted(Action.RESPOND, inboundNonces[clientChainId]++);
         clientChainLzEndpoint.lzReceive(
-            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), inboundNonces[clientChainId] - 1),
+            Origin(imuachainChainId, address(imuachainGateway).toBytes32(), inboundNonces[clientChainId] - 1),
             address(clientGateway),
             withdrawResponseId,
             withdrawResponsePayload,
@@ -253,9 +255,9 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         deal(depositor.addr, 1e22);
         // transfer some gas fee to relayer for paying for onboarding cross-chain message packet
         deal(relayer.addr, 1e22);
-        // transfer some gas fee to exocore gateway as it has to pay for the relay fee to layerzero endpoint when
+        // transfer some gas fee to imuachain gateway as it has to pay for the relay fee to layerzero endpoint when
         // sending back response
-        deal(address(exocoreGateway), 1e22);
+        deal(address(imuachainGateway), 1e22);
 
         // before deposit we should add whitelist tokens
         test_AddWhitelistTokens();
@@ -298,7 +300,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
     function _testNativeDeposit(Player memory depositor, Player memory relayer, uint256 lastlyUpdatedPrincipalBalance)
         internal
     {
-        // 1. next depositor call clientGateway.verifyAndDepositNativeStake to deposit into Exocore from client chain
+        // 1. next depositor call clientGateway.verifyAndDepositNativeStake to deposit into Imuachain from client chain
         // through layerzero
 
         /// client chain layerzero endpoint should emit the message packet including deposit payload.
@@ -316,9 +318,9 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
 
         vm.expectEmit(true, true, true, true, address(clientChainLzEndpoint));
         emit NewPacket(
-            exocoreChainId,
+            imuachainChainId,
             address(clientGateway),
-            address(exocoreGateway).toBytes32(),
+            address(imuachainGateway).toBytes32(),
             outboundNonces[clientChainId],
             depositRequestPayload
         );
@@ -336,8 +338,8 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // 2. thirdly layerzero relayers should watch the request message packet and relay the message to destination
         // endpoint
 
-        /// exocore gateway should emit NSTTransfer event
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        /// imuachain gateway should emit NSTTransfer event
+        vm.expectEmit(true, true, true, true, address(imuachainGateway));
         emit NSTTransfer(
             true, // isDeposit
             true, // success
@@ -346,14 +348,14 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
             depositAmount
         );
 
-        vm.expectEmit(address(exocoreGateway));
-        emit MessageExecuted(Action.REQUEST_DEPOSIT_NST, inboundNonces[exocoreChainId]++);
+        vm.expectEmit(address(imuachainGateway));
+        emit MessageExecuted(Action.REQUEST_DEPOSIT_NST, inboundNonces[imuachainChainId]++);
 
-        /// relayer catches the request message packet by listening to client chain event and feed it to Exocore network
+        /// relayer catches the request message packet by listening to client chain event and feed it to Imuachain
         vm.startPrank(relayer.addr);
-        exocoreLzEndpoint.lzReceive(
-            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
-            address(exocoreGateway),
+        imuachainLzEndpoint.lzReceive(
+            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[imuachainChainId] - 1),
+            address(imuachainGateway),
             depositRequestId,
             depositRequestPayload,
             bytes("")
@@ -366,7 +368,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         _simulateBlockEnvironmentForNativeDeposit();
 
         // 1. firstly depositor should stake to beacon chain by depositing 32 ETH to ETHPOS contract
-        IExoCapsule expectedCapsule = IExoCapsule(
+        IImuaCapsule expectedCapsule = IImuaCapsule(
             Create2.computeAddress(
                 bytes32(uint256(uint160(depositor.addr))),
                 keccak256(abi.encodePacked(BEACON_PROXY_BYTECODE, abi.encode(address(capsuleBeacon), ""))),
@@ -406,10 +408,10 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         );
     }
 
-    function _attachCapsuleToWithdrawalCredentials(IExoCapsule createdCapsule, Player memory depositor) internal {
+    function _attachCapsuleToWithdrawalCredentials(IImuaCapsule createdCapsule, Player memory depositor) internal {
         address capsuleAddress = _getCapsuleFromWithdrawalCredentials(_getWithdrawalCredentials(validatorContainer));
         vm.etch(capsuleAddress, address(createdCapsule).code);
-        capsule = ExoCapsule(payable(capsuleAddress));
+        capsule = ImuaCapsule(payable(capsuleAddress));
         // TODO: load this dynamically somehow instead of hardcoding it
         bytes32 beaconSlotInCapsule = bytes32(uint256(keccak256("eip1967.proxy.beacon")) - 1);
         bytes32 beaconAddress = bytes32(uint256(uint160(address(capsuleBeacon))));
@@ -430,7 +432,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
     function _testNativeWithdraw(Player memory withdrawer, Player memory relayer, uint256 lastlyUpdatedPrincipalBalance)
         internal
     {
-        // 1. withdrawer will call clientGateway.processBeaconChainWithdrawal to withdraw from Exocore thru layerzero
+        // 1. withdrawer will call clientGateway.processBeaconChainWithdrawal to withdraw from Imuachain thru layerzero
 
         /// client chain layerzero endpoint should emit the message packet including deposit payload.
         uint64 withdrawalAmountGwei = _getWithdrawalAmount(withdrawalContainer);
@@ -452,9 +454,9 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // client chain layerzero endpoint should emit the message packet including withdraw payload.
         vm.expectEmit(true, true, true, true, address(clientChainLzEndpoint));
         emit NewPacket(
-            exocoreChainId,
+            imuachainChainId,
             address(clientGateway),
-            address(exocoreGateway).toBytes32(),
+            address(imuachainGateway).toBytes32(),
             outboundNonces[clientChainId],
             withdrawRequestPayload
         );
@@ -470,14 +472,14 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         );
         vm.stopPrank();
 
-        /// exocore gateway should return response message to exocore network layerzero endpoint
+        /// imuachain gateway should return response message to imuachain network layerzero endpoint
         lastlyUpdatedPrincipalBalance -= withdrawalAmount;
         bytes memory withdrawResponsePayload = abi.encodePacked(Action.RESPOND, outboundNonces[clientChainId] - 1, true);
-        uint256 withdrawResponseNativeFee = exocoreGateway.quote(clientChainId, withdrawResponsePayload);
-        bytes32 withdrawResponseId = generateUID(outboundNonces[exocoreChainId], false);
+        uint256 withdrawResponseNativeFee = imuachainGateway.quote(clientChainId, withdrawResponsePayload);
+        bytes32 withdrawResponseId = generateUID(outboundNonces[imuachainChainId], false);
 
-        // exocore gateway should emit NSTTransfer event
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        // imuachain gateway should emit NSTTransfer event
+        vm.expectEmit(true, true, true, true, address(imuachainGateway));
         emit NSTTransfer(
             false, // isDeposit (false for withdrawal)
             true, // success
@@ -486,27 +488,27 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
             withdrawalAmount
         );
 
-        // exocore gateway should return response message to exocore network layerzero endpoint
-        vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
+        // imuachain gateway should return response message to imuachain network layerzero endpoint
+        vm.expectEmit(true, true, true, true, address(imuachainLzEndpoint));
         emit NewPacket(
             clientChainId,
-            address(exocoreGateway),
+            address(imuachainGateway),
             address(clientGateway).toBytes32(),
-            outboundNonces[exocoreChainId],
+            outboundNonces[imuachainChainId],
             withdrawResponsePayload
         );
-        // exocore gateway should emit MessageSent event
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        // imuachain gateway should emit MessageSent event
+        vm.expectEmit(true, true, true, true, address(imuachainGateway));
         emit MessageSent(
-            Action.RESPOND, withdrawResponseId, outboundNonces[exocoreChainId]++, withdrawResponseNativeFee
+            Action.RESPOND, withdrawResponseId, outboundNonces[imuachainChainId]++, withdrawResponseNativeFee
         );
 
-        vm.expectEmit(address(exocoreGateway));
-        emit MessageExecuted(Action.REQUEST_WITHDRAW_NST, inboundNonces[exocoreChainId]++);
+        vm.expectEmit(address(imuachainGateway));
+        emit MessageExecuted(Action.REQUEST_WITHDRAW_NST, inboundNonces[imuachainChainId]++);
 
-        exocoreLzEndpoint.lzReceive(
-            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
-            address(exocoreGateway),
+        imuachainLzEndpoint.lzReceive(
+            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[imuachainChainId] - 1),
+            address(imuachainGateway),
             withdrawRequestId,
             withdrawRequestPayload,
             bytes("")
@@ -520,7 +522,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         emit MessageExecuted(Action.RESPOND, inboundNonces[clientChainId]++);
 
         clientChainLzEndpoint.lzReceive(
-            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), inboundNonces[clientChainId] - 1),
+            Origin(imuachainChainId, address(imuachainGateway).toBytes32(), inboundNonces[clientChainId] - 1),
             address(clientGateway),
             withdrawResponseId,
             withdrawResponsePayload,
@@ -555,7 +557,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
 
         address addr = players[0].addr;
         deal(addr, 1e22); // for gas
-        vm.startPrank(exocoreValidatorSet.addr);
+        vm.startPrank(owner.addr);
         restakeToken.transfer(addr, 1_000_000);
         vm.stopPrank();
 
@@ -584,24 +586,24 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // deposit succeeded on client chain
         assertTrue(vault.getConsumedTvl() == consumedTvl);
 
-        deal(address(exocoreGateway), 1e22); // for lz fees
+        deal(address(imuachainGateway), 1e22); // for lz fees
 
-        // run the message on the Exocore gateway
+        // run the message on the Imuachain gateway
         principalBalance += depositAmount;
 
-        vm.expectEmit(address(exocoreGateway));
-        emit MessageExecuted(Action.REQUEST_DEPOSIT_LST, inboundNonces[exocoreChainId]++);
-        exocoreLzEndpoint.lzReceive(
-            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
-            address(exocoreGateway),
+        vm.expectEmit(address(imuachainGateway));
+        emit MessageExecuted(Action.REQUEST_DEPOSIT_LST, inboundNonces[imuachainChainId]++);
+        imuachainLzEndpoint.lzReceive(
+            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[imuachainChainId] - 1),
+            address(imuachainGateway),
             requestId,
             requestPayload,
             bytes("")
         );
-        // given that the above transaction went through, the deposit succeeded on Exocore
+        // given that the above transaction went through, the deposit succeeded on Imuachain
 
         uint256 newTvlLimit = depositAmount / 2; // divisible by 4 so no need to check for 2
-        vm.startPrank(exocoreValidatorSet.addr);
+        vm.startPrank(owner.addr);
         // a reduction is always allowed
         clientGateway.updateTvlLimit(address(restakeToken), newTvlLimit);
         vm.stopPrank();
@@ -619,24 +621,24 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         nativeFee = clientGateway.quote(requestPayload);
         vm.expectEmit(address(clientGateway));
         emit MessageSent(Action.REQUEST_WITHDRAW_LST, requestId, outboundNonces[clientChainId]++, nativeFee);
-        clientGateway.claimPrincipalFromExocore{value: nativeFee}(address(restakeToken), withdrawAmount);
+        clientGateway.claimPrincipalFromImuachain{value: nativeFee}(address(restakeToken), withdrawAmount);
         vm.stopPrank();
 
         principalBalance -= withdrawAmount;
         bytes memory responsePayload = abi.encodePacked(Action.RESPOND, outboundNonces[clientChainId] - 1, true);
-        bytes32 responseId = generateUID(outboundNonces[exocoreChainId], false);
-        vm.expectEmit(address(exocoreGateway));
+        bytes32 responseId = generateUID(outboundNonces[imuachainChainId], false);
+        vm.expectEmit(address(imuachainGateway));
         emit MessageSent(
             Action.RESPOND,
             responseId,
-            outboundNonces[exocoreChainId]++,
-            exocoreGateway.quote(clientChainId, responsePayload)
+            outboundNonces[imuachainChainId]++,
+            imuachainGateway.quote(clientChainId, responsePayload)
         );
-        vm.expectEmit(address(exocoreGateway));
-        emit MessageExecuted(Action.REQUEST_WITHDRAW_LST, inboundNonces[exocoreChainId]++);
-        exocoreLzEndpoint.lzReceive(
-            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
-            address(exocoreGateway),
+        vm.expectEmit(address(imuachainGateway));
+        emit MessageExecuted(Action.REQUEST_WITHDRAW_LST, inboundNonces[imuachainChainId]++);
+        imuachainLzEndpoint.lzReceive(
+            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[imuachainChainId] - 1),
+            address(imuachainGateway),
             requestId,
             requestPayload,
             bytes("")
@@ -645,7 +647,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         vm.expectEmit(address(clientGateway));
         emit MessageExecuted(Action.RESPOND, inboundNonces[clientChainId]++);
         clientChainLzEndpoint.lzReceive(
-            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), inboundNonces[clientChainId] - 1),
+            Origin(imuachainChainId, address(imuachainGateway).toBytes32(), inboundNonces[clientChainId] - 1),
             address(clientGateway),
             responseId,
             responsePayload,
@@ -687,23 +689,23 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         nativeFee = clientGateway.quote(requestPayload);
         vm.expectEmit(address(clientGateway));
         emit MessageSent(Action.REQUEST_WITHDRAW_LST, requestId, outboundNonces[clientChainId]++, nativeFee);
-        clientGateway.claimPrincipalFromExocore{value: nativeFee}(address(restakeToken), withdrawAmount);
+        clientGateway.claimPrincipalFromImuachain{value: nativeFee}(address(restakeToken), withdrawAmount);
 
         // obtain the response
         responsePayload = abi.encodePacked(Action.RESPOND, outboundNonces[clientChainId] - 1, true);
-        responseId = generateUID(outboundNonces[exocoreChainId], false);
-        vm.expectEmit(address(exocoreGateway));
+        responseId = generateUID(outboundNonces[imuachainChainId], false);
+        vm.expectEmit(address(imuachainGateway));
         emit MessageSent(
             Action.RESPOND,
             responseId,
-            outboundNonces[exocoreChainId]++,
-            exocoreGateway.quote(clientChainId, responsePayload)
+            outboundNonces[imuachainChainId]++,
+            imuachainGateway.quote(clientChainId, responsePayload)
         );
-        vm.expectEmit(address(exocoreGateway));
-        emit MessageExecuted(Action.REQUEST_WITHDRAW_LST, inboundNonces[exocoreChainId]++);
-        exocoreLzEndpoint.lzReceive(
-            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
-            address(exocoreGateway),
+        vm.expectEmit(address(imuachainGateway));
+        emit MessageExecuted(Action.REQUEST_WITHDRAW_LST, inboundNonces[imuachainChainId]++);
+        imuachainLzEndpoint.lzReceive(
+            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[imuachainChainId] - 1),
+            address(imuachainGateway),
             requestId,
             requestPayload,
             bytes("")
@@ -713,7 +715,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         vm.expectEmit(address(clientGateway));
         emit MessageExecuted(Action.RESPOND, inboundNonces[clientChainId]++);
         clientChainLzEndpoint.lzReceive(
-            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), inboundNonces[clientChainId] - 1),
+            Origin(imuachainChainId, address(imuachainGateway).toBytes32(), inboundNonces[clientChainId] - 1),
             address(clientGateway),
             responseId,
             responsePayload,
@@ -754,14 +756,14 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         consumedTvl += depositAmount;
         vm.stopPrank();
 
-        // execute the deposit request on Exocore
+        // execute the deposit request on Imuachain
         principalBalance += depositAmount;
 
-        vm.expectEmit(address(exocoreGateway));
-        emit MessageExecuted(Action.REQUEST_DEPOSIT_LST, inboundNonces[exocoreChainId]++);
-        exocoreLzEndpoint.lzReceive(
-            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
-            address(exocoreGateway),
+        vm.expectEmit(address(imuachainGateway));
+        emit MessageExecuted(Action.REQUEST_DEPOSIT_LST, inboundNonces[imuachainChainId]++);
+        imuachainLzEndpoint.lzReceive(
+            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[imuachainChainId] - 1),
+            address(imuachainGateway),
             requestId,
             requestPayload,
             bytes("")

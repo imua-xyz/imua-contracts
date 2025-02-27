@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
+import {IImuaCapsule} from "../interfaces/IImuaCapsule.sol";
 import {IVault} from "../interfaces/IVault.sol";
 
 import {ActionAttributes} from "../libraries/ActionAttributes.sol";
@@ -13,8 +13,8 @@ import {Errors} from "../libraries/Errors.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
 /// @title ClientGatewayLzReceiver
-/// @author ExocoreNetwork
-/// @notice This contract receives messages over LayerZero from the Exocore Gateway.
+/// @author imua-xyz
+/// @notice This contract receives messages over LayerZero from the Imuachain Gateway.
 /// @dev It is abstract because it does not call the base contract's constructor.
 abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUpgradeable, ClientChainGatewayStorage {
 
@@ -43,7 +43,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     // This function would call other functions inside this contract through low-level-call
     // slither-disable-next-line reentrancy-no-eth
     function _lzReceive(Origin calldata _origin, bytes calldata message) internal virtual override whenNotPaused {
-        if (_origin.srcEid != EXOCORE_CHAIN_ID) {
+        if (_origin.srcEid != IMUACHAIN_CHAIN_ID) {
             revert Errors.UnexpectedSourceChain(_origin.srcEid);
         }
 
@@ -67,11 +67,11 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         emit MessageExecuted(act, _origin.nonce);
     }
 
-    /// @dev Called after a response is received from the Exocore Gateway.
+    /// @dev Called after a response is received from the Imuachain Gateway.
     /// @param response The response message.
-    // Though this function makes external calls to contract Vault or ExoCapsule, we just update their state variables
+    // Though this function makes external calls to contract Vault or ImuaCapsule, we just update their state variables
     // and don't make
-    // calls to other contracts that do not belong to Exocore.
+    // calls to other contracts that do not belong to Imuachain.
     // And (success, updatedBalance) would be updated according to response message.
     // slither-disable-next-line reentrancy-no-eth
     function _handleResponse(bytes calldata response) internal {
@@ -151,7 +151,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
      */
     function _unlockPrincipal(address token, address staker, uint256 amount) internal {
         if (token == VIRTUAL_NST_ADDRESS) {
-            IExoCapsule capsule = _getCapsule(staker);
+            IImuaCapsule capsule = _getCapsule(staker);
             capsule.unlockETHPrincipal(amount);
         } else {
             IVault vault = _getVault(token);
@@ -172,7 +172,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     /// @notice Called after an add-whitelist-token response is received.
     /// @param payload The request payload.
     /// @dev Though `_deployVault` would make external call to newly created `Vault` contract and initialize it,
-    /// `Vault` contract belongs to Exocore and we could make sure its implementation does not have dangerous behavior
+    /// `Vault` contract belongs to Imuachain and we could make sure its implementation does not have dangerous behavior
     /// like reentrancy.
     // slither-disable-next-line reentrancy-no-eth
     function afterReceiveAddWhitelistTokenRequest(bytes calldata payload) public onlyCalledFromThis whenNotPaused {

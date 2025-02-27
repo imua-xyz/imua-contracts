@@ -8,7 +8,7 @@ import {Bootstrap} from "../src/core/Bootstrap.sol";
 import {ClientChainGateway} from "../src/core/ClientChainGateway.sol";
 import {BootstrapStorage} from "../src/storage/BootstrapStorage.sol";
 
-import "../src/core/ExoCapsule.sol";
+import {ImuaCapsule} from "../src/core/ImuaCapsule.sol";
 
 import {RewardVault} from "../src/core/RewardVault.sol";
 import {Vault} from "../src/core/Vault.sol";
@@ -56,14 +56,14 @@ contract RedeployClientChainGateway is BaseScript {
 
     function run() public {
         vm.selectFork(clientChain);
-        vm.startBroadcast(exocoreValidatorSet.privateKey);
+        vm.startBroadcast(owner.privateKey);
 
         // Create ImmutableConfig struct
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            exocoreChainId: exocoreChainId,
+            imuachainChainId: imuachainChainId,
             beaconOracleAddress: address(beaconOracle),
             vaultBeacon: address(vaultBeacon),
-            exoCapsuleBeacon: address(capsuleBeacon),
+            imuaCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode),
             networkConfig: address(0)
         });
@@ -73,8 +73,7 @@ contract RedeployClientChainGateway is BaseScript {
             new ClientChainGateway(address(clientChainLzEndpoint), config, address(rewardVaultBeacon));
 
         // then the client chain initialization
-        bytes memory initialization =
-            abi.encodeWithSelector(clientGatewayLogic.initialize.selector, exocoreValidatorSet.addr);
+        bytes memory initialization = abi.encodeWithSelector(clientGatewayLogic.initialize.selector, owner.addr);
         bootstrap.setClientChainGatewayLogic(address(clientGatewayLogic), initialization);
         vm.stopBroadcast();
 

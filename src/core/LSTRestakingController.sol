@@ -13,7 +13,7 @@ import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 /// @title LSTRestakingController
-/// @author ExocoreNetwork
+/// @author imua-xyz
 /// @notice Implementation of ILSTRestakingController, used to restake tokens.
 abstract contract LSTRestakingController is
     PausableUpgradeable,
@@ -42,7 +42,7 @@ abstract contract LSTRestakingController is
     }
 
     /// @inheritdoc ILSTRestakingController
-    function claimPrincipalFromExocore(address token, uint256 principalAmount)
+    function claimPrincipalFromImuachain(address token, uint256 principalAmount)
         external
         payable
         isTokenWhitelisted(token)

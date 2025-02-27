@@ -5,10 +5,10 @@ actor User
 participant NativeStakingController
 participant ETHPOS
 participant ClientChainLzReceiver
-participant ExoCapsule
+participant ImuaCapsule
 participant ClientChainL0Endpoint
-participant ExocoreL0Endpoint
-participant ExocoreGateway
+participant ImuachainL0Endpoint
+participant ImuachainGateway
 participant DepositPrecompile
 participant DepositNativeModule
 
@@ -22,31 +22,31 @@ deactivate NativeStakingController
 
 User -> NativeStakingController: 2.1:verifyAndDepositNativeStake(validatorContainer, proof)
 activate NativeStakingController
-NativeStakingController -> ExoCapsule: 2.2:verifyDepositProof(validatorContainer, proof)
-activate ExoCapsule
-ExoCapsule -> NativeStakingController: 2.3:return (isValidValidatorContainer)
-deactivate ExoCapsule
+NativeStakingController -> ImuaCapsule: 2.2:verifyDepositProof(validatorContainer, proof)
+activate ImuaCapsule
+ImuaCapsule -> NativeStakingController: 2.3:return (isValidValidatorContainer)
+deactivate ImuaCapsule
 NativeStakingController -> ClientChainL0Endpoint: 2.4:send(request)
 activate ClientChainL0Endpoint
 ClientChainL0Endpoint -> NativeStakingController: 2.5:emit (requestSent)
 deactivate ClientChainL0Endpoint
 deactivate NativeStakingController
-ClientChainL0Endpoint -> ExocoreL0Endpoint: 3.1:lzReceive(request)
-activate ExocoreL0Endpoint
-ExocoreL0Endpoint -> ExocoreGateway: 3.2:lzReceive(request)
-activate ExocoreGateway
-ExocoreGateway -> ExocoreGateway: 3.3:handleNSTTransfer(payload)
-ExocoreGateway -> DepositPrecompile: 3.4:depositNST(payload)
+ClientChainL0Endpoint -> ImuachainL0Endpoint: 3.1:lzReceive(request)
+activate ImuachainL0Endpoint
+ImuachainL0Endpoint -> ImuachainGateway: 3.2:lzReceive(request)
+activate ImuachainGateway
+ImuachainGateway -> ImuachainGateway: 3.3:handleNSTTransfer(payload)
+ImuachainGateway -> DepositPrecompile: 3.4:depositNST(payload)
 activate DepositPrecompile
 DepositPrecompile -> DepositNativeModule: 3.5:depositTo(payload)
 activate DepositNativeModule
 DepositNativeModule -> DepositPrecompile: 3.6:return (result, balance)
 deactivate DepositNativeModule
-DepositPrecompile -> ExocoreGateway: 3.7:return (result, balance)
+DepositPrecompile -> ImuachainGateway: 3.7:return (result, balance)
 deactivate DepositPrecompile
-ExocoreGateway -> ExocoreGateway: 3.9:emit (NSTTransfer)
-deactivate ExocoreGateway
-deactivate ExocoreL0Endpoint
+ImuachainGateway -> ImuachainGateway: 3.9:emit (NSTTransfer)
+deactivate ImuachainGateway
+deactivate ImuachainL0Endpoint
 
 @enduml
 
@@ -66,7 +66,7 @@ endif
 fork
     :Check if caller is gateway;
     if (msg.sender != gateway) then (no)
-        :Revert with "ExoCapsule: only client chain gateway could call this function";
+        :Revert with "ImuaCapsule: only client chain gateway could call this function";
         stop
     endif
 
@@ -107,7 +107,7 @@ fork again
 :Store the request details in registeredRequests and registeredRequestActions;
 
 :Encode the request action arguments;
-:Send the request action to Exocore using _sendMsgToExocore();
+:Send the request action to Imuachain using _sendMsgToImuachain();
 
 stop
 

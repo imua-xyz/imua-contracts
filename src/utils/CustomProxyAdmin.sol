@@ -8,7 +8,7 @@ import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.s
 import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 /// @title CustomProxyAdmin
-/// @author ExocoreNetwork
+/// @author imua-xyz
 /// @notice CustomProxyAdmin is a custom implementation of ProxyAdmin that allows a proxy contract to upgrade its own
 /// implementation.
 /// @dev This contract is not upgradeable intentionally, since doing so would produce a lot of risk.

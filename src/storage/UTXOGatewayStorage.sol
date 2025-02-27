@@ -54,7 +54,7 @@ contract UTXOGatewayStorage {
      * @param nonce The nonce
      * @param clientTxId The client chain transaction ID
      * @param clientAddress The client chain address
-     * @param exocoreAddress The Exocore address
+     * @param imuachainAddress The Imuachain address
      * @param operator The operator
      * @param amount The amount
      */
@@ -63,7 +63,7 @@ contract UTXOGatewayStorage {
         uint64 nonce;
         bytes32 clientTxId;
         bytes clientAddress;
-        address exocoreAddress;
+        address imuachainAddress;
         string operator;
         uint256 amount;
     }
@@ -107,8 +107,8 @@ contract UTXOGatewayStorage {
     /// @notice the app version
     uint256 public constant APP_VERSION = 1;
 
-    /// @notice the human readable prefix for Exocore bech32 encoded address.
-    bytes public constant EXO_ADDRESS_PREFIX = bytes("exo1");
+    /// @notice the human readable prefix for Imuachain bech32 encoded account address.
+    bytes public constant IMUA_ADDRESS_PREFIX = bytes("im1");
 
     // the virtual chain id for Bitcoin, compatible with other chain ids(endpoint ids) maintained by layerzero
     string public constant BITCOIN_NAME = "Bitcoin";
@@ -177,17 +177,17 @@ contract UTXOGatewayStorage {
     mapping(address => bool) public authorizedWitnesses;
 
     /**
-     * @dev Maps client chain addresses to their registered Exocore addresses
+     * @dev Maps client chain addresses to their registered Imuachain addresses
      * @dev Key1: Client chain ID (Bitcoin, etc.)
      * @dev Key2: Client chain address in bytes
-     * @dev Value: Registered Exocore address
+     * @dev Value: Registered Imuachain address
      */
     mapping(ClientChainID => mapping(bytes => address)) public inboundRegistry;
 
     /**
-     * @dev Maps Exocore addresses to their registered client chain addresses
+     * @dev Maps Imuachain addresses to their registered client chain addresses
      * @dev Key1: Client chain ID (Bitcoin, etc.)
-     * @dev Key2: Exocore address
+     * @dev Key2: Imuachain address
      * @dev Value: Registered client chain address in bytes
      */
     mapping(ClientChainID => mapping(address => bytes)) public outboundRegistry;
@@ -232,11 +232,11 @@ contract UTXOGatewayStorage {
      * @dev Emitted when a stake message is executed
      * @param clientChainId The chain ID of the client chain, should not violate the layerzero chain id
      * @param nonce The nonce of the stake message
-     * @param exocoreAddress The Exocore address of the depositor
+     * @param imAddress The Imuachain address of the depositor
      * @param amount The amount deposited(delegated)
      */
     event StakeMsgExecuted(
-        ClientChainID indexed clientChainId, uint64 indexed nonce, address indexed exocoreAddress, uint256 amount
+        ClientChainID indexed clientChainId, uint64 indexed nonce, address indexed imAddress, uint256 amount
     );
 
     /**
@@ -249,7 +249,7 @@ contract UTXOGatewayStorage {
      * @dev Emitted when a deposit is completed
      * @param clientChainId The client chain ID
      * @param clientTxId The client chain transaction ID
-     * @param depositorExoAddr The depositor's Exocore address
+     * @param depositorImAddr The depositor's Imuachain
      * @param depositorClientChainAddr The depositor's client chain address
      * @param amount The amount deposited
      * @param updatedBalance The updated balance after deposit
@@ -257,7 +257,7 @@ contract UTXOGatewayStorage {
     event DepositCompleted(
         ClientChainID indexed clientChainId,
         bytes32 indexed clientTxId,
-        address indexed depositorExoAddr,
+        address indexed depositorImAddr,
         bytes depositorClientChainAddr,
         uint256 amount,
         uint256 updatedBalance
@@ -267,7 +267,7 @@ contract UTXOGatewayStorage {
      * @dev Emitted when a principal withdrawal is requested
      * @param requestId The unique identifier for the withdrawal request
      * @param clientChainId The client chain ID
-     * @param withdrawerExoAddr The withdrawer's Exocore address
+     * @param withdrawerImAddr The withdrawer's Imuachain
      * @param withdrawerClientChainAddr The withdrawer's client chain address
      * @param amount The amount to withdraw
      * @param updatedBalance The updated balance after withdrawal request
@@ -275,7 +275,7 @@ contract UTXOGatewayStorage {
     event WithdrawPrincipalRequested(
         ClientChainID indexed clientChainId,
         uint64 indexed requestId,
-        address indexed withdrawerExoAddr,
+        address indexed withdrawerImAddr,
         bytes withdrawerClientChainAddr,
         uint256 amount,
         uint256 updatedBalance
@@ -285,7 +285,7 @@ contract UTXOGatewayStorage {
      * @dev Emitted when a reward withdrawal is requested
      * @param requestId The unique identifier for the withdrawal request
      * @param clientChainId The client chain ID
-     * @param withdrawerExoAddr The withdrawer's Exocore address
+     * @param withdrawerImAddr The withdrawer's Imuachain
      * @param withdrawerClientChainAddr The withdrawer's client chain address
      * @param amount The amount to withdraw
      * @param updatedBalance The updated balance after withdrawal request
@@ -293,7 +293,7 @@ contract UTXOGatewayStorage {
     event WithdrawRewardRequested(
         ClientChainID indexed clientChainId,
         uint64 indexed requestId,
-        address indexed withdrawerExoAddr,
+        address indexed withdrawerImAddr,
         bytes withdrawerClientChainAddr,
         uint256 amount,
         uint256 updatedBalance
@@ -302,43 +302,43 @@ contract UTXOGatewayStorage {
     /**
      * @dev Emitted when a delegation is completed
      * @param clientChainId The chain ID of the client chain, should not violate the layerzero chain id
-     * @param exoDelegator The delegator's Exocore address
+     * @param imDelegator The delegator's Imuachain address
      * @param operator The operator's address
      * @param amount The amount delegated
      */
     event DelegationCompleted(
-        ClientChainID indexed clientChainId, address indexed exoDelegator, string operator, uint256 amount
+        ClientChainID indexed clientChainId, address indexed imDelegator, string operator, uint256 amount
     );
 
     /**
      * @dev Emitted when a delegation fails for a stake message
      * @param clientChainId The chain ID of the client chain, should not violate the layerzero chain id
-     * @param exoDelegator The delegator's Exocore address
+     * @param imDelegator The delegator's Imuachain address
      * @param operator The operator's address
      * @param amount The amount delegated
      */
     event DelegationFailedForStake(
-        ClientChainID indexed clientChainId, address indexed exoDelegator, string operator, uint256 amount
+        ClientChainID indexed clientChainId, address indexed imDelegator, string operator, uint256 amount
     );
 
     /**
      * @dev Emitted when an undelegation is completed
      * @param clientChainId The chain ID of the client chain, should not violate the layerzero chain id
-     * @param exoDelegator The delegator's Exocore address
+     * @param imDelegator The delegator's Imuachain address
      * @param operator The operator's address
      * @param amount The amount undelegated
      */
     event UndelegationCompleted(
-        ClientChainID indexed clientChainId, address indexed exoDelegator, string operator, uint256 amount
+        ClientChainID indexed clientChainId, address indexed imDelegator, string operator, uint256 amount
     );
 
     /**
      * @dev Emitted when an address is registered
      * @param clientChainId The client chain ID
      * @param depositor The depositor's address
-     * @param exocoreAddress The corresponding Exocore address
+     * @param imAddress The corresponding Imuachain address
      */
-    event AddressRegistered(ClientChainID indexed clientChainId, bytes depositor, address indexed exocoreAddress);
+    event AddressRegistered(ClientChainID indexed clientChainId, bytes depositor, address indexed imAddress);
 
     /**
      * @dev Emitted when a new witness is added
@@ -458,8 +458,8 @@ contract UTXOGatewayStorage {
         _;
     }
 
-    modifier isRegistered(Token token, address exocoreAddress) {
-        if (outboundRegistry[ClientChainID(uint8(token))][exocoreAddress].length == 0) {
+    modifier isRegistered(Token token, address imAddress) {
+        if (outboundRegistry[ClientChainID(uint8(token))][imAddress].length == 0) {
             revert Errors.AddressNotRegistered();
         }
         _;
@@ -475,18 +475,18 @@ contract UTXOGatewayStorage {
         _;
     }
 
-    /// @notice Checks if the provided string is a valid Exocore address.
+    /// @notice Checks if the provided string is a valid Imuachain address.
     /// @param addressToValidate The string to check.
     /// @return True if the string is valid, false otherwise.
     /// @dev Since implementation of bech32 is difficult in Solidity, this function only
-    /// checks that the address is 42 characters long and starts with "exo1".
+    /// checks that the address is 42 characters long and starts with "im1".
     function isValidOperatorAddress(string calldata addressToValidate) public pure returns (bool) {
         bytes memory stringBytes = bytes(addressToValidate);
-        if (stringBytes.length != 42) {
+        if (stringBytes.length != 41) {
             return false;
         }
-        for (uint256 i = 0; i < EXO_ADDRESS_PREFIX.length; ++i) {
-            if (stringBytes[i] != EXO_ADDRESS_PREFIX[i]) {
+        for (uint256 i = 0; i < IMUA_ADDRESS_PREFIX.length; ++i) {
+            if (stringBytes[i] != IMUA_ADDRESS_PREFIX[i]) {
                 return false;
             }
         }

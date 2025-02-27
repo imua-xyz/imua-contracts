@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {IBaseRestakingController} from "../interfaces/IBaseRestakingController.sol";
-import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
+import {IImuaCapsule} from "../interfaces/IImuaCapsule.sol";
 import {IVault} from "../interfaces/IVault.sol";
 
 import {Errors} from "../libraries/Errors.sol";
@@ -17,7 +17,7 @@ import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 /// @title BaseRestakingController
-/// @author ExocoreNetwork
+/// @author imua-xyz
 /// @notice The base contract for the restaking controller. It only controls ERC20 tokens.
 /// @dev This contract is abstract because it does not call the base contract's constructor. It is not used by
 /// Bootstrap.
@@ -44,7 +44,7 @@ abstract contract BaseRestakingController is
     {
         require(recipient != address(0), "BaseRestakingController: recipient address cannot be empty or zero address");
         if (token == VIRTUAL_NST_ADDRESS) {
-            IExoCapsule capsule = _getCapsule(msg.sender);
+            IImuaCapsule capsule = _getCapsule(msg.sender);
             capsule.withdraw(amount, payable(recipient));
         } else {
             IVault vault = _getVault(token);
@@ -90,7 +90,7 @@ abstract contract BaseRestakingController is
 
     /// @inheritdoc IBaseRestakingController
     /// @dev Reward functionalities are not yet activated
-    function claimRewardFromExocore(address, uint256) external payable {
+    function claimRewardFromImuachain(address, uint256) external payable {
         revert Errors.NotYetSupported();
     }
 
@@ -100,32 +100,32 @@ abstract contract BaseRestakingController is
         revert Errors.NotYetSupported();
     }
 
-    /// @dev Processes the request by sending it to Exocore.
+    /// @dev Processes the request by sending it to Imuachain.
     /// @dev If the encodedRequest is not empty, it is regarded as a request that expects a response and the request
     /// would be cached
     /// @param action The action to be performed.
     /// @param actionArgs The encodePacked arguments for the action.
     /// @param encodedRequest The encoded request if the request expects a response.
     function _processRequest(Action action, bytes memory actionArgs, bytes memory encodedRequest) internal {
-        uint64 requestNonce = _sendMsgToExocore(action, actionArgs);
+        uint64 requestNonce = _sendMsgToImuachain(action, actionArgs);
         if (encodedRequest.length > 0) {
             _registeredRequests[requestNonce] = encodedRequest;
             _registeredRequestActions[requestNonce] = action;
         }
     }
 
-    /// @dev Sends a message to Exocore.
+    /// @dev Sends a message to Imuachain.
     /// @param action The action to be performed.
     /// @param actionArgs The encodePacked arguments for the action.
-    function _sendMsgToExocore(Action action, bytes memory actionArgs) internal returns (uint64) {
+    function _sendMsgToImuachain(Action action, bytes memory actionArgs) internal returns (uint64) {
         bytes memory payload = abi.encodePacked(action, actionArgs);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
             DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
         ).addExecutorOrderedExecutionOption();
-        MessagingFee memory fee = _quote(EXOCORE_CHAIN_ID, payload, options, false);
+        MessagingFee memory fee = _quote(IMUACHAIN_CHAIN_ID, payload, options, false);
 
         MessagingReceipt memory receipt =
-            _lzSend(EXOCORE_CHAIN_ID, payload, options, MessagingFee(fee.nativeFee, 0), msg.sender, false);
+            _lzSend(IMUACHAIN_CHAIN_ID, payload, options, MessagingFee(fee.nativeFee, 0), msg.sender, false);
         emit MessageSent(action, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
 
         return receipt.nonce;

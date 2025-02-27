@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import "forge-std/Script.sol";
 
 /// @title DeployCreate3
-/// @author ExocoreNetwork
+/// @author imua-xyz
 /// @notice This script is used to deploy the deterministic Create2 and Create3 factories to any network.
 /// The Create2 factory is deployed using a raw transaction and the Create3 factory is deployed using a Create2 call.
 /// @dev The advantage of using the Create3 factory over the Create2 factory for further deployments is that the

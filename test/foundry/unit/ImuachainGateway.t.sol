@@ -22,32 +22,32 @@ import "forge-std/Test.sol";
 import "src/core/ClientChainGateway.sol";
 
 import "src/core/ClientChainGateway.sol";
-import "src/core/ExocoreGateway.sol";
+import "src/core/ImuachainGateway.sol";
 import {Vault} from "src/core/Vault.sol";
 
-import {ExocoreGatewayStorage} from "src/storage/ExocoreGatewayStorage.sol";
 import {Action, GatewayStorage} from "src/storage/GatewayStorage.sol";
+import {ImuachainGatewayStorage} from "src/storage/ImuachainGatewayStorage.sol";
 
 contract SetUp is Test {
 
     using AddressCast for address;
 
     Player[] players;
-    Player exocoreValidatorSet;
+    Player owner;
     Player deployer;
     Player withdrawer;
 
-    ExocoreGateway exocoreGateway;
+    ImuachainGateway imuachainGateway;
     ClientChainGateway clientGateway;
     ClientChainGateway solanaClientGateway;
 
-    NonShortCircuitEndpointV2Mock exocoreLzEndpoint;
+    NonShortCircuitEndpointV2Mock imuachainLzEndpoint;
     NonShortCircuitEndpointV2Mock clientLzEndpoint;
     NonShortCircuitEndpointV2Mock solanaClientLzEndpoint;
 
     ERC20 restakeToken;
 
-    uint16 exocoreChainId = 1;
+    uint16 imuachainChainId = 1;
     uint16 clientChainId = 2;
     uint16 solanaClientChainId = 40_168;
 
@@ -58,14 +58,14 @@ contract SetUp is Test {
 
     event Paused(address account);
     event Unpaused(address account);
-    event ExocorePrecompileError(address indexed precompile, uint64 nonce);
+    event ImuachainPrecompileError(address indexed precompile, uint64 nonce);
     event MessageSent(Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
 
     function setUp() public virtual {
         players.push(Player({privateKey: uint256(0x1), addr: vm.addr(uint256(0x1))}));
         players.push(Player({privateKey: uint256(0x2), addr: vm.addr(uint256(0x2))}));
         players.push(Player({privateKey: uint256(0x3), addr: vm.addr(uint256(0x3))}));
-        exocoreValidatorSet = Player({privateKey: uint256(0xa), addr: vm.addr(uint256(0xa))});
+        owner = Player({privateKey: uint256(0xa), addr: vm.addr(uint256(0xa))});
         deployer = Player({privateKey: uint256(0xb), addr: vm.addr(uint256(0xb))});
         withdrawer = Player({privateKey: uint256(0xc), addr: vm.addr(uint256(0xb))});
         clientGateway = ClientChainGateway(payable(address(0xd)));
@@ -83,31 +83,31 @@ contract SetUp is Test {
 
         _deploy();
 
-        vm.deal(exocoreValidatorSet.addr, 100 ether);
+        vm.deal(owner.addr, 100 ether);
         vm.deal(deployer.addr, 100 ether);
     }
 
     function _deploy() internal {
         vm.startPrank(deployer.addr);
 
-        restakeToken = new ERC20PresetFixedSupply("rest", "rest", 1e34, exocoreValidatorSet.addr);
+        restakeToken = new ERC20PresetFixedSupply("rest", "rest", 1e34, owner.addr);
 
-        exocoreLzEndpoint = new NonShortCircuitEndpointV2Mock(exocoreChainId, exocoreValidatorSet.addr);
-        clientLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, exocoreValidatorSet.addr);
-        solanaClientLzEndpoint = new NonShortCircuitEndpointV2Mock(solanaClientChainId, exocoreValidatorSet.addr);
+        imuachainLzEndpoint = new NonShortCircuitEndpointV2Mock(imuachainChainId, owner.addr);
+        clientLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, owner.addr);
+        solanaClientLzEndpoint = new NonShortCircuitEndpointV2Mock(solanaClientChainId, owner.addr);
 
         ProxyAdmin proxyAdmin = new ProxyAdmin();
-        ExocoreGateway exocoreGatewayLogic = new ExocoreGateway(address(exocoreLzEndpoint));
-        exocoreGateway = ExocoreGateway(
-            payable(address(new TransparentUpgradeableProxy(address(exocoreGatewayLogic), address(proxyAdmin), "")))
+        ImuachainGateway imuachainGatewayLogic = new ImuachainGateway(address(imuachainLzEndpoint));
+        imuachainGateway = ImuachainGateway(
+            payable(address(new TransparentUpgradeableProxy(address(imuachainGatewayLogic), address(proxyAdmin), "")))
         );
 
-        exocoreGateway.initialize(payable(exocoreValidatorSet.addr));
+        imuachainGateway.initialize(payable(owner.addr));
         vm.stopPrank();
 
-        vm.startPrank(exocoreValidatorSet.addr);
-        exocoreLzEndpoint.setDestLzEndpoint(address(clientGateway), address(clientLzEndpoint));
-        exocoreGateway.registerOrUpdateClientChain(
+        vm.startPrank(owner.addr);
+        imuachainLzEndpoint.setDestLzEndpoint(address(clientGateway), address(clientLzEndpoint));
+        imuachainGateway.registerOrUpdateClientChain(
             clientChainId,
             address(clientGateway).toBytes32(),
             20,
@@ -116,8 +116,8 @@ contract SetUp is Test {
             "secp256k1"
         );
 
-        exocoreLzEndpoint.setDestLzEndpoint(address(solanaClientGateway), address(clientLzEndpoint));
-        exocoreGateway.registerOrUpdateClientChain(
+        imuachainLzEndpoint.setDestLzEndpoint(address(solanaClientGateway), address(solanaClientLzEndpoint));
+        imuachainGateway.registerOrUpdateClientChain(
             solanaClientChainId,
             address(solanaClientGateway).toBytes32(),
             20,
@@ -128,30 +128,30 @@ contract SetUp is Test {
 
         vm.stopPrank();
 
-        // transfer some gas fee to exocore gateway as it has to pay for the relay fee to layerzero endpoint when
+        // transfer some gas fee to imuachain gateway as it has to pay for the relay fee to layerzero endpoint when
         // sending back response
-        deal(address(exocoreGateway), 1e22);
+        deal(address(imuachainGateway), 1e22);
     }
 
-    function generateUID(uint64 nonce, bool fromClientChainToExocore) internal view returns (bytes32 uid) {
-        uid = generateUID(nonce, fromClientChainToExocore, false);
+    function generateUID(uint64 nonce, bool fromClientChainToImuachain) internal view returns (bytes32 uid) {
+        uid = generateUID(nonce, fromClientChainToImuachain, false);
     }
 
-    function generateUID(uint64 nonce, bool fromClientChainToExocore, bool isSolanaClient)
+    function generateUID(uint64 nonce, bool fromClientChainToImuachain, bool isSolanaClient)
         internal
         view
         returns (bytes32 uid)
     {
-        if (fromClientChainToExocore) {
+        if (fromClientChainToImuachain) {
             uid = GUID.generate(
-                nonce, clientChainId, address(clientGateway), exocoreChainId, address(exocoreGateway).toBytes32()
+                nonce, clientChainId, address(clientGateway), imuachainChainId, address(imuachainGateway).toBytes32()
             );
         } else {
             uint16 targetChainId = isSolanaClient ? solanaClientChainId : clientChainId;
             bytes32 targetGateway =
                 isSolanaClient ? address(solanaClientGateway).toBytes32() : address(clientGateway).toBytes32();
 
-            return GUID.generate(nonce, exocoreChainId, address(exocoreGateway), targetChainId, targetGateway);
+            return GUID.generate(nonce, imuachainChainId, address(imuachainGateway), targetChainId, targetGateway);
         }
     }
 
@@ -161,41 +161,41 @@ contract Pausable is SetUp {
 
     using AddressCast for address;
 
-    function test_PauseExocoreGateway() public {
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit Paused(exocoreValidatorSet.addr);
-        vm.prank(exocoreValidatorSet.addr);
-        exocoreGateway.pause();
-        assertEq(exocoreGateway.paused(), true);
+    function test_PauseImuachainGateway() public {
+        vm.expectEmit(true, true, true, true, address(imuachainGateway));
+        emit Paused(owner.addr);
+        vm.prank(owner.addr);
+        imuachainGateway.pause();
+        assertEq(imuachainGateway.paused(), true);
     }
 
-    function test_UnpauseExocoreGateway() public {
-        vm.startPrank(exocoreValidatorSet.addr);
+    function test_UnpauseImuachainGateway() public {
+        vm.startPrank(owner.addr);
 
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit Paused(exocoreValidatorSet.addr);
-        exocoreGateway.pause();
-        assertEq(exocoreGateway.paused(), true);
+        vm.expectEmit(true, true, true, true, address(imuachainGateway));
+        emit Paused(owner.addr);
+        imuachainGateway.pause();
+        assertEq(imuachainGateway.paused(), true);
 
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit Unpaused(exocoreValidatorSet.addr);
-        exocoreGateway.unpause();
-        assertEq(exocoreGateway.paused(), false);
+        vm.expectEmit(true, true, true, true, address(imuachainGateway));
+        emit Unpaused(owner.addr);
+        imuachainGateway.unpause();
+        assertEq(imuachainGateway.paused(), false);
     }
 
     function test_RevertWhen_UnauthorizedPauser() public {
         vm.expectRevert(bytes("Ownable: caller is not the owner"));
         vm.startPrank(deployer.addr);
-        exocoreGateway.pause();
+        imuachainGateway.pause();
     }
 
     function test_RevertWhen_CallDisabledFunctionsWhenPaused() public {
-        vm.prank(exocoreValidatorSet.addr);
-        exocoreGateway.pause();
+        vm.prank(owner.addr);
+        imuachainGateway.pause();
 
-        vm.prank(address(exocoreLzEndpoint));
+        vm.prank(address(imuachainLzEndpoint));
         vm.expectRevert("Pausable: paused");
-        exocoreGateway.lzReceive(
+        imuachainGateway.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), uint64(1)),
             bytes32(0),
             bytes(""),
@@ -211,7 +211,7 @@ contract LzReceive is SetUp {
     using AddressCast for address;
 
     uint256 constant WITHDRAWAL_AMOUNT = 123;
-    string operator = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+    string operator = "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla";
 
     event AssociationResult(bool indexed success, bool indexed isAssociate, bytes32 indexed staker);
 
@@ -237,8 +237,8 @@ contract LzReceive is SetUp {
         );
         bytes memory msg_ = abi.encodePacked(Action.REQUEST_WITHDRAW_LST, payload);
 
-        vm.prank(address(exocoreLzEndpoint));
-        exocoreGateway.lzReceive(
+        vm.prank(address(imuachainLzEndpoint));
+        imuachainGateway.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), uint64(1)),
             bytes32(0),
             msg_,
@@ -253,11 +253,11 @@ contract LzReceive is SetUp {
         bytes memory payload = abi.encodePacked(abi.encodePacked(bytes32(bytes20(staker.addr))), bytes(operator));
         bytes memory msg_ = abi.encodePacked(Action.REQUEST_ASSOCIATE_OPERATOR, payload);
 
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        vm.expectEmit(true, true, true, true, address(imuachainGateway));
         emit AssociationResult(true, true, bytes32(bytes20(staker.addr)));
 
-        vm.prank(address(exocoreLzEndpoint));
-        exocoreGateway.lzReceive(
+        vm.prank(address(imuachainLzEndpoint));
+        imuachainGateway.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), uint64(1)),
             bytes32(0),
             msg_,
@@ -270,16 +270,16 @@ contract LzReceive is SetUp {
         test_Success_AssociateOperatorWithStaker();
 
         Player memory staker = players[0];
-        string memory anotherOperator = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f811111";
+        string memory anotherOperator = "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla";
 
         bytes memory payload = abi.encodePacked(abi.encodePacked(bytes32(bytes20(staker.addr))), bytes(anotherOperator));
         bytes memory msg_ = abi.encodePacked(Action.REQUEST_ASSOCIATE_OPERATOR, payload);
 
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        vm.expectEmit(true, true, true, true, address(imuachainGateway));
         emit AssociationResult(false, true, bytes32(bytes20(staker.addr)));
 
-        vm.prank(address(exocoreLzEndpoint));
-        exocoreGateway.lzReceive(
+        vm.prank(address(imuachainLzEndpoint));
+        imuachainGateway.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), uint64(2)),
             bytes32(0),
             msg_,
@@ -297,14 +297,14 @@ contract LzReceive is SetUp {
         test_Success_AssociateOperatorWithStaker();
 
         Player memory staker = players[0];
-        string memory anotherOperator = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f811111";
+        string memory anotherOperator = "im13hasr43vvq8v44xpzh0l6yuym4kca98q5zpluj";
         uint32 anotherChainId = 123;
 
         bytes memory payload = abi.encodePacked(abi.encodePacked(bytes32(bytes20(staker.addr))), bytes(anotherOperator));
         bytes memory msg_ = abi.encodePacked(Action.REQUEST_ASSOCIATE_OPERATOR, payload);
 
-        vm.startPrank(exocoreValidatorSet.addr);
-        exocoreGateway.registerOrUpdateClientChain(
+        vm.startPrank(owner.addr);
+        imuachainGateway.registerOrUpdateClientChain(
             anotherChainId,
             address(clientGateway).toBytes32(),
             20,
@@ -314,11 +314,11 @@ contract LzReceive is SetUp {
         );
         vm.stopPrank();
 
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        vm.expectEmit(true, true, true, true, address(imuachainGateway));
         emit AssociationResult(true, true, bytes32(bytes20(staker.addr)));
 
-        vm.prank(address(exocoreLzEndpoint));
-        exocoreGateway.lzReceive(
+        vm.prank(address(imuachainLzEndpoint));
+        imuachainGateway.lzReceive(
             Origin(anotherChainId, address(clientGateway).toBytes32(), uint64(1)),
             bytes32(0),
             msg_,
@@ -340,11 +340,11 @@ contract LzReceive is SetUp {
         bytes memory payload = abi.encodePacked(abi.encodePacked(bytes32(bytes20(staker.addr))));
         bytes memory msg_ = abi.encodePacked(Action.REQUEST_DISSOCIATE_OPERATOR, payload);
 
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        vm.expectEmit(true, true, true, true, address(imuachainGateway));
         emit AssociationResult(true, false, bytes32(bytes20(staker.addr)));
 
-        vm.prank(address(exocoreLzEndpoint));
-        exocoreGateway.lzReceive(
+        vm.prank(address(imuachainLzEndpoint));
+        imuachainGateway.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), uint64(2)),
             bytes32(0),
             msg_,
@@ -359,11 +359,11 @@ contract LzReceive is SetUp {
         bytes memory payload = abi.encodePacked(abi.encodePacked(bytes32(bytes20(staker.addr))));
         bytes memory msg_ = abi.encodePacked(Action.REQUEST_DISSOCIATE_OPERATOR, payload);
 
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        vm.expectEmit(true, true, true, true, address(imuachainGateway));
         emit AssociationResult(false, false, bytes32(bytes20(staker.addr)));
 
-        vm.prank(address(exocoreLzEndpoint));
-        exocoreGateway.lzReceive(
+        vm.prank(address(imuachainLzEndpoint));
+        imuachainGateway.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), uint64(1)),
             bytes32(0),
             msg_,
@@ -391,10 +391,10 @@ contract RegisterOrUpdateClientChain is SetUp {
     function test_Success_RegisterClientChain() public {
         _prepareClientChainData();
 
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        vm.expectEmit(true, true, true, true, address(imuachainGateway));
         emit ClientChainRegistered(anotherClientChain);
-        vm.startPrank(exocoreValidatorSet.addr);
-        exocoreGateway.registerOrUpdateClientChain(
+        vm.startPrank(owner.addr);
+        imuachainGateway.registerOrUpdateClientChain(
             anotherClientChain, peer, addressLength, name, metaInfo, signatureType
         );
     }
@@ -405,10 +405,10 @@ contract RegisterOrUpdateClientChain is SetUp {
         peer = bytes32(uint256(321));
         metaInfo = "Testnet";
 
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        vm.expectEmit(true, true, true, true, address(imuachainGateway));
         emit ClientChainUpdated(anotherClientChain);
-        vm.startPrank(exocoreValidatorSet.addr);
-        exocoreGateway.registerOrUpdateClientChain(
+        vm.startPrank(owner.addr);
+        imuachainGateway.registerOrUpdateClientChain(
             anotherClientChain, peer, addressLength, name, metaInfo, signatureType
         );
     }
@@ -418,20 +418,20 @@ contract RegisterOrUpdateClientChain is SetUp {
 
         vm.startPrank(deployer.addr);
         vm.expectRevert("Ownable: caller is not the owner");
-        exocoreGateway.registerOrUpdateClientChain(
+        imuachainGateway.registerOrUpdateClientChain(
             anotherClientChain, peer, addressLength, name, metaInfo, signatureType
         );
     }
 
     function test_RevertWhen_Paused() public {
-        vm.startPrank(exocoreValidatorSet.addr);
-        exocoreGateway.pause();
+        vm.startPrank(owner.addr);
+        imuachainGateway.pause();
 
         _prepareClientChainData();
 
         vm.expectRevert("Pausable: paused");
-        vm.startPrank(exocoreValidatorSet.addr);
-        exocoreGateway.registerOrUpdateClientChain(
+        vm.startPrank(owner.addr);
+        imuachainGateway.registerOrUpdateClientChain(
             anotherClientChain, peer, addressLength, name, metaInfo, signatureType
         );
     }
@@ -441,8 +441,8 @@ contract RegisterOrUpdateClientChain is SetUp {
         anotherClientChain = 0;
 
         vm.expectRevert(Errors.ZeroValue.selector);
-        vm.startPrank(exocoreValidatorSet.addr);
-        exocoreGateway.registerOrUpdateClientChain(
+        vm.startPrank(owner.addr);
+        imuachainGateway.registerOrUpdateClientChain(
             anotherClientChain, peer, addressLength, name, metaInfo, signatureType
         );
     }
@@ -452,8 +452,8 @@ contract RegisterOrUpdateClientChain is SetUp {
         peer = bytes32(0);
 
         vm.expectRevert(Errors.ZeroValue.selector);
-        vm.startPrank(exocoreValidatorSet.addr);
-        exocoreGateway.registerOrUpdateClientChain(
+        vm.startPrank(owner.addr);
+        imuachainGateway.registerOrUpdateClientChain(
             anotherClientChain, peer, addressLength, name, metaInfo, signatureType
         );
     }
@@ -463,8 +463,8 @@ contract RegisterOrUpdateClientChain is SetUp {
         addressLength = 0;
 
         vm.expectRevert(Errors.ZeroValue.selector);
-        vm.startPrank(exocoreValidatorSet.addr);
-        exocoreGateway.registerOrUpdateClientChain(
+        vm.startPrank(owner.addr);
+        imuachainGateway.registerOrUpdateClientChain(
             anotherClientChain, peer, addressLength, name, metaInfo, signatureType
         );
     }
@@ -474,8 +474,8 @@ contract RegisterOrUpdateClientChain is SetUp {
         name = "";
 
         vm.expectRevert(Errors.ZeroValue.selector);
-        vm.startPrank(exocoreValidatorSet.addr);
-        exocoreGateway.registerOrUpdateClientChain(
+        vm.startPrank(owner.addr);
+        imuachainGateway.registerOrUpdateClientChain(
             anotherClientChain, peer, addressLength, name, metaInfo, signatureType
         );
     }
@@ -485,8 +485,8 @@ contract RegisterOrUpdateClientChain is SetUp {
         metaInfo = "";
 
         vm.expectRevert(Errors.ZeroValue.selector);
-        vm.startPrank(exocoreValidatorSet.addr);
-        exocoreGateway.registerOrUpdateClientChain(
+        vm.startPrank(owner.addr);
+        imuachainGateway.registerOrUpdateClientChain(
             anotherClientChain, peer, addressLength, name, metaInfo, signatureType
         );
     }
@@ -504,7 +504,7 @@ contract RegisterOrUpdateClientChain is SetUp {
 
 contract SetPeer is SetUp {
 
-    ExocoreGateway gateway;
+    ImuachainGateway gateway;
 
     uint32 anotherClientChain = clientChainId + 1;
     bytes32 anotherPeer = bytes32("0xabcdef");
@@ -513,36 +513,36 @@ contract SetPeer is SetUp {
     event PeerSet(uint32 eid, bytes32 peer);
 
     function test_Success_SetPeer() public {
-        vm.startPrank(exocoreValidatorSet.addr);
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        vm.startPrank(owner.addr);
+        vm.expectEmit(true, true, true, true, address(imuachainGateway));
         emit PeerSet(anotherClientChain, anotherPeer);
-        exocoreGateway.registerOrUpdateClientChain(
+        imuachainGateway.registerOrUpdateClientChain(
             anotherClientChain, anotherPeer, 20, "Test Chain", "Test Meta", "ECDSA"
         );
 
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        vm.expectEmit(true, true, true, true, address(imuachainGateway));
         emit PeerSet(anotherClientChain, newPeer);
-        exocoreGateway.setPeer(anotherClientChain, newPeer);
+        imuachainGateway.setPeer(anotherClientChain, newPeer);
     }
 
     function test_RevertWhen_CallerNotOwner() public {
-        vm.startPrank(exocoreValidatorSet.addr);
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        vm.startPrank(owner.addr);
+        vm.expectEmit(true, true, true, true, address(imuachainGateway));
         emit PeerSet(anotherClientChain, anotherPeer);
-        exocoreGateway.registerOrUpdateClientChain(
+        imuachainGateway.registerOrUpdateClientChain(
             anotherClientChain, anotherPeer, 20, "Test Chain", "Test Meta", "ECDSA"
         );
         vm.stopPrank();
 
         vm.startPrank(deployer.addr);
         vm.expectRevert("Ownable: caller is not the owner");
-        exocoreGateway.setPeer(anotherClientChain, newPeer);
+        imuachainGateway.setPeer(anotherClientChain, newPeer);
     }
 
     function test_RevertWhen_ClientChainNotRegistered() public {
-        vm.startPrank(exocoreValidatorSet.addr);
-        vm.expectRevert(Errors.ExocoreGatewayNotRegisteredClientChainId.selector);
-        exocoreGateway.setPeer(anotherClientChain, newPeer);
+        vm.startPrank(owner.addr);
+        vm.expectRevert(Errors.ImuachainGatewayNotRegisteredClientChainId.selector);
+        imuachainGateway.setPeer(anotherClientChain, newPeer);
     }
 
 }
@@ -562,52 +562,52 @@ contract AddWhitelistTokens is SetUp {
 
     function setUp() public virtual override {
         super.setUp();
-        nativeFee = exocoreGateway.quote(clientChainId, new bytes(MESSAGE_LENGTH));
+        nativeFee = imuachainGateway.quote(clientChainId, new bytes(MESSAGE_LENGTH));
         bytes memory message = new bytes(MESSAGE_LENGTH);
         message[0] = bytes1(abi.encodePacked(Action.REQUEST_ADD_WHITELIST_TOKEN));
-        nativeFeeForSolana = exocoreGateway.quote(solanaClientChainId, message);
+        nativeFeeForSolana = imuachainGateway.quote(solanaClientChainId, message);
     }
 
     function test_RevertWhen_CallerNotOwner() public {
         vm.startPrank(deployer.addr);
         vm.expectRevert("Ownable: caller is not the owner");
-        exocoreGateway.addWhitelistToken{value: nativeFee}(
+        imuachainGateway.addWhitelistToken{value: nativeFee}(
             clientChainId, bytes32(0), 18, "name", "metadata", "oracleInfo", 0
         );
     }
 
     function test_RevertWhen_Paused() public {
-        vm.startPrank(exocoreValidatorSet.addr);
-        exocoreGateway.pause();
+        vm.startPrank(owner.addr);
+        imuachainGateway.pause();
         vm.expectRevert("Pausable: paused");
-        exocoreGateway.addWhitelistToken{value: nativeFee}(
+        imuachainGateway.addWhitelistToken{value: nativeFee}(
             clientChainId, bytes32(0), 18, "name", "metadata", "oracleInfo", 0
         );
     }
 
     function test_RevertWhen_ZeroValue() public {
-        vm.startPrank(exocoreValidatorSet.addr);
+        vm.startPrank(owner.addr);
         vm.expectRevert(abi.encodeWithSelector(IncorrectNativeFee.selector, uint256(0)));
-        exocoreGateway.addWhitelistToken{value: 0}(
+        imuachainGateway.addWhitelistToken{value: 0}(
             clientChainId, bytes32(bytes20(address(restakeToken))), 18, "name", "metadata", "oracleInfo", 0
         );
     }
 
     function test_RevertWhen_HasZeroAddressToken() public {
-        vm.startPrank(exocoreValidatorSet.addr);
-        vm.expectRevert("ExocoreGateway: token cannot be zero address");
-        exocoreGateway.addWhitelistToken{value: nativeFee}(
+        vm.startPrank(owner.addr);
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector));
+        imuachainGateway.addWhitelistToken{value: nativeFee}(
             clientChainId, bytes32(0), 18, "name", "metadata", "oracleInfo", 0
         );
     }
 
     function test_Success_AddWhiteListToken() public {
-        vm.startPrank(exocoreValidatorSet.addr);
-        vm.expectEmit(address(exocoreGateway));
+        vm.startPrank(owner.addr);
+        vm.expectEmit(address(imuachainGateway));
         emit WhitelistTokenAdded(clientChainId, bytes32(bytes20(address(restakeToken))));
-        vm.expectEmit(address(exocoreGateway));
+        vm.expectEmit(address(imuachainGateway));
         emit MessageSent(Action.REQUEST_ADD_WHITELIST_TOKEN, generateUID(1, false), 1, nativeFee);
-        exocoreGateway.addWhitelistToken{value: nativeFee}(
+        imuachainGateway.addWhitelistToken{value: nativeFee}(
             clientChainId,
             bytes32(bytes20(address(restakeToken))),
             18,
@@ -620,12 +620,12 @@ contract AddWhitelistTokens is SetUp {
     }
 
     function test_Success_AddWhiteListTokenOnSolana() public {
-        vm.startPrank(exocoreValidatorSet.addr);
-        vm.expectEmit(address(exocoreGateway));
+        vm.startPrank(owner.addr);
+        vm.expectEmit(address(imuachainGateway));
         emit WhitelistTokenAdded(solanaClientChainId, bytes32(bytes20(address(restakeToken))));
-        vm.expectEmit(address(exocoreGateway));
+        vm.expectEmit(address(imuachainGateway));
         emit MessageSent(Action.REQUEST_ADD_WHITELIST_TOKEN, generateUID(1, false, true), 1, nativeFeeForSolana);
-        exocoreGateway.addWhitelistToken{value: nativeFeeForSolana}(
+        imuachainGateway.addWhitelistToken{value: nativeFeeForSolana}(
             solanaClientChainId,
             bytes32(bytes20(address(restakeToken))),
             9,
@@ -659,13 +659,13 @@ contract UpdateWhitelistTokens is SetUp {
         // the below code is intentionally repeated here, instead of inheriting it from AddWhitelistTokens
         // this is done to not conflate the tests of AddWhitelistTokens with UpdateWhitelistTokens
         uint256 MESSAGE_LENGTH = 1 + 32 + 16; // action + token address as bytes32 + uint128
-        uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(MESSAGE_LENGTH));
-        vm.startPrank(exocoreValidatorSet.addr);
-        vm.expectEmit(address(exocoreGateway));
+        uint256 nativeFee = imuachainGateway.quote(clientChainId, new bytes(MESSAGE_LENGTH));
+        vm.startPrank(owner.addr);
+        vm.expectEmit(address(imuachainGateway));
         emit WhitelistTokenAdded(clientChainId, bytes32(bytes20(address(restakeToken))));
-        vm.expectEmit(address(exocoreGateway));
+        vm.expectEmit(address(imuachainGateway));
         emit MessageSent(Action.REQUEST_ADD_WHITELIST_TOKEN, generateUID(1, false), 1, nativeFee);
-        exocoreGateway.addWhitelistToken{value: nativeFee}(
+        imuachainGateway.addWhitelistToken{value: nativeFee}(
             clientChainId,
             bytes32(bytes20(address(restakeToken))),
             18,
@@ -687,33 +687,33 @@ contract UpdateWhitelistTokens is SetUp {
     function test_RevertUpdateWhen_CallerNotOwner() public {
         vm.startPrank(deployer.addr);
         vm.expectRevert("Ownable: caller is not the owner");
-        exocoreGateway.updateWhitelistToken(clientChainId, tokenDetails.tokenAddress, tokenDetails.metaData);
+        imuachainGateway.updateWhitelistToken(clientChainId, tokenDetails.tokenAddress, tokenDetails.metaData);
     }
 
     function test_RevertUpdateWhen_Paused() public {
-        vm.startPrank(exocoreValidatorSet.addr);
-        exocoreGateway.pause();
+        vm.startPrank(owner.addr);
+        imuachainGateway.pause();
         vm.expectRevert("Pausable: paused");
-        exocoreGateway.updateWhitelistToken(clientChainId, tokenDetails.tokenAddress, tokenDetails.metaData);
+        imuachainGateway.updateWhitelistToken(clientChainId, tokenDetails.tokenAddress, tokenDetails.metaData);
     }
 
     function test_RevertUpdateWhen_HasZeroAddress() public {
-        vm.startPrank(exocoreValidatorSet.addr);
-        vm.expectRevert("ExocoreGateway: token cannot be zero address");
-        exocoreGateway.updateWhitelistToken(clientChainId, bytes32(0), tokenDetails.metaData);
+        vm.startPrank(owner.addr);
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector));
+        imuachainGateway.updateWhitelistToken(clientChainId, bytes32(0), tokenDetails.metaData);
     }
 
     function test_RevertUpdateWhen_HasZeroChainId() public {
-        vm.startPrank(exocoreValidatorSet.addr);
-        vm.expectRevert("ExocoreGateway: client chain id cannot be zero");
-        exocoreGateway.updateWhitelistToken(0, tokenDetails.tokenAddress, tokenDetails.metaData);
+        vm.startPrank(owner.addr);
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroValue.selector));
+        imuachainGateway.updateWhitelistToken(0, tokenDetails.tokenAddress, tokenDetails.metaData);
     }
 
     function test_Success_UpdateWhitelistToken() public {
-        vm.startPrank(exocoreValidatorSet.addr);
-        vm.expectEmit(address(exocoreGateway));
+        vm.startPrank(owner.addr);
+        vm.expectEmit(address(imuachainGateway));
         emit WhitelistTokenUpdated(clientChainId, tokenDetails.tokenAddress);
-        exocoreGateway.updateWhitelistToken(clientChainId, tokenDetails.tokenAddress, "new metadata");
+        imuachainGateway.updateWhitelistToken(clientChainId, tokenDetails.tokenAddress, "new metadata");
     }
 
 }
@@ -722,14 +722,14 @@ contract AssociateOperatorWithEVMStaker is SetUp {
 
     using AddressCast for address;
 
-    string operator = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
-    string anotherOperator = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f811111";
+    string operator = "im13hasr43vvq8v44xpzh0l6yuym4kca98q5zpluj";
+    string anotherOperator = "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla";
     uint32 anotherChainId = 123;
 
     function test_Success_AssociateEVMStaker() public {
         Player memory staker = players[0];
         vm.startPrank(staker.addr);
-        exocoreGateway.associateOperatorWithEVMStaker(clientChainId, operator);
+        imuachainGateway.associateOperatorWithEVMStaker(clientChainId, operator);
 
         bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getAssociatedOperator(
             clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr)))
@@ -743,7 +743,7 @@ contract AssociateOperatorWithEVMStaker is SetUp {
             abi.encodeWithSelector(Errors.AssociateOperatorFailed.selector, anotherChainId, staker.addr, operator)
         );
         vm.startPrank(staker.addr);
-        exocoreGateway.associateOperatorWithEVMStaker(anotherChainId, operator);
+        imuachainGateway.associateOperatorWithEVMStaker(anotherChainId, operator);
     }
 
     function test_RevertWhen_AssociateMarkedStaker() public {
@@ -754,14 +754,14 @@ contract AssociateOperatorWithEVMStaker is SetUp {
             abi.encodeWithSelector(Errors.AssociateOperatorFailed.selector, clientChainId, staker.addr, anotherOperator)
         );
         vm.startPrank(staker.addr);
-        exocoreGateway.associateOperatorWithEVMStaker(clientChainId, anotherOperator);
+        imuachainGateway.associateOperatorWithEVMStaker(clientChainId, anotherOperator);
     }
 
     function test_Success_AssociateSameStakerButAnotherChain() public {
         test_Success_AssociateEVMStaker();
 
-        vm.startPrank(exocoreValidatorSet.addr);
-        exocoreGateway.registerOrUpdateClientChain(
+        vm.startPrank(owner.addr);
+        imuachainGateway.registerOrUpdateClientChain(
             anotherChainId,
             address(clientGateway).toBytes32(),
             20,
@@ -773,7 +773,7 @@ contract AssociateOperatorWithEVMStaker is SetUp {
 
         Player memory staker = players[0];
         vm.startPrank(staker.addr);
-        exocoreGateway.associateOperatorWithEVMStaker(anotherChainId, anotherOperator);
+        imuachainGateway.associateOperatorWithEVMStaker(anotherChainId, anotherOperator);
 
         bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getAssociatedOperator(
             clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr)))
@@ -790,7 +790,7 @@ contract AssociateOperatorWithEVMStaker is SetUp {
 
         Player memory staker = players[0];
         vm.startPrank(staker.addr);
-        exocoreGateway.dissociateOperatorFromEVMStaker(clientChainId);
+        imuachainGateway.dissociateOperatorFromEVMStaker(clientChainId);
 
         bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getAssociatedOperator(
             clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr)))
@@ -802,14 +802,14 @@ contract AssociateOperatorWithEVMStaker is SetUp {
         Player memory staker = players[0];
         vm.expectRevert(abi.encodeWithSelector(Errors.DissociateOperatorFailed.selector, anotherChainId, staker.addr));
         vm.startPrank(staker.addr);
-        exocoreGateway.dissociateOperatorFromEVMStaker(anotherChainId);
+        imuachainGateway.dissociateOperatorFromEVMStaker(anotherChainId);
     }
 
     function test_RevertWhen_DissociatePureStaker() public {
         Player memory staker = players[0];
         vm.expectRevert(abi.encodeWithSelector(Errors.DissociateOperatorFailed.selector, clientChainId, staker.addr));
         vm.startPrank(staker.addr);
-        exocoreGateway.dissociateOperatorFromEVMStaker(clientChainId);
+        imuachainGateway.dissociateOperatorFromEVMStaker(clientChainId);
     }
 
 }
@@ -822,20 +822,20 @@ contract MarkBootstrap is SetUp {
 
     function setUp() public virtual override {
         super.setUp();
-        nativeFee = exocoreGateway.quote(clientChainId, abi.encodePacked(Action.REQUEST_MARK_BOOTSTRAP, ""));
+        nativeFee = imuachainGateway.quote(clientChainId, abi.encodePacked(Action.REQUEST_MARK_BOOTSTRAP, ""));
     }
 
     function test_Success() public {
-        vm.startPrank(exocoreValidatorSet.addr);
-        vm.expectEmit(address(exocoreGateway));
-        emit ExocoreGatewayStorage.BootstrapRequestSent(clientChainId);
-        exocoreGateway.markBootstrap{value: nativeFee}(clientChainId);
+        vm.startPrank(owner.addr);
+        vm.expectEmit(address(imuachainGateway));
+        emit ImuachainGatewayStorage.BootstrapRequestSent(clientChainId);
+        imuachainGateway.markBootstrap{value: nativeFee}(clientChainId);
     }
 
     function test_Fail() public {
-        vm.startPrank(exocoreValidatorSet.addr);
+        vm.startPrank(owner.addr);
         vm.expectRevert(abi.encodeWithSelector(NoPeer.selector, clientChainId + 1));
-        exocoreGateway.markBootstrap{value: nativeFee}(clientChainId + 1);
+        imuachainGateway.markBootstrap{value: nativeFee}(clientChainId + 1);
     }
 
 }

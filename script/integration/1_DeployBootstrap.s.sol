@@ -21,9 +21,9 @@ import {BootstrapStorage} from "../../src/storage/BootstrapStorage.sol";
 import {BeaconOracle} from "./BeaconOracle.sol";
 import {ALLOWED_CHAIN_ID, NetworkConfig} from "./NetworkConfig.sol";
 
-import {ExoCapsule} from "../../src/core/ExoCapsule.sol";
+import {ImuaCapsule} from "../../src/core/ImuaCapsule.sol";
 import {Vault} from "../../src/core/Vault.sol";
-import {IExoCapsule} from "../../src/interfaces/IExoCapsule.sol";
+import {IImuaCapsule} from "../../src/interfaces/IImuaCapsule.sol";
 
 import {IRewardVault} from "../../src/interfaces/IRewardVault.sol";
 import {IValidatorRegistry} from "../../src/interfaces/IValidatorRegistry.sol";
@@ -35,7 +35,7 @@ import {MyToken} from "../../test/foundry/unit/MyToken.sol";
 
 // Technically this is used for testing but it is marked as a script
 // because it is a script that is used to deploy the contracts on Anvil / Prysm PoS
-// and setup the initial state of the Exocore chain.
+// and setup the initial state of Imuachain.
 
 // The keys provided in the dot-env file are required to be already
 // initialized by Anvil by `anvil --accounts 20`.
@@ -46,7 +46,7 @@ contract DeployContracts is Script {
     using stdJson for string;
 
     // no cross-chain communication is part of this test so these are not relevant
-    uint16 exocoreChainId = 1;
+    uint16 imuachainChainId = 1;
     uint16 clientChainId = 2;
 
     uint256[] validators;
@@ -65,7 +65,7 @@ contract DeployContracts is Script {
     BeaconOracle beaconOracle;
     IVault vaultImplementation;
     IRewardVault rewardVaultImplementation;
-    IExoCapsule capsuleImplementation;
+    IImuaCapsule capsuleImplementation;
     IBeacon vaultBeacon;
     IBeacon capsuleBeacon;
     IBeacon rewardVaultBeacon;
@@ -187,7 +187,7 @@ contract DeployContracts is Script {
 
         /// deploy vault implementation contract, capsule implementation contract
         vaultImplementation = new Vault();
-        capsuleImplementation = new ExoCapsule(address(networkConfig));
+        capsuleImplementation = new ImuaCapsule(address(networkConfig));
 
         /// deploy the vault beacon and capsule beacon
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
@@ -201,10 +201,10 @@ contract DeployContracts is Script {
 
         // Create ImmutableConfig struct
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            exocoreChainId: exocoreChainId,
+            imuachainChainId: imuachainChainId,
             beaconOracleAddress: address(beaconOracle),
             vaultBeacon: address(vaultBeacon),
-            exoCapsuleBeacon: address(capsuleBeacon),
+            imuaCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode),
             networkConfig: address(networkConfig)
         });
@@ -239,7 +239,7 @@ contract DeployContracts is Script {
 
         // to keep bootstrap address constant, we must keep its nonce unchanged. hence, further transactions are sent
         // after the bare minimum bootstrap and associated deployments.
-        // the default deposit params are created using exocapsule address 0x90618D1cDb01bF37c24FC012E70029DA20fCe971
+        // the default deposit params are created using imuacapsule address 0x90618D1cDb01bF37c24FC012E70029DA20fCe971
         // which is made using the default NST_DEPOSITOR + bootstrap address 0xF801fc13AA08876F343fEBf50dFfA52A78180811
         // if you get a DepositDataRoot or related error, check these addresses first.
         // if these addresses match, check that the DepositDataRoot, the Signature and the Pubkey match the default
@@ -292,26 +292,26 @@ contract DeployContracts is Script {
         vm.startBroadcast(nstDepositor);
         address myAddress = address(bootstrap.ownerToCapsule(vm.addr(nstDepositor)));
         if (myAddress == address(0)) {
-            myAddress = bootstrap.createExoCapsule();
+            myAddress = bootstrap.createImuaCapsule();
         }
-        console.log("ExoCapsule address", myAddress);
+        console.log("ImuaCapsule address", myAddress);
         bootstrap.stake{value: 32 ether}(pubkey, signature, depositDataRoot);
         vm.stopBroadcast();
     }
 
     function registerValidators() private {
-        string[3] memory exos = [
+        string[3] memory ims = [
             // these addresses will accrue rewards but they are not needed to keep the chain
             // running.
-            "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac",
-            "exo1wnw7zcl9fy04ax69uffumwkdxftfqsjyj37wt2",
-            "exo1rtg0cgw94ep744epyvanc0wdd5kedwql73vlmr"
+            "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla",
+            "im1wnw7zcl9fy04ax69uffumwkdxftfqsjyz0akf0",
+            "im1rtg0cgw94ep744epyvanc0wdd5kedwqlw008ex"
         ];
         string[3] memory names = ["validator1", "validator2", "validator3"];
         // the mnemonics corresponding to the consensus public keys are given here. to recover,
-        // echo "${MNEMONIC}" | exocored init localnet --chain-id exocorelocal_233-1 --recover
+        // echo "${MNEMONIC}" | imuad init localnet --chain-id imuachainlocalnet_232-1 --recover
         // the value in this script is this one
-        // exocored keys consensus-pubkey-to-bytes --output json | jq -r .bytes
+        // imuad keys consensus-pubkey-to-bytes --output json | jq -r .bytes
         bytes32[3] memory pubKeys = [
             // wonder quality resource ketchup occur stadium vicious output situate plug second
             // monkey harbor vanish then myself primary feed earth story real soccer shove like
@@ -326,7 +326,7 @@ contract DeployContracts is Script {
         IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
         for (uint256 i = 0; i < validators.length; i++) {
             vm.startBroadcast(validators[i]);
-            bootstrap.registerValidator(exos[i], names[i], commission, pubKeys[i]);
+            bootstrap.registerValidator(ims[i], names[i], commission, pubKeys[i]);
             vm.stopBroadcast();
         }
     }
@@ -354,10 +354,10 @@ contract DeployContracts is Script {
                 for (uint256 k = 0; k < validators.length; k++) {
                     uint256 amount = validatorDelegations[i - 1][j][k];
                     address validator = vm.addr(validators[k]);
-                    string memory validatorExo = bootstrap.ethToExocoreAddress(validator);
+                    string memory validatorIm = bootstrap.ethToImAddress(validator);
                     vm.startBroadcast(delegator);
                     if (amount != 0) {
-                        bootstrap.delegateTo(validatorExo, whitelistTokens[i], amount);
+                        bootstrap.delegateTo(validatorIm, whitelistTokens[i], amount);
                     }
                     vm.stopBroadcast();
                 }
@@ -382,9 +382,9 @@ contract DeployContracts is Script {
                         amount = random(stakerDelegationToDo);
                     }
                     address validator = vm.addr(validators[k]);
-                    string memory exo = bootstrap.ethToExocoreAddress(validator);
+                    string memory im = bootstrap.ethToImAddress(validator);
                     vm.startBroadcast(delegator);
-                    bootstrap.delegateTo(exo, whitelistTokens[i], amount);
+                    bootstrap.delegateTo(im, whitelistTokens[i], amount);
                     stakerDelegationToDo -= amount;
                     vm.stopBroadcast();
                 }

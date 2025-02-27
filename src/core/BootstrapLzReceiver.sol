@@ -9,8 +9,8 @@ import {Action} from "../storage/GatewayStorage.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
 /// @title BootstrapLzReceiver
-/// @author ExocoreNetwork
-/// @notice The base contract for the BootstrapLzReceiver. It only receives messages from the Exocore chain and does not
+/// @author imua-xyz
+/// @notice The base contract for the BootstrapLzReceiver. It only receives messages from Imuachain and does not
 /// send any.
 /// @dev This contract is abstract because it does not call the base contract's constructor.
 abstract contract BootstrapLzReceiver is PausableUpgradeable, OAppReceiverUpgradeable, BootstrapStorage {
@@ -25,7 +25,7 @@ abstract contract BootstrapLzReceiver is PausableUpgradeable, OAppReceiverUpgrad
 
     /// @inheritdoc OAppReceiverUpgradeable
     function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override {
-        if (_origin.srcEid != EXOCORE_CHAIN_ID) {
+        if (_origin.srcEid != IMUACHAIN_CHAIN_ID) {
             revert Errors.UnexpectedSourceChain(_origin.srcEid);
         }
         _verifyAndUpdateNonce(_origin.srcEid, _origin.sender, _origin.nonce);

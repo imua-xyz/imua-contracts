@@ -17,12 +17,15 @@ deny_warnings = true
 optimizer = true
 optimizer_runs = 200
 solc = "0.8.28"
+libraries = ["src/libraries/NetworkConstants.sol:NetworkConstants:0xf718DcEC914835d47a5e428A5397BF2F7276808b"]
 
 [profile.test]
 # for tests, use the Eth mainnet chain_id for NetworkConstants to work.
 # do not specify this in the default profile to pacify forge script
 # running on non-Eth mainnet chains.
 chain_id = 1
+# clear the libraries to avoid errors in tests
+libraries = []
 
 [fmt]
 number_underscore = "thousands"
@@ -37,13 +40,13 @@ contract_new_lines = true
 # mechanism to specify the chain name via command line; for example:
 # cast balance $ADDRESS --rpc-url client
 client = "${CLIENT_CHAIN_RPC}"
-exocore_local = "${EXOCORE_LOCAL_RPC}"
-exocore_testnet = "${EXOCORE_TESTNET_RPC}"
+imuachain_localnet = "${IMUACHAIN_LOCALNET_RPC}"
+imuachain_testnet = "${IMUACHAIN_TESTNET_RPC}"
 
 [etherscan]
 # Similar shortcut as `rpc_endpoints` to verify contracts by name and not URL.
 # Example:
-# forge verify-contract --etherscan-api-key exocore_testnet <...usual args...>
+# forge verify-contract --etherscan-api-key imuachain_testnet <...usual args...>
 # However, defining this section with these env vars makes `forge test` complain
 # if they are missing. It is because it tries to fetch debugging context from
 # the block explorer. To avoid this, either ensure these vars are set, or comment
@@ -51,6 +54,6 @@ exocore_testnet = "${EXOCORE_TESTNET_RPC}"
 mainnet = { key = "${ETHERSCAN_API_KEY}" }
 sepolia = { key = "${ETHERSCAN_API_KEY}" }
 holesky = { key = "${ETHERSCAN_API_KEY}" }
-exocore_testnet = { key = "${ETHERSCAN_API_KEY}", chain = 233, url = "${EXOCORE_TESTNET_EXPLORER_API}" }
+imuachain_testnet = { key = "${ETHERSCAN_API_KEY}", chain = 233, url = "${IMUACHAIN_TESTNET_EXPLORER_API}" }
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
+import {IImuaCapsule} from "../interfaces/IImuaCapsule.sol";
 import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
 import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
@@ -17,7 +17,7 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/se
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
 /// @title NativeRestakingController
-/// @author ExocoreNetwork
+/// @author imua-xyz
 /// @notice This is the implementation of INativeRestakingController. It allows Ethereum validators
 /// to stake, deposit and withdraw from the Ethereum beacon chain.
 /// @dev This contract is abstract because it does not call the base constructor.
@@ -47,31 +47,32 @@ abstract contract NativeRestakingController is
             revert Errors.NativeRestakingControllerInvalidStakeValue();
         }
 
-        IExoCapsule capsule = ownerToCapsule[msg.sender];
+        IImuaCapsule capsule = ownerToCapsule[msg.sender];
         if (address(capsule) == address(0)) {
-            capsule = IExoCapsule(createExoCapsule());
+            capsule = IImuaCapsule(createImuaCapsule());
         }
 
         ETH_POS.deposit{value: 32 ether}(pubkey, capsule.capsuleWithdrawalCredentials(), signature, depositDataRoot);
         emit StakedWithCapsule(msg.sender, address(capsule));
     }
 
-    /// @notice Creates a new ExoCapsule contract for the message sender.
+    /// @notice Creates a new ImuaCapsule contract for the message sender.
     /// @notice The message sender must be payable
-    /// @return The address of the newly created ExoCapsule contract.
-    // The bytecode returned by `BEACON_PROXY_BYTECODE` and `EXO_CAPSULE_BEACON` address are actually fixed size of byte
+    /// @return The address of the newly created ImuaCapsule contract.
+    // The bytecode returned by `BEACON_PROXY_BYTECODE` and `IMUA_CAPSULE_BEACON` address are actually fixed size of
+    // byte
     // array, so it would not cause collision for encodePacked
     // slither-disable-next-line encode-packed-collision
-    function createExoCapsule() public whenNotPaused nativeRestakingEnabled returns (address) {
+    function createImuaCapsule() public whenNotPaused nativeRestakingEnabled returns (address) {
         if (address(ownerToCapsule[msg.sender]) != address(0)) {
             revert Errors.NativeRestakingControllerCapsuleAlreadyCreated();
         }
-        IExoCapsule capsule = IExoCapsule(
+        IImuaCapsule capsule = IImuaCapsule(
             Create2.deploy(
                 0,
                 bytes32(uint256(uint160(msg.sender))),
                 // set the beacon address for beacon proxy
-                abi.encodePacked(BEACON_PROXY_BYTECODE.getBytecode(), abi.encode(address(EXO_CAPSULE_BEACON), ""))
+                abi.encodePacked(BEACON_PROXY_BYTECODE.getBytecode(), abi.encode(address(IMUA_CAPSULE_BEACON), ""))
             )
         );
 
@@ -84,14 +85,14 @@ abstract contract NativeRestakingController is
         return address(capsule);
     }
 
-    /// @notice Verifies a deposit proof from the beacon chain and forwards the information to Exocore.
+    /// @notice Verifies a deposit proof from the beacon chain and forwards the information to Imuachain.
     /// @param validatorContainer The validator container which made the deposit.
     /// @param proof The proof of the validator container.
     function verifyAndDepositNativeStake(
         bytes32[] calldata validatorContainer,
         BeaconChainProofs.ValidatorContainerProof calldata proof
     ) external payable whenNotPaused nonReentrant nativeRestakingEnabled {
-        IExoCapsule capsule = _getCapsule(msg.sender);
+        IImuaCapsule capsule = _getCapsule(msg.sender);
         uint256 depositValue = capsule.verifyDepositProof(validatorContainer, proof);
 
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(msg.sender)), depositValue, proof.validatorIndex);
@@ -100,7 +101,7 @@ abstract contract NativeRestakingController is
         _processRequest(Action.REQUEST_DEPOSIT_NST, actionArgs, bytes(""));
     }
 
-    /// @notice Verifies a withdrawal proof from the beacon chain and forwards the information to Exocore.
+    /// @notice Verifies a withdrawal proof from the beacon chain and forwards the information to Imuachain.
     /// @param validatorContainer The validator container which made the withdrawal.
     /// @param validatorProof The proof of the validator container.
     /// @param withdrawalContainer The withdrawal container.
@@ -111,7 +112,7 @@ abstract contract NativeRestakingController is
         bytes32[] calldata withdrawalContainer,
         BeaconChainProofs.WithdrawalProof calldata withdrawalProof
     ) external payable whenNotPaused nonReentrant nativeRestakingEnabled {
-        IExoCapsule capsule = _getCapsule(msg.sender);
+        IImuaCapsule capsule = _getCapsule(msg.sender);
         (bool partialWithdrawal, uint256 withdrawalAmount) =
             capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
         if (!partialWithdrawal) {
@@ -120,12 +121,12 @@ abstract contract NativeRestakingController is
                 abi.encodePacked(bytes32(bytes20(msg.sender)), withdrawalAmount, validatorProof.validatorIndex);
             bytes memory encodedRequest = abi.encode(VIRTUAL_NST_ADDRESS, msg.sender, withdrawalAmount);
 
-            // a full withdrawal needs response from Exocore, so we don't pass empty bytes
+            // a full withdrawal needs response from Imuachain, so we don't pass empty bytes
             _processRequest(Action.REQUEST_WITHDRAW_NST, actionArgs, encodedRequest);
         }
     }
 
-    /// @notice Withdraws the nonBeaconChainETHBalance from the ExoCapsule contract.
+    /// @notice Withdraws the nonBeaconChainETHBalance from the ImuaCapsule contract.
     /// @dev @param amountToWithdraw can not be greater than the available nonBeaconChainETHBalance.
     /// @param recipient The payable destination address to which the ETH are sent.
     /// @param amountToWithdraw The amount to withdraw.
@@ -135,7 +136,7 @@ abstract contract NativeRestakingController is
         nonReentrant
         nativeRestakingEnabled
     {
-        IExoCapsule capsule = _getCapsule(msg.sender);
+        IImuaCapsule capsule = _getCapsule(msg.sender);
         capsule.withdrawNonBeaconChainETHBalance(recipient, amountToWithdraw);
     }
 

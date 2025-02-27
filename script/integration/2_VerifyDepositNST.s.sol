@@ -63,7 +63,7 @@ contract VerifyDepositNST is Script {
         bootstrap.verifyAndDepositNativeStake(validatorContainer, validatorProof);
         bootstrap.delegateTo(
             // a validator in 1_DeployBootstrap.s.sol
-            "exo1rtg0cgw94ep744epyvanc0wdd5kedwql73vlmr",
+            "im1rtg0cgw94ep744epyvanc0wdd5kedwqlw008ex",
             // the native token address
             address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE),
             // delegate only a small portion of the deposit for our test

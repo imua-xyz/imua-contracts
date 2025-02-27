@@ -1,11 +1,11 @@
 pragma solidity ^0.8.19;
 
-import "../src/core/ExoCapsule.sol";
-import "../src/interfaces/IClientChainGateway.sol";
+import {ImuaCapsule} from "../src/core/ImuaCapsule.sol";
+import {IClientChainGateway} from "../src/interfaces/IClientChainGateway.sol";
 
-import "../src/interfaces/IExoCapsule.sol";
-import "../src/interfaces/IExocoreGateway.sol";
-import "../src/interfaces/IVault.sol";
+import {IImuaCapsule} from "../src/interfaces/IImuaCapsule.sol";
+import {IImuachainGateway} from "../src/interfaces/IImuachainGateway.sol";
+import {IVault} from "../src/interfaces/IVault.sol";
 
 import "../src/storage/GatewayStorage.sol";
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
@@ -58,16 +58,16 @@ contract WithdrawalValidatorScript is BaseScript {
         _loadWithdrawalContainer();
         _loadWithdrawalProof();
 
-        if (!useExocorePrecompileMock) {
+        if (!useImuachainPrecompileMock) {
             _bindPrecompileMocks();
         }
 
-        // transfer some gas fee to depositor, relayer and exocore gateway
+        // transfer some gas fee to depositor, relayer and imuachain gateway
         clientChain = vm.createSelectFork(clientChainRPCURL);
         _topUpPlayer(clientChain, address(0), deployer, depositor.addr, 0.2 ether);
 
-        exocore = vm.createSelectFork(exocoreRPCURL);
-        _topUpPlayer(exocore, address(0), exocoreGenesis, address(exocoreGateway), 1 ether);
+        imuachain = vm.createSelectFork(imuachainRPCURL);
+        _topUpPlayer(imuachain, address(0), imuachainGenesis, address(imuachainGateway), 1 ether);
     }
 
     function run() public {

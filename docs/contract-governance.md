@@ -25,7 +25,7 @@ The contract owner is effectively the protocol's governor, with governance prima
 
 ## Safe Multisig
 
-We use the Safe Multisig wallets as the proposer/canceler, executor, circuit breaker and even the admin of the `CustomTimelockController`. For chains like Ethereum, we create the Safe Multisig wallets from deployed Safe proxy factory contract, and set the implementation as the deployed Safe. And for Exocore specifically, we deploy the set of Safe contracts, especially for the `GnosisSafeProxyFactory` and the `GnosisSafe`, `GnosisSafeL2` singletons. The deployed Safe contracts address can be found in the [deployment json file](../script/safe_contracts_on_exocore.json).
+We use the Safe Multisig wallets as the proposer/canceler, executor, circuit breaker and even the admin of the `CustomTimelockController`. For chains like Ethereum, we create the Safe Multisig wallets from deployed Safe proxy factory contract, and set the implementation as the deployed Safe. And for Imuachain specifically, we deploy the set of Safe contracts, especially for the `GnosisSafeProxyFactory` and the `GnosisSafe`, `GnosisSafeL2` singletons. The deployed Safe contracts address can be found in the [deployment json file](../script/deployments/safe_contracts_on_imuachain.json).
 
 ## Governance Test
 

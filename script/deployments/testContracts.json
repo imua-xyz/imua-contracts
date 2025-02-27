@@ -1,6 +1,6 @@
 {
-  "exocore": {
-    "exocoreGateway": "0xbBd770D6288d03DfB2b87b6f88A049EC120647b7",
+  "imuachain": {
+    "imuachainGateway": "0xbBd770D6288d03DfB2b87b6f88A049EC120647b7",
     "lzEndpoint": "0x43B57f4fA1E4445296c133B1C3814655E2d77c35"
   }
 }

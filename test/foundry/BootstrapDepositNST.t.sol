@@ -10,13 +10,12 @@ import "forge-std/Test.sol";
 import {NonShortCircuitEndpointV2Mock} from "test/mocks/NonShortCircuitEndpointV2Mock.sol";
 
 import "../../src/core/Bootstrap.sol";
-import "../../src/core/ExoCapsule.sol";
+import "../../src/core/ImuaCapsule.sol";
 import "../../src/utils/BeaconProxyBytecode.sol";
 import {BeaconChainProofs} from "src/libraries/BeaconChainProofs.sol";
 import {Endian} from "src/libraries/Endian.sol";
 import "test/mocks/ETHPOSDepositMock.sol";
 
-import "../../src/core/ExoCapsule.sol";
 import {ClientChainGateway} from "src/core/ClientChainGateway.sol";
 import {Vault} from "src/core/Vault.sol";
 import {CustomProxyAdmin} from "src/utils/CustomProxyAdmin.sol";
@@ -36,7 +35,7 @@ contract BootstrapDepositNSTTest is Test {
 
     uint256 spawnTime;
     uint256 offsetDuration;
-    uint16 exocoreChainId = 1;
+    uint16 imuachainChainId = 1;
     uint16 clientChainId = 2;
     address[] whitelistTokens;
     uint256[] tvlLimits;
@@ -46,11 +45,11 @@ contract BootstrapDepositNSTTest is Test {
 
     EigenLayerBeaconOracle beaconOracle;
     IVault vaultImplementation;
-    IExoCapsule capsuleImplementation;
+    IImuaCapsule capsuleImplementation;
     IBeacon vaultBeacon;
     IBeacon capsuleBeacon;
     BeaconProxyBytecode beaconProxyBytecode;
-    ExoCapsule capsule;
+    ImuaCapsule capsule;
 
     bytes32[] validatorContainer;
     BeaconChainProofs.ValidatorContainerProof validatorProof;
@@ -82,7 +81,7 @@ contract BootstrapDepositNSTTest is Test {
 
         // deploy vault implementationcontract that has logics called by proxy
         vaultImplementation = new Vault();
-        capsuleImplementation = new ExoCapsule(address(0));
+        capsuleImplementation = new ImuaCapsule(address(0));
 
         // deploy the vault beacon that store the implementation contract address
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
@@ -97,10 +96,10 @@ contract BootstrapDepositNSTTest is Test {
         clientChainLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, owner);
         // Create ImmutableConfig struct
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            exocoreChainId: exocoreChainId,
+            imuachainChainId: imuachainChainId,
             beaconOracleAddress: address(beaconOracle),
             vaultBeacon: address(vaultBeacon),
-            exoCapsuleBeacon: address(capsuleBeacon),
+            imuaCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode),
             networkConfig: address(0)
         });
@@ -176,7 +175,7 @@ contract BootstrapDepositNSTTest is Test {
         _simulateBlockEnvironmentForNativeDeposit();
 
         // 1. firstly depositor should stake to beacon chain by depositing 32 ETH to ETHPOS contract
-        IExoCapsule expectedCapsule = IExoCapsule(
+        IImuaCapsule expectedCapsule = IImuaCapsule(
             Create2.computeAddress(
                 bytes32(uint256(uint160(depositor))),
                 keccak256(abi.encodePacked(BEACON_PROXY_BYTECODE, abi.encode(address(capsuleBeacon), ""))),
@@ -284,10 +283,10 @@ contract BootstrapDepositNSTTest is Test {
         vm.mockCall(address(ETH_POS), abi.encodeWithSelector(ETH_POS.deposit.selector), abi.encode(true));
     }
 
-    function _attachCapsuleToWithdrawalCredentials(IExoCapsule createdCapsule, address depositor_) internal {
+    function _attachCapsuleToWithdrawalCredentials(IImuaCapsule createdCapsule, address depositor_) internal {
         address capsuleAddress = _getCapsuleFromWithdrawalCredentials(_getWithdrawalCredentials(validatorContainer));
         vm.etch(capsuleAddress, address(createdCapsule).code);
-        capsule = ExoCapsule(payable(capsuleAddress));
+        capsule = ImuaCapsule(payable(capsuleAddress));
         // TODO: load this dynamically somehow instead of hardcoding it
         bytes32 beaconSlotInCapsule = bytes32(uint256(keccak256("eip1967.proxy.beacon")) - 1);
         bytes32 beaconAddress = bytes32(uint256(uint160(address(capsuleBeacon))));

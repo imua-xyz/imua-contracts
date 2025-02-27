@@ -2,11 +2,11 @@
 
 ## 1:N
 
-While there could be multiple client chains and `ClientChainGateway`s, there is only one Exocore chain that serves as the source of truth. Similarly, there is only one `ExocoreGateway` contract that manages the communication between the client chains and the Exocore chain. This contract receives messages from the client chains and forwards them to the Exocore chain, or sends requests to the client chains. Therefore, the communication between `ExocoreGateway` and `ClientChainGateway`s is 1:N.
+While there could be multiple client chains and `ClientChainGateway`s, there is only one Imuachain that serves as the source of truth. Similarly, there is only one `ImuachainGateway` contract that manages the communication between a client chains and Imuachain internals. This contract receives messages from the client chains and forwards them to Imuachain chain, or sends requests to the client chains. Therefore, the communication between `ImuachainGateway` and `ClientChainGateway`s is 1:N.
 
 ## Ordered Message Execution
 
-Both `ClientChainGateway` and `ExocoreGateway` ensure ordered message execution for requests and responses using a message nonce mechanism:
+Both `ClientChainGateway` and `ImuachainGateway` ensure ordered message execution for requests and responses using a message nonce mechanism:
 
 1. The first message sent by the sender contract has a nonce of 1, and each subsequent message has a unique nonce.
 2. After successfully sending a message, the sender contract increments the nonce by 1.
@@ -19,7 +19,7 @@ This nonce management is specific to each client chain and `ClientChainGateway`,
 
 ## Blocking Message Execution
 
-Both `ClientChainGateway` and `ExocoreGateway` handle messages in a blocking manner. This ensures that the receiver contract does not process the next message until the current one is successfully executed. Specifically, if the relayer forwards a message to the receiver contract and the contract fails to execute the message, the message is not stored and the nonce is not incremented, preventing the message with the next expected nonce from being received.
+Both `ClientChainGateway` and `ImuachainGateway` handle messages in a blocking manner. This ensures that the receiver contract does not process the next message until the current one is successfully executed. Specifically, if the relayer forwards a message to the receiver contract and the contract fails to execute the message, the message is not stored and the nonce is not incremented, preventing the message with the next expected nonce from being received.
 
 ## Request-Response
 

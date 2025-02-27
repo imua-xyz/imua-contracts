@@ -69,7 +69,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
     uint8 internal constant _NOT_ENTERED = 1;
     uint8 internal constant _ENTERED = 2;
     uint8 internal _receive_entered_state = 1;
-    address exocoreValidatorSet;
+    address owner;
 
     modifier receiveNonReentrant() {
         require(_receive_entered_state == _NOT_ENTERED, "LayerZeroMock: no receive reentrancy");
@@ -78,8 +78,8 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         _receive_entered_state = _NOT_ENTERED;
     }
 
-    modifier onlyExocoreValidatorSet() {
-        require(msg.sender == exocoreValidatorSet, "only authorized to exocore validator set");
+    modifier onlyOwner() {
+        require(msg.sender == owner, "only authorized to owner");
         _;
     }
 
@@ -89,10 +89,10 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         uint32 srcChainId, bytes32 srcAddress, address dstAddress, uint64 nonce, bytes payload, bytes reason
     );
 
-    constructor(uint32 _eid, address _exocoreValidatorSet) {
-        require(_exocoreValidatorSet != address(0), "exocore validator set address should not be empty");
+    constructor(uint32 _eid, address _owner) {
+        require(_owner != address(0), "owner address should not be empty");
 
-        exocoreValidatorSet = _exocoreValidatorSet;
+        owner = _owner;
         eid = _eid;
         // init config
         relayerFeeConfig = RelayerFeeConfig({
@@ -259,10 +259,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         return lazyInboundNonce[_receiver][_srcEid][_sender];
     }
 
-    function resetInboundNonce(address _receiver, uint32 _srcEid, bytes32 _sender, uint64 _nonce)
-        external
-        onlyExocoreValidatorSet
-    {
+    function resetInboundNonce(address _receiver, uint32 _srcEid, bytes32 _sender, uint64 _nonce) external onlyOwner {
         lazyInboundNonce[_receiver][_srcEid][_sender] = _nonce;
     }
 
@@ -270,10 +267,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         return outboundNonce[_sender][_dstEid][_receiver];
     }
 
-    function resetOutboundNonce(address _sender, uint32 _dstEid, bytes32 _receiver, uint64 _nonce)
-        external
-        onlyExocoreValidatorSet
-    {
+    function resetOutboundNonce(address _sender, uint32 _dstEid, bytes32 _receiver, uint64 _nonce) external onlyOwner {
         outboundNonce[_sender][_dstEid][_receiver] = _nonce;
     }
 

@@ -4,13 +4,13 @@ pragma solidity ^0.8.19;
 import {IOAppCore} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/interfaces/IOAppCore.sol";
 import {IOAppReceiver} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/interfaces/IOAppReceiver.sol";
 
-/// @title IExocoreGateway
-/// @author ExocoreNetwork
-/// @notice IExocoreGateway is the interface for the ExocoreGateway contract. It provides a set of functions for
-/// ExocoreGateway operations.
-/// @dev It is deployed on the Exocore end and is designed to interact with other chains,
-/// as well as precompiles on the Exocore chain in response to messages from other chains.
-interface IExocoreGateway is IOAppReceiver, IOAppCore {
+/// @title ImuachainGateway interface
+/// @author imua-xyz
+/// @notice ImuachainGateway is the interface for the ImuachainGateway contract. It provides a set of functions for
+/// ImuachainGateway operations.
+/// @dev It is deployed on the Imuachain end and is designed to interact with other chains,
+/// as well as precompiles on Imuachain in response to messages from other chains.
+interface IImuachainGateway is IOAppReceiver, IOAppCore {
 
     /// @notice Calculates the native fee for sending a message with specific options.
     /// @param srcChainid The chain id of the source chain, from which a message was received,
@@ -19,7 +19,7 @@ interface IExocoreGateway is IOAppReceiver, IOAppCore {
     /// @return nativeFee The calculated native fee for the given message.
     function quote(uint32 srcChainid, bytes memory _message) external view returns (uint256 nativeFee);
 
-    /// @notice Registers the @param clientChainId and other meta data to Exocore native module or update the client
+    /// @notice Registers the @param clientChainId and other meta data to Imuachain native module or update the client
     /// chain's meta data, if a chain identified by @param clientChainId already exists. Sets trusted @param peer to
     /// enable cross-chain communication.
     /// @param clientChainId The endpoint ID for client chain.

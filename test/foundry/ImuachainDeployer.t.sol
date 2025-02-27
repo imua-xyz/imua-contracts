@@ -15,8 +15,8 @@ import "forge-std/Test.sol";
 
 import "../../src/core/ClientChainGateway.sol";
 
-import "../../src/core/ExoCapsule.sol";
-import "../../src/core/ExocoreGateway.sol";
+import "../../src/core/ImuaCapsule.sol";
+import "../../src/core/ImuachainGateway.sol";
 
 import {RewardVault} from "../../src/core/RewardVault.sol";
 import {Vault} from "../../src/core/Vault.sol";
@@ -36,7 +36,6 @@ import "../mocks/DelegationMock.sol";
 import {NonShortCircuitEndpointV2Mock} from "../mocks/NonShortCircuitEndpointV2Mock.sol";
 import "../mocks/RewardMock.sol";
 
-import "src/core/ExoCapsule.sol";
 import "src/utils/BeaconProxyBytecode.sol";
 
 import "src/libraries/BeaconChainProofs.sol";
@@ -47,14 +46,14 @@ import {BootstrapStorage} from "../../src/storage/BootstrapStorage.sol";
 
 import {NetworkConstants} from "src/libraries/NetworkConstants.sol";
 
-contract ExocoreDeployer is Test {
+contract ImuachainDeployer is Test {
 
     using AddressCast for address;
     using Endian for bytes32;
 
     Player[] players;
     bytes32[] whitelistTokens;
-    Player exocoreValidatorSet;
+    Player owner;
     address[] vaults;
     ERC20PresetFixedSupply restakeToken;
 
@@ -62,15 +61,15 @@ contract ExocoreDeployer is Test {
     ClientChainGateway clientGatewayLogic;
     IRewardVault rewardVault;
     Vault vault;
-    ExoCapsule capsule;
-    ExocoreGateway exocoreGateway;
-    ExocoreGateway exocoreGatewayLogic;
+    ImuaCapsule capsule;
+    ImuachainGateway imuachainGateway;
+    ImuachainGateway imuachainGatewayLogic;
     ILayerZeroEndpointV2 clientChainLzEndpoint;
-    ILayerZeroEndpointV2 exocoreLzEndpoint;
+    ILayerZeroEndpointV2 imuachainLzEndpoint;
     IBeaconChainOracle beaconOracle;
     IVault vaultImplementation;
     IRewardVault rewardVaultImplementation;
-    IExoCapsule capsuleImplementation;
+    IImuaCapsule capsuleImplementation;
     IBeacon vaultBeacon;
     IBeacon rewardVaultBeacon;
     IBeacon capsuleBeacon;
@@ -102,7 +101,7 @@ contract ExocoreDeployer is Test {
     uint256 mockCurrentBlockTimestamp;
     uint256 activationTimestamp;
 
-    uint32 exocoreChainId = 2;
+    uint32 imuachainChainId = 2;
     uint32 clientChainId = 1;
 
     // the nonces to use for sending messages, incremented when there is a MessageSent event
@@ -128,15 +127,15 @@ contract ExocoreDeployer is Test {
 
     function setUp() public virtual {
         // the nonces start from 1
-        outboundNonces[exocoreChainId] = 1;
+        outboundNonces[imuachainChainId] = 1;
         outboundNonces[clientChainId] = 1;
-        inboundNonces[exocoreChainId] = 1;
+        inboundNonces[imuachainChainId] = 1;
         inboundNonces[clientChainId] = 1;
 
         players.push(Player({privateKey: uint256(0x1), addr: vm.addr(uint256(0x1))}));
         players.push(Player({privateKey: uint256(0x2), addr: vm.addr(uint256(0x2))}));
         players.push(Player({privateKey: uint256(0x3), addr: vm.addr(uint256(0x3))}));
-        exocoreValidatorSet = Player({privateKey: uint256(0xa), addr: vm.addr(uint256(0xa))});
+        owner = Player({privateKey: uint256(0xa), addr: vm.addr(uint256(0xa))});
 
         // bind precompile mock contracts code to constant precompile address
         bytes memory AssetsMockCode = vm.getDeployedCode("AssetsMock.sol");
@@ -162,7 +161,7 @@ contract ExocoreDeployer is Test {
         }
 
         // transfer some gas fee to the owner / deployer
-        deal(exocoreValidatorSet.addr, 1e22);
+        deal(owner.addr, 1e22);
 
         uint8[] memory decimals = new uint8[](2);
         string[] memory names = new string[](2);
@@ -188,33 +187,33 @@ contract ExocoreDeployer is Test {
 
         // -- add whitelist tokens workflow test --
 
-        // first user call exocore gateway to add whitelist tokens
-        vm.startPrank(exocoreValidatorSet.addr);
+        // first user call imuachain gateway to add whitelist tokens
+        vm.startPrank(owner.addr);
         uint256 nativeFee;
-        for (; outboundNonces[exocoreChainId] < whitelistTokens.length + 1; outboundNonces[exocoreChainId]++) {
-            uint256 i = outboundNonces[exocoreChainId] - 1; // only one var in the loop is allowed
+        for (; outboundNonces[imuachainChainId] < whitelistTokens.length + 1; outboundNonces[imuachainChainId]++) {
+            uint256 i = outboundNonces[imuachainChainId] - 1; // only one var in the loop is allowed
             // estimate the fee from the payload
             payloads[i] =
                 abi.encodePacked(Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokens[i], tvlLimits[i]));
-            nativeFee = exocoreGateway.quote(clientChainId, payloads[i]);
+            nativeFee = imuachainGateway.quote(clientChainId, payloads[i]);
             requestIds[i] = generateUID(uint64(i + 1), false);
             // gateway should emit the packet for the outgoing message
-            vm.expectEmit(address(exocoreLzEndpoint));
+            vm.expectEmit(address(imuachainLzEndpoint));
             emit NewPacket(
                 clientChainId,
-                address(exocoreGateway),
+                address(imuachainGateway),
                 address(clientGateway).toBytes32(),
                 uint64(i) + 1, // nonce
                 payloads[i]
             );
-            vm.expectEmit(address(exocoreGateway));
+            vm.expectEmit(address(imuachainGateway));
             emit MessageSent(
                 Action.REQUEST_ADD_WHITELIST_TOKEN,
                 requestIds[i],
                 uint64(i) + 1, // nonce
                 nativeFee
             );
-            exocoreGateway.addWhitelistToken{value: nativeFee}(
+            imuachainGateway.addWhitelistToken{value: nativeFee}(
                 clientChainId, whitelistTokens[i], decimals[i], names[i], metaDatas[i], oracleInfos[i], tvlLimits[i]
             );
         }
@@ -234,7 +233,7 @@ contract ExocoreDeployer is Test {
         vm.expectEmit(address(clientGateway));
         emit MessageExecuted(Action.REQUEST_ADD_WHITELIST_TOKEN, inboundNonces[clientChainId]++);
         clientChainLzEndpoint.lzReceive(
-            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), inboundNonces[clientChainId] - 1),
+            Origin(imuachainChainId, address(imuachainGateway).toBytes32(), inboundNonces[clientChainId] - 1),
             address(clientGateway),
             requestIds[0],
             payloads[0],
@@ -246,7 +245,7 @@ contract ExocoreDeployer is Test {
         vm.expectEmit(address(clientGateway));
         emit MessageExecuted(Action.REQUEST_ADD_WHITELIST_TOKEN, inboundNonces[clientChainId]++);
         clientChainLzEndpoint.lzReceive(
-            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), inboundNonces[clientChainId] - 1),
+            Origin(imuachainChainId, address(imuachainGateway).toBytes32(), inboundNonces[clientChainId] - 1),
             address(clientGateway),
             requestIds[1],
             payloads[1],
@@ -272,8 +271,8 @@ contract ExocoreDeployer is Test {
         // at the end of it, we should have executed outbound nonces from chain A on chain B
         // this helps check that all outbound messages were executed on the destination chain, within the test, and
         // also validates the nonce incrementing logic in the contracts
-        assertEq(outboundNonces[exocoreChainId], inboundNonces[clientChainId]);
-        assertEq(outboundNonces[clientChainId], inboundNonces[exocoreChainId]);
+        assertEq(outboundNonces[imuachainChainId], inboundNonces[clientChainId]);
+        assertEq(outboundNonces[clientChainId], inboundNonces[imuachainChainId]);
     }
 
     function _loadValidatorContainer(string memory validatorInfo) internal {
@@ -327,15 +326,15 @@ contract ExocoreDeployer is Test {
 
     function _deploy() internal {
         // prepare outside contracts like ERC20 token contract and layerzero endpoint contract
-        restakeToken = new ERC20PresetFixedSupply("rest", "rest", 1e34, exocoreValidatorSet.addr);
-        clientChainLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, exocoreValidatorSet.addr);
-        exocoreLzEndpoint = new NonShortCircuitEndpointV2Mock(exocoreChainId, exocoreValidatorSet.addr);
+        restakeToken = new ERC20PresetFixedSupply("rest", "rest", 1e34, owner.addr);
+        clientChainLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, owner.addr);
+        imuachainLzEndpoint = new NonShortCircuitEndpointV2Mock(imuachainChainId, owner.addr);
         beaconOracle = IBeaconChainOracle(new EigenLayerBeaconOracle(NetworkConstants.getBeaconGenesisTimestamp()));
 
         // deploy vault implementation contract and capsule implementation contract
         // that has logics called by proxy
         vaultImplementation = new Vault();
-        capsuleImplementation = new ExoCapsule(address(0));
+        capsuleImplementation = new ImuaCapsule(address(0));
         rewardVaultImplementation = new RewardVault();
 
         // deploy the vault beacon and capsule beacon that store the implementation contract address
@@ -356,10 +355,10 @@ contract ExocoreDeployer is Test {
 
         // Create ImmutableConfig struct
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            exocoreChainId: exocoreChainId,
+            imuachainChainId: imuachainChainId,
             beaconOracleAddress: address(beaconOracle),
             vaultBeacon: address(vaultBeacon),
-            exoCapsuleBeacon: address(capsuleBeacon),
+            imuaCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode),
             networkConfig: address(0)
         });
@@ -373,9 +372,7 @@ contract ExocoreDeployer is Test {
                     new TransparentUpgradeableProxy(
                         address(clientGatewayLogic),
                         address(proxyAdmin),
-                        abi.encodeWithSelector(
-                            clientGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr)
-                        )
+                        abi.encodeWithSelector(clientGatewayLogic.initialize.selector, payable(owner.addr))
                     )
                 )
             )
@@ -388,17 +385,15 @@ contract ExocoreDeployer is Test {
             "reward vault should be empty since it is not deployed in initialization"
         );
 
-        // deploy Exocore network contracts
-        exocoreGatewayLogic = new ExocoreGateway(address(exocoreLzEndpoint));
-        exocoreGateway = ExocoreGateway(
+        // deploy imuachain network contracts
+        imuachainGatewayLogic = new ImuachainGateway(address(imuachainLzEndpoint));
+        imuachainGateway = ImuachainGateway(
             payable(
                 address(
                     new TransparentUpgradeableProxy(
-                        address(exocoreGatewayLogic),
+                        address(imuachainGatewayLogic),
                         address(proxyAdmin),
-                        abi.encodeWithSelector(
-                            exocoreGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr)
-                        )
+                        abi.encodeWithSelector(imuachainGatewayLogic.initialize.selector, payable(owner.addr))
                     )
                 )
             )
@@ -406,19 +401,18 @@ contract ExocoreDeployer is Test {
 
         // set the destination endpoint for corresponding destinations in endpoint mock
         NonShortCircuitEndpointV2Mock(address(clientChainLzEndpoint)).setDestLzEndpoint(
-            address(exocoreGateway), address(exocoreLzEndpoint)
+            address(imuachainGateway), address(imuachainLzEndpoint)
         );
-        NonShortCircuitEndpointV2Mock(address(exocoreLzEndpoint)).setDestLzEndpoint(
+        NonShortCircuitEndpointV2Mock(address(imuachainLzEndpoint)).setDestLzEndpoint(
             address(clientGateway), address(clientChainLzEndpoint)
         );
 
-        // Exocore validator set should be the owner of gateway contracts and only owner could call these functions.
-        vm.startPrank(exocoreValidatorSet.addr);
+        vm.startPrank(owner.addr);
 
         // as LzReceivers, gateway should set bytes(sourceChainGatewayAddress+thisAddress) as trusted remote to receive
-        // messages. On Exocore side, this is done by calling registerClientChain
-        clientGateway.setPeer(exocoreChainId, address(exocoreGateway).toBytes32());
-        exocoreGateway.registerOrUpdateClientChain(
+        // messages. On Imuachain, this is done by calling registerClientChain
+        clientGateway.setPeer(imuachainChainId, address(imuachainGateway).toBytes32());
+        imuachainGateway.registerOrUpdateClientChain(
             clientChainId,
             address(clientGateway).toBytes32(),
             20,
@@ -457,14 +451,14 @@ contract ExocoreDeployer is Test {
         return wc[3].fromLittleEndianUint64();
     }
 
-    function generateUID(uint64 nonce, bool fromClientChainToExocore) internal view returns (bytes32 uid) {
-        if (fromClientChainToExocore) {
+    function generateUID(uint64 nonce, bool fromClientChainToImuachain) internal view returns (bytes32 uid) {
+        if (fromClientChainToImuachain) {
             uid = GUID.generate(
-                nonce, clientChainId, address(clientGateway), exocoreChainId, address(exocoreGateway).toBytes32()
+                nonce, clientChainId, address(clientGateway), imuachainChainId, address(imuachainGateway).toBytes32()
             );
         } else {
             uid = GUID.generate(
-                nonce, exocoreChainId, address(exocoreGateway), clientChainId, address(clientGateway).toBytes32()
+                nonce, imuachainChainId, address(imuachainGateway), clientChainId, address(clientGateway).toBytes32()
             );
         }
     }

@@ -1,8 +1,8 @@
 pragma solidity ^0.8.19;
 
 import "../src/interfaces/IClientChainGateway.sol";
-import "../src/interfaces/IExoCapsule.sol";
-import "../src/interfaces/IExocoreGateway.sol";
+import "../src/interfaces/IImuaCapsule.sol";
+import "../src/interfaces/IImuachainGateway.sol";
 import "../src/interfaces/IRewardVault.sol";
 import "../src/interfaces/IVault.sol";
 import "../src/utils/BeaconProxyBytecode.sol";
@@ -33,15 +33,15 @@ contract BaseScript is Script, StdCheats {
     }
 
     Player deployer;
-    Player exocoreValidatorSet;
-    Player exocoreGenesis;
+    Player owner;
+    Player imuachainGenesis;
     Player depositor;
     Player relayer;
 
     string sepoliaRPCURL;
     string holeskyRPCURL;
     string clientChainRPCURL;
-    string exocoreRPCURL;
+    string imuachainRPCURL;
 
     address[] whitelistTokens;
     uint256[] tvlLimits;
@@ -49,14 +49,14 @@ contract BaseScript is Script, StdCheats {
     IClientChainGateway clientGateway;
     IVault vault;
     IRewardVault rewardVault;
-    IExocoreGateway exocoreGateway;
+    IImuachainGateway imuachainGateway;
     ILayerZeroEndpointV2 clientChainLzEndpoint;
-    ILayerZeroEndpointV2 exocoreLzEndpoint;
+    ILayerZeroEndpointV2 imuachainLzEndpoint;
     EigenLayerBeaconOracle beaconOracle;
     ERC20PresetFixedSupply restakeToken;
     IVault vaultImplementation;
     IRewardVault rewardVaultImplementation;
-    IExoCapsule capsuleImplementation;
+    IImuaCapsule capsuleImplementation;
     IBeacon vaultBeacon;
     IBeacon rewardVaultBeacon;
     IBeacon capsuleBeacon;
@@ -68,13 +68,13 @@ contract BaseScript is Script, StdCheats {
     address rewardMock;
 
     uint256 clientChain;
-    uint256 exocore;
+    uint256 imuachain;
 
-    uint16 constant exocoreChainId = 40_259;
+    uint16 constant imuachainChainId = 40_259;
     uint16 constant clientChainId = 40_161;
 
     address constant sepoliaEndpointV2 = 0x6EDCE65403992e310A62460808c4b910D972f10f;
-    address constant exocoreEndpointV2 = 0x6EDCE65403992e310A62460808c4b910D972f10f;
+    address constant imuachainEndpointV2 = 0x6EDCE65403992e310A62460808c4b910D972f10f;
     address erc20TokenAddress = 0x83E6850591425e3C1E263c054f4466838B9Bd9e4;
 
     uint256 constant DEPOSIT_AMOUNT = 1 ether;
@@ -82,18 +82,18 @@ contract BaseScript is Script, StdCheats {
     address internal constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     uint256 internal constant TOKEN_ADDRESS_BYTES_LENGTH = 32;
 
-    bool useExocorePrecompileMock;
+    bool useImuachainPrecompileMock;
     bool useEndpointMock;
 
     function setUp() public virtual {
         deployer.privateKey = vm.envUint("TEST_ACCOUNT_ONE_PRIVATE_KEY");
         deployer.addr = vm.addr(deployer.privateKey);
 
-        exocoreValidatorSet.privateKey = vm.envUint("TEST_ACCOUNT_THREE_PRIVATE_KEY");
-        exocoreValidatorSet.addr = vm.addr(exocoreValidatorSet.privateKey);
+        owner.privateKey = vm.envUint("TEST_ACCOUNT_THREE_PRIVATE_KEY");
+        owner.addr = vm.addr(owner.privateKey);
 
-        exocoreGenesis.privateKey = vm.envUint("EXOCORE_GENESIS_PRIVATE_KEY");
-        exocoreGenesis.addr = vm.addr(exocoreGenesis.privateKey);
+        imuachainGenesis.privateKey = vm.envUint("IMUACHAIN_GENESIS_PRIVATE_KEY");
+        imuachainGenesis.addr = vm.addr(imuachainGenesis.privateKey);
 
         depositor.privateKey = vm.envUint("TEST_ACCOUNT_FOUR_PRIVATE_KEY");
         depositor.addr = vm.addr(depositor.privateKey);
@@ -103,11 +103,11 @@ contract BaseScript is Script, StdCheats {
 
         useEndpointMock = vm.envBool("USE_ENDPOINT_MOCK");
         console.log("NOTICE: using l0 endpoint mock", useEndpointMock);
-        useExocorePrecompileMock = vm.envBool("USE_EXOCORE_PRECOMPILE_MOCK");
-        console.log("NOTICE: using exocore precompiles mock", useExocorePrecompileMock);
+        useImuachainPrecompileMock = vm.envBool("USE_IMUACHAIN_PRECOMPILE_MOCK");
+        console.log("NOTICE: using imuachain precompiles mock", useImuachainPrecompileMock);
 
         clientChainRPCURL = vm.envString("CLIENT_CHAIN_RPC");
-        exocoreRPCURL = vm.envString("EXOCORE_TESTNET_RPC");
+        imuachainRPCURL = vm.envString("IMUACHAIN_TESTNET_RPC");
     }
 
     function _bindPrecompileMocks() internal {
@@ -118,7 +118,7 @@ contract BaseScript is Script, StdCheats {
             // ignore
         }
         // choose the fork to ensure no client chain simulation is impacted
-        vm.selectFork(exocore);
+        vm.selectFork(imuachain);
         // even with --skip-simulation, some transactions fail. this helps work around that limitation
         // but it isn't perfect. if you face too much trouble, try calling the function(s) directly
         // with cast or remix.

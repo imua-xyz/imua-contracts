@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 /// @title IVault
 /// @notice Interface for a Vault contract handling deposits, withdrawals, and balance updates.
 /// @dev This interface defines the necessary functions for interacting with the Vault.
-/// @author ExocoreNetwork
+/// @author imua-xyz
 interface IVault {
 
     /// @notice Withdraws a specified amount from the vault.

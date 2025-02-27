@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
+import {IImuaCapsule} from "../interfaces/IImuaCapsule.sol";
 
 import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
 import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 import {Endian} from "../libraries/Endian.sol";
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 import {WithdrawalContainer} from "../libraries/WithdrawalContainer.sol";
-import {ExoCapsuleStorage} from "../storage/ExoCapsuleStorage.sol";
+import {ImuaCapsuleStorage} from "../storage/ImuaCapsuleStorage.sol";
 
 import {IBeaconChainOracle} from "@beacon-oracle/contracts/src/IBeaconChainOracle.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-/// @title ExoCapsule
-/// @author ExocoreNetwork
-/// @notice The ExoCapsule contract is used to stake, deposit and withdraw from the Ethereum beacon chain.
-contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsule {
+/// @title ImuaCapsule
+/// @author imua-xyz
+/// @notice The ImuaCapsule contract is used to stake, deposit and withdraw from the Imuachain beacon chain.
+contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCapsule {
 
     using BeaconChainProofs for bytes32;
     using Endian for bytes32;
@@ -131,9 +131,9 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         _;
     }
 
-    /// @notice Constructor to create the ExoCapsule contract.
+    /// @notice Constructor to create the ImuaCapsule contract.
     /// @param networkConfig_ network configuration contract address.
-    constructor(address networkConfig_) ExoCapsuleStorage(networkConfig_) {
+    constructor(address networkConfig_) ImuaCapsuleStorage(networkConfig_) {
         _disableInitializers();
     }
 
@@ -143,11 +143,11 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         emit NonBeaconChainETHReceived(msg.value);
     }
 
-    /// @inheritdoc IExoCapsule
+    /// @inheritdoc IImuaCapsule
     function initialize(address gateway_, address payable capsuleOwner_, address beaconOracle_) external initializer {
-        require(gateway_ != address(0), "ExoCapsule: gateway address can not be empty");
-        require(capsuleOwner_ != address(0), "ExoCapsule: capsule owner address can not be empty");
-        require(beaconOracle_ != address(0), "ExoCapsule: beacon chain oracle address should not be empty");
+        require(gateway_ != address(0), "ImuaCapsule: gateway address can not be empty");
+        require(capsuleOwner_ != address(0), "ImuaCapsule: capsule owner address can not be empty");
+        require(beaconOracle_ != address(0), "ImuaCapsule: beacon chain oracle address should not be empty");
 
         gateway = INativeRestakingController(gateway_);
         beaconOracle = IBeaconChainOracle(beaconOracle_);
@@ -158,7 +158,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         emit RestakingActivated(capsuleOwner);
     }
 
-    /// @inheritdoc IExoCapsule
+    /// @inheritdoc IImuaCapsule
     function verifyDepositProof(
         bytes32[] calldata validatorContainer,
         BeaconChainProofs.ValidatorContainerProof calldata proof
@@ -197,7 +197,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         _capsuleValidatorsByIndex[proof.validatorIndex] = validatorPubkeyHash;
     }
 
-    /// @inheritdoc IExoCapsule
+    /// @inheritdoc IImuaCapsule
     function verifyWithdrawalProof(
         bytes32[] calldata validatorContainer,
         BeaconChainProofs.ValidatorContainerProof calldata validatorProof,
@@ -234,7 +234,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         uint64 withdrawalAmountGwei = withdrawalContainer.getAmount();
 
         if (partialWithdrawal) {
-            // Immediately send ETH without sending request to Exocore side
+            // Immediately send ETH without sending request to Imuachain side
             emit PartialWithdrawalRedeemed(validatorPubkeyHash, withdrawalEpoch, capsuleOwner, withdrawalAmountGwei);
             _sendETH(capsuleOwner, withdrawalAmountGwei * GWEI_TO_WEI);
         } else {
@@ -252,10 +252,10 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         }
     }
 
-    /// @inheritdoc IExoCapsule
+    /// @inheritdoc IImuaCapsule
     function withdraw(uint256 amount, address payable recipient) external onlyGateway {
-        require(recipient != address(0), "ExoCapsule: recipient address cannot be zero or empty");
-        require(amount > 0 && amount <= withdrawableBalance, "ExoCapsule: invalid withdrawal amount");
+        require(recipient != address(0), "ImuaCapsule: recipient address cannot be zero or empty");
+        require(amount > 0 && amount <= withdrawableBalance, "ImuaCapsule: invalid withdrawal amount");
 
         withdrawableBalance -= amount;
         _sendETH(recipient, amount);
@@ -274,23 +274,23 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     {
         require(
             amountToWithdraw <= nonBeaconChainETHBalance,
-            "ExoCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"
+            "ImuaCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"
         );
-        require(recipient != address(0), "ExoCapsule: recipient address cannot be zero or empty");
+        require(recipient != address(0), "ImuaCapsule: recipient address cannot be zero or empty");
 
         nonBeaconChainETHBalance -= amountToWithdraw;
         _sendETH(recipient, amountToWithdraw);
         emit NonBeaconChainETHWithdrawn(recipient, amountToWithdraw);
     }
 
-    /// @inheritdoc IExoCapsule
+    /// @inheritdoc IImuaCapsule
     function unlockETHPrincipal(uint256 unlockPrincipalAmount) external onlyGateway {
         withdrawableBalance += unlockPrincipalAmount;
 
         emit ETHPrincipalUnlocked(capsuleOwner, unlockPrincipalAmount);
     }
 
-    /// @inheritdoc IExoCapsule
+    /// @inheritdoc IImuaCapsule
     function capsuleWithdrawalCredentials() public view returns (bytes memory) {
         /**
          * The withdrawal_credentials field must be such that:
@@ -316,7 +316,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     /// @notice Gets the registered validator by pubkeyHash.
     /// @dev The validator status must be registered. Reverts if not.
     /// @param pubkeyHash The validator's BLS12-381 public key hash.
-    /// @return The validator object, as defined in the `ExoCapsuleStorage`.
+    /// @return The validator object, as defined in the `ImuaCapsuleStorage`.
     function getRegisteredValidatorByPubkey(bytes32 pubkeyHash) public view returns (Validator memory) {
         Validator memory validator = _capsuleValidators[pubkeyHash];
         if (validator.status == VALIDATOR_STATUS.UNREGISTERED) {
@@ -329,7 +329,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     /// @notice Gets the registered validator by index.
     /// @dev The validator status must be registered.
     /// @param index The index of the validator.
-    /// @return The validator object, as defined in the `ExoCapsuleStorage`.
+    /// @return The validator object, as defined in the `ImuaCapsuleStorage`.
     function getRegisteredValidatorByIndex(uint256 index) public view returns (Validator memory) {
         Validator memory validator = _capsuleValidators[_capsuleValidatorsByIndex[index]];
         if (validator.status == VALIDATOR_STATUS.UNREGISTERED) {

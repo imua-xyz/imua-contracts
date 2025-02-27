@@ -1,6 +1,6 @@
 pragma solidity ^0.8.19;
 
-import {IExocoreGateway} from "src/interfaces/IExocoreGateway.sol";
+import {IImuachainGateway} from "src/interfaces/IImuachainGateway.sol";
 import {Action} from "src/storage/GatewayStorage.sol";
 
 import {IAssets} from "src/interfaces/precompiles/IAssets.sol";
@@ -15,7 +15,7 @@ import {
     OAppUpgradeable,
     Origin
 } from "src/lzApp/OAppUpgradeable.sol";
-import {ExocoreGatewayStorage} from "src/storage/ExocoreGatewayStorage.sol";
+import {ImuachainGatewayStorage} from "src/storage/ImuachainGatewayStorage.sol";
 
 import {IOAppCore} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/interfaces/IOAppCore.sol";
 import {OptionsBuilder} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
@@ -27,13 +27,13 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/se
 import {Errors} from "src/libraries/Errors.sol";
 import {OAppCoreUpgradeable} from "src/lzApp/OAppCoreUpgradeable.sol";
 
-contract ExocoreGatewayMock is
+contract ImuachainGatewayMock is
     Initializable,
     PausableUpgradeable,
     OwnableUpgradeable,
     ReentrancyGuardUpgradeable,
-    IExocoreGateway,
-    ExocoreGatewayStorage,
+    IImuachainGateway,
+    ImuachainGatewayStorage,
     OAppUpgradeable
 {
 
@@ -50,7 +50,7 @@ contract ExocoreGatewayMock is
     modifier onlyCalledFromThis() {
         require(
             msg.sender == address(this),
-            "ExocoreGateway: can only be called from this contract itself with a low-level call"
+            "ImuachainGateway: can only be called from this contract itself with a low-level call"
         );
         _;
     }
@@ -79,7 +79,7 @@ contract ExocoreGatewayMock is
 
     receive() external payable {}
 
-    /// @notice Initializes the ExocoreGateway contract.
+    /// @notice Initializes the ImuachainGateway contract.
     /// @param owner_ The address of the contract owner.
     function initialize(address owner_) external initializer {
         if (owner_ == address(0)) {
@@ -134,7 +134,7 @@ contract ExocoreGatewayMock is
         emit BootstrapRequestSent(chainIndex);
     }
 
-    /// @inheritdoc IExocoreGateway
+    /// @inheritdoc IImuachainGateway
     function registerOrUpdateClientChain(
         uint32 clientChainId,
         bytes32 peer,
@@ -180,7 +180,7 @@ contract ExocoreGatewayMock is
         super.setPeer(clientChainId, clientChainGateway);
     }
 
-    /// @inheritdoc IExocoreGateway
+    /// @inheritdoc IImuachainGateway
     /// @notice Tokens can only be normal reward-bearing LST tokens like wstETH, rETH, jitoSol...
     /// And they are not intended to be: 1) rebasing tokens like stETH, since we assume staker's
     /// balance would not change if nothing is done after deposit, 2) fee-on-transfer tokens, since we
@@ -197,11 +197,21 @@ contract ExocoreGatewayMock is
         string calldata oracleInfo,
         uint128 tvlLimit
     ) external payable onlyOwner whenNotPaused nonReentrant {
-        require(clientChainId != 0, "ExocoreGateway: client chain id cannot be zero");
-        require(token != bytes32(0), "ExocoreGateway: token cannot be zero address");
-        require(bytes(name).length != 0, "ExocoreGateway: name cannot be empty");
-        require(bytes(metaData).length != 0, "ExocoreGateway: meta data cannot be empty");
-        require(bytes(oracleInfo).length != 0, "ExocoreGateway: oracleInfo cannot be empty");
+        if (clientChainId == 0) {
+            revert Errors.ZeroValue();
+        }
+        if (token == bytes32(0)) {
+            revert Errors.ZeroAddress();
+        }
+        if (bytes(name).length == 0) {
+            revert Errors.ZeroValue();
+        }
+        if (bytes(metaData).length == 0) {
+            revert Errors.ZeroValue();
+        }
+        if (bytes(oracleInfo).length == 0) {
+            revert Errors.ZeroValue();
+        }
         // setting a TVL limit of 0 is permitted to simply add an inactive token, which may
         // be activated later by updating the TVL limit on the client chain
 
@@ -223,16 +233,22 @@ contract ExocoreGatewayMock is
         }
     }
 
-    /// @inheritdoc IExocoreGateway
+    /// @inheritdoc IImuachainGateway
     function updateWhitelistToken(uint32 clientChainId, bytes32 token, string calldata metaData)
         external
         onlyOwner
         whenNotPaused
         nonReentrant
     {
-        require(clientChainId != 0, "ExocoreGateway: client chain id cannot be zero");
-        require(token != bytes32(0), "ExocoreGateway: token cannot be zero address");
-        require(bytes(metaData).length != 0, "ExocoreGateway: meta data cannot be empty");
+        if (clientChainId == 0) {
+            revert Errors.ZeroValue();
+        }
+        if (token == bytes32(0)) {
+            revert Errors.ZeroAddress();
+        }
+        if (bytes(metaData).length == 0) {
+            revert Errors.ZeroValue();
+        }
         bool success = ASSETS_CONTRACT.updateToken(clientChainId, abi.encodePacked(token), metaData);
         if (success) {
             emit WhitelistTokenUpdated(clientChainId, token);
@@ -242,10 +258,10 @@ contract ExocoreGatewayMock is
     }
 
     /**
-     * @notice Associate an Exocore operator with an EVM staker(msg.sender),  and this would count staker's delegation
+     * @notice Associate an Imuachain operator with an EVM staker(msg.sender),  and this would count staker's delegation
      * as operator's self-delegation when staker delegates to operator.
      * @param clientChainId The id of client chain
-     * @param operator The Exocore operator address
+     * @param operator The Imuachain operator address
      * @dev one staker(chainId+stakerAddress) can only associate one operator, while one operator might be associated
      * with multiple stakers
      */
@@ -262,7 +278,7 @@ contract ExocoreGatewayMock is
     }
 
     /**
-     * @notice Dissociate an Exocore operator from an EVM staker(msg.sender),  and this requires that the staker has
+     * @notice Dissociate an Imuachain operator from an EVM staker(msg.sender),  and this requires that the staker has
      * already been associated to operator.
      * @param clientChainId The id of client chain
      */
@@ -282,10 +298,10 @@ contract ExocoreGatewayMock is
     function _validateClientChainIdRegistered(uint32 clientChainId) internal view {
         (bool success, bool isRegistered) = ASSETS_CONTRACT.isRegisteredClientChain(clientChainId);
         if (!success) {
-            revert Errors.ExocoreGatewayFailedToCheckClientChainId();
+            revert Errors.ImuachainGatewayFailedToCheckClientChainId();
         }
         if (!isRegistered) {
-            revert Errors.ExocoreGatewayNotRegisteredClientChainId();
+            revert Errors.ImuachainGatewayNotRegisteredClientChainId();
         }
     }
 
@@ -305,7 +321,7 @@ contract ExocoreGatewayMock is
         (bool success, bool updated) =
             ASSETS_CONTRACT.registerOrUpdateClientChain(clientChainId, addressLength, name, metaInfo, signatureType);
         if (!success) {
-            revert Errors.RegisterClientChainToExocoreFailed(clientChainId);
+            revert Errors.RegisterClientChainToImuachainFailed(clientChainId);
         }
         return updated;
     }
@@ -508,8 +524,7 @@ contract ExocoreGatewayMock is
 
         bool isAssociate = act == Action.REQUEST_ASSOCIATE_OPERATOR;
         if (isAssociate) {
-            bytes calldata operator = payload[32:74];
-
+            bytes calldata operator = payload[32:];
             success = DELEGATION_CONTRACT.associateOperatorWithStaker(srcChainId, staker, operator);
         } else {
             success = DELEGATION_CONTRACT.dissociateOperatorFromStaker(srcChainId, staker);
@@ -538,7 +553,7 @@ contract ExocoreGatewayMock is
         emit MessageSent(act, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 
-    /// @inheritdoc IExocoreGateway
+    /// @inheritdoc IImuachainGateway
     function quote(uint32 srcChainId, bytes calldata _message) public view returns (uint256 nativeFee) {
         Action act = Action(uint8(_message[0]));
         bytes memory options = _buildOptions(srcChainId, act);

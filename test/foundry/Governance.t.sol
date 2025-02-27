@@ -23,14 +23,14 @@ import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "src/core/ClientChainGateway.sol";
 import "src/storage/ClientChainGatewayStorage.sol";
 
-import "src/core/ExoCapsule.sol";
+import "src/core/ImuaCapsule.sol";
 
 import {RewardVault} from "src/core/RewardVault.sol";
 import {Vault} from "src/core/Vault.sol";
 import {IRewardVault} from "src/interfaces/IRewardVault.sol";
 
 import {NonShortCircuitEndpointV2Mock} from "../mocks/NonShortCircuitEndpointV2Mock.sol";
-import "src/interfaces/IExoCapsule.sol";
+import "src/interfaces/IImuaCapsule.sol";
 import "src/interfaces/IVault.sol";
 
 import "src/utils/BeaconProxyBytecode.sol";
@@ -68,13 +68,13 @@ contract GovernanceTest is Test {
     IBeaconChainOracle beaconOracle;
     IVault vaultImplementation;
     IRewardVault rewardVaultImplementation;
-    IExoCapsule capsuleImplementation;
+    IImuaCapsule capsuleImplementation;
     IBeacon vaultBeacon;
     IBeacon rewardVaultBeacon;
     IBeacon capsuleBeacon;
     BeaconProxyBytecode beaconProxyBytecode;
 
-    uint32 exocoreChainId = 2;
+    uint32 imuachainChainId = 2;
     uint32 clientChainId = 1;
 
     uint256 holeskyFork;
@@ -140,7 +140,7 @@ contract GovernanceTest is Test {
 
         vaultImplementation = new Vault();
         rewardVaultImplementation = new RewardVault();
-        capsuleImplementation = new ExoCapsule(address(0));
+        capsuleImplementation = new ImuaCapsule(address(0));
 
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
         rewardVaultBeacon = new UpgradeableBeacon(address(rewardVaultImplementation));
@@ -155,10 +155,10 @@ contract GovernanceTest is Test {
 
         // Create ImmutableConfig struct
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            exocoreChainId: exocoreChainId,
+            imuachainChainId: imuachainChainId,
             beaconOracleAddress: address(beaconOracle),
             vaultBeacon: address(vaultBeacon),
-            exoCapsuleBeacon: address(capsuleBeacon),
+            imuaCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode),
             networkConfig: address(0)
         });

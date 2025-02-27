@@ -2,21 +2,21 @@
 
 ## Overview
 
-Exocore Client chain smart contracts refer to a set of smart contracts that are deployed on multiple chains (EVM-compatible chains for current version), and provided for Exocore users (mainly stakers) to interact with Exocore system from specific client chains. The administrative functionalities of these contracts are via their owner, which ideally should be a multi-sig.
+Imua client chain smart contracts refer to a set of smart contracts that are deployed on multiple chains (EVM-compatible chains for current version), and provided for Imua users (mainly stakers) to interact with Imua system from specific client chains. The administrative functionalities of these contracts are via their owner, which ideally should be a multi-sig.
 
 The two main functionalities of client chain smart contracts include:
 
-1. Take user funds into custody when users ask to enter Exocore system, update user balance periodically and deal with withdrawal request of user based on withdrawable balance.
-2. Forward user request from client chain side to Exocore, as well as receive response from Exocore to update state or execute some operations.
+1. Take user funds into custody when users ask to enter Imua system, update user balance periodically and deal with withdrawal request of user based on withdrawable balance.
+2. Forward user request from client chain side to Imuachain, as well as receive response from Imuachain to update state or execute some operations.
 
-We have these components included in Exocore client chain smart contracts architecture:
+We have these components included in Imua client chain smart contracts architecture:
 
-1. `Bootstrap`: The contract is used for bootstraping the Exocore system, including accepting registration of validators and delegations from client chain stakers, and generate the valid genesis that could be used to bootstrap the Exocore chain.
-2. `ClientChainGateway`: This is the entry point where client chain users make requests to the Exocore validator set, as well as the endpoint that receives cross-chain messages from the Exocore validator set.
-3. `Vault`: This is where user funds are taken into custody and managed. Within `Vault`, user balance is updated periodically by Exocore validator set through cross-chain message to reveal user’s real position (after slashing, rewarding and other impact). Users can withdraw from `Vault` based on grant from the gateway. Every specific asset should have a standalone `Vault`.
+1. `Bootstrap`: The contract is used for bootstraping the Imua system, including accepting registration of validators and delegations from client chain stakers, and generate the valid genesis that could be used to bootstrap Imuachain.
+2. `ClientChainGateway`: This is the entry point where client chain users make requests to Imuachain, as well as the endpoint that receives cross-chain messages from Imuachain.
+3. `Vault`: This is where user funds are taken into custody and managed. Within `Vault`, user balance is updated on-demand by Imuachain validator set through cross-chain message to reveal user’s real position (after slashing, rewarding and other impact). Users can withdraw from `Vault` based on grant from the gateway. Every specific asset should have a standalone `Vault`.
 4. `LSTRestakingController`: The controller is responsible for managing multiple `Vault`s. It should be the entry point for operations on `Vault`, as well as the entry point for user’s interactions with the gateway. It is inherited / implemented by the `Gateway`.
-5. `ExoCapsule`: The contract is used as the withdrawal destination for Ethereum native restaking. The Ethereum stakers who want to restake their staked ETH into Exocore should create an owned `ExoCapsule` contract through `NativeRestakingController` and point the withdrawal credentials of beacon chain validator to the `ExoCapsule` contract.
-6. `NativeRestakingController`: The controller is responsible for managing multiple `ExoCapsule`s. It provide functions for Ethereum native restaking, so that Ethereum beacon chain stakers could deposit their staked ETH into Exocore without relying on any derived LST. It is inherited / implemented by the `ClientChainGateway` on Ethereum.
+5. `ImuaCapsule`: The contract is used as the withdrawal destination for Ethereum native restaking. The Ethereum stakers who want to restake their staked ETH into Imua should create an owned `ImuaCapsule` contract through `NativeRestakingController` and point the withdrawal credentials of beacon chain validator to the `ImuaCapsule` contract.
+6. `NativeRestakingController`: The controller is responsible for managing multiple `ImuaCapsule` instances. It provide functions for Ethereum native restaking, so that Ethereum beacon chain stakers could deposit their staked ETH into Imua without relying on any derived LST. It is inherited / implemented by the `ClientChainGateway` on Ethereum.
 
 ## Upgrade
 
@@ -106,35 +106,35 @@ For more details please refer to these docs:
 
 Similar to LayerZero `endpoint`, `ClientChainGateway` is mainly responsible for sending cross-chain messages and receiving cross-chain messages. The validity of cross-chain messages are guaranteed by LayerZero oracle and relayer if integrated with LayerZero protocol, otherwise `Gateway` itself should validate the cross-chain messages.
 
-Eventually, the Exocore validator set should be the owner of `ClientChainGateway` so that it can update some state variables or even upgrade it in the future. In the early stages, a more controlled way to upgrade is needed, for example, a multi-sig.
+Eventually, the governance system of Imuachain should be the owner of `ClientChainGateway` so that it can update some state variables or even upgrade it in the future. In the early stages, a more controlled way to upgrade is needed, for example, a multi-sig.
 
 We have made `ClientChainGateway` contract upgradeable so that the state can be retained while adding or removing some features in the future.
 
 ```solidity
 contract BaseRestakingController {
-    /// @dev Sends a message to Exocore.
+    /// @dev Sends a message to Imuachain.
     /// @param action The action to be performed.
     /// @param actionArgs The encodePacked arguments for the action.
-    function _sendMsgToExocore(Action action, bytes memory actionArgs);
+    function _sendMsgToImuachain(Action action, bytes memory actionArgs);
 
     /// @inheritdoc OAppReceiverUpgradeable
     function _lzReceive(Origin calldata _origin, bytes calldata payload);
 }
 ```
 
-### `_sendMsgToExocore`
+### `_sendMsgToImuachain`
 
-This internal function is used to send a message, over LayerZero, from the client chain to the Exocore chain. It encodes the action to perform, along with its payload, and forwards the packed data. The fees for this cross-chain message is provided by the calling address.
+This internal function is used to send a message, over LayerZero, from the client chain to Imuachain. It encodes the action to perform, along with its payload, and forwards the packed data. The fees for this cross-chain message is provided by the calling address.
 
 ### `_lzReceive`
 
-This internal function is called via LayerZero upon the receipt of a cross-chain message. In the context of the `ClientChainGateway`, it is used to handle the response provided by the Exocore chain against an outgoing message. For example, if a withdrawal request is initiated by a user, and sent by the `ClientChainGateway` to Exocore, a response is received indicating whether the withdrawal is valid. Based on this validity, `ClientChainGateway` marks the funds available for the user to claim.
+This internal function is called via LayerZero upon the receipt of a cross-chain message. In the context of the `ClientChainGateway`, it is used to handle the response provided by Imuachain against an outgoing message. For example, if a withdrawal request is initiated by a user, and sent by the `ClientChainGateway` to Imuachain, a response is received indicating whether the withdrawal is valid. Based on this validity, `ClientChainGateway` marks the funds available for the user to claim.
 
 ## `Vault`
 
-Every whitelisted native token on the client chain for Exocore has a standalone `Vault` used for user funds custody. Each `Vault` contract takes into custody the user's assets and stores them on their behalf. A user can enter the system by providing approval to the `Vault` contract and then depositing in it through the `ClientChainGateway`. Similarly, a user can exit the system by undelegating and withdrawing their assets and claiming them from the vault.
+Every whitelisted native token on the client chain has a standalone `Vault` used for user funds custody. Each `Vault` contract takes into custody the user's assets and stores them on their behalf. A user can enter the system by providing approval to the `Vault` contract and then depositing in it through the `ClientChainGateway`. Similarly, a user can exit the system by undelegating and withdrawing their assets and claiming them from the vault.
 
-The assets in a `Vault` include the principal deposited as well as any rewards that may have accrued to the staker and any reductions for slashing. While each `Vault` contract stores some data, Exocore is the single source of truth for the accurate withdrawable, deposited and staked balances.
+The assets in a `Vault` include the principal deposited as well as any rewards that may have accrued to the staker and any reductions for slashing. While each `Vault` contract stores some data, Imuachain is the single source of truth for the accurate withdrawable, deposited and staked balances.
 
 ```solidity
 interface IVault {
@@ -179,7 +179,7 @@ interface IVault {
 }
 ```
 
-`principalBalance` refers to the principal that the user deposits into the `ClientChainGateway`. It is separated from the rewards earned by the users, since such rewards could be distributed on the Exocore chain or on another client chain, while the user principal is taken in custody on this chain. Besides, we assume that the principal balance can only be influenced during slashing and that it is not transferable to any other address. In other words, the principal balance to be withdrawn can never be greater than the originally deposited principal balance.
+`principalBalance` refers to the principal that the user deposits into the `ClientChainGateway`. It is separated from the rewards earned by the users, since such rewards could be distributed on Imuachain or on another client chain, while the user principal is taken in custody on this chain. Besides, we assume that the principal balance can only be influenced during slashing and that it is not transferable to any other address. In other words, the principal balance to be withdrawn can never be greater than the originally deposited principal balance.
 
 ### `deposit`
 
@@ -187,17 +187,17 @@ The implementation of this function transfers user funds into `Vault` address an
 
 This function is only accessible for `ClientChainGateway` so that this function could only work as part of the process of the whole deposit workflow and ensure the whole workflow is controlled by `ClientChainGateway`.
 
-Whenever a `deposit` request is received by the `ClientChainGateway`, it first deposits the amount into the `Vault`. Then, it forwards the transaction to Exocore, where it is appropriately processed, in line with the `checks-effects-interactions` pattern.
+Whenever a `deposit` request is received by the `ClientChainGateway`, it first deposits the amount into the `Vault`. Then, it forwards the transaction to Imuachain, where it is appropriately processed, in line with the `checks-effects-interactions` pattern.
 
 ### `withdraw`
 
-This function allows a user to claim their withdrawable assets. The quantity of the withdrawable assets is set by the `ClientChainGateway` in response to a withdrawal request, after receiving a response from Exocore.
+This function allows a user to claim their withdrawable assets. The quantity of the withdrawable assets is set by the `ClientChainGateway` in response to a withdrawal request, after receiving a response from Imuachain.
 
 ## `LSTRestakingController`
 
-`LSTRestakingController` is the manager of all `Vaults`, as well as the entry point where users call to interact with Exocore system.
+`LSTRestakingController` is the manager of all `Vaults`, as well as the entry point where users call to interact with Imua.
 
-Ideally, the Exocore validator set should own `LSTRestakingController` so that upgrades can be made trustlessly.
+Ideally, the Imuachain validator set, via governance, should own `LSTRestakingController` so that upgrades can be made trustlessly.
 
 ```solidity
 interface IBaseRestakingController {
@@ -216,7 +216,7 @@ interface IBaseRestakingController {
 
     /// @notice Client chain users call to withdraw their unlocked assets from the vault.
     /// @dev This function assumes that the withdrawable assets should have been unlocked before calling this.
-    /// @dev This function does not interact with Exocore.
+    /// @dev This function does not interact with Imuachain.
     /// @param token The address of specific token that the user wants to claim from the vault.
     /// @param amount The amount of @param token that the user wants to claim from the vault.
     /// @param recipient The destination address that the assets would be transfered to.
@@ -227,10 +227,10 @@ interface IBaseRestakingController {
     /// @param rewardAmount The amount of reward tokens that the user wants to submit.
     function submitReward(address token, address avs, uint256 rewardAmount) external payable;
 
-    /// @notice Claims reward tokens from Exocore.
+    /// @notice Claims reward tokens from Imuachain.
     /// @param token The address of the specific token that the user wants to claim as a reward.
     /// @param rewardAmount The amount of reward tokens that the user wants to claim.
-    function claimRewardFromExocore(address token, uint256 rewardAmount) external payable;
+    function claimRewardFromImuachain(address token, uint256 rewardAmount) external payable;
 
     /// @notice Withdraws reward tokens from vault to the recipient.
     /// @param token The address of the specific token that the user wants to withdraw as a reward.
@@ -245,28 +245,28 @@ interface IBaseRestakingController {
 
 See [`deposit`](#deposit).
 
-Once the assets have been deposited into the `Vault`, the `ClientChainGateway` sends a cross-chain message to Exocore, which is obviously asynchronous. Upon receiving the message, Exocore will consider the deposit, and must respond that the message succeeded. This is because our design requires that deposits can never fail.
+Once the assets have been deposited into the `Vault`, the `ClientChainGateway` sends a cross-chain message to Imuachain, which is obviously asynchronous. Upon receiving the message, Imuachain will consider the deposit, and must respond that the message succeeded. This is because our design requires that deposits can never fail.
 
 ### `delegateTo`
 
 This function controls the delegation workflow originating from the client chain. It requires that the caller has previously deposited enough tokens into the system, failing which, the transaction will fail.
 
-The delegation workflow involves only one transaction from the user: call `ClientChainGateway.sendInterchainMsg` to send delegate request to Exocore chain. And there is no response from Exocore, since the event emitted by `ExocoreGateway` to tell whether the delegation is successful or not.
+The delegation workflow involves only one transaction from the user: call `ClientChainGateway.sendInterchainMsg` to send delegate request to Imuachain. And there is no response from Imuachain, since the event emitted by `ImuachainGateway` to tell whether the delegation is successful or not.
 
 Since the `ClientChainGateway` by itself does not store enough information to check whether a delegation will be successful, this method must not make any state alterations to the balance.
 
 ### `undelegateFrom`
 
-This function is the reverse of [`delegatTo`](#delegateto), except that it requires an unbonding period before the undelegation is released for withdrawal. The unbonding period is determined by Exocore based on all the AVSs in which the operator was participating at the time of undelegation.
+This function is the reverse of [`delegateTo`](#delegateto), except that it requires an unbonding period before the undelegation is released for withdrawal. The unbonding period is determined by Imuachain based on all the AVSs in which the operator was participating at the time of undelegation.
 
-### `claimPrincipalFromExocore`
+### `claimPrincipalFromImuachain`
 
-This function is aimed for user claiming principal from Exocore chain to client chain. This involves the correct accounting on Exocore chain as well as the correct update of user's `principalBalance` and claimable balance. If this process is successful, user should be able to withdraw the corresponding assets on client chain to destination address.
+This function is aimed for user claiming principal from Imuachain to client chain. This involves the correct accounting on Imuachain as well as the correct update of user's `principalBalance` and claimable balance. If this process is successful, user should be able to withdraw the corresponding assets on client chain to destination address.
 
 The principal withdrawal workflow is separated into two transactions:
 
-1. Transaction from the user: call `ClientChainGateway.sendInterchainMsg` to send principal withdrawal request to Exocore chain.
-2. Response from Exocore: call `ClientChainGateway.receiveInterchainMsg` to receive the response from Exocore chain, and call `unlockPrincipal` to update user's `principalBalance` and claimable balance. If response indicates failure, no user balance should be modified.
+1. Transaction from the user: call `ClientChainGateway.sendInterchainMsg` to send principal withdrawal request to Imuachain.
+2. Response from Imuachain: call `ClientChainGateway.receiveInterchainMsg` to receive the response from Imuachain, and call `unlockPrincipal` to update user's `principalBalance` and claimable balance. If response indicates failure, no user balance should be modified.
 
 The claimable amount of principal is defined as follows:
 
@@ -276,7 +276,7 @@ The claimable amount of principal is defined as follows:
 
 ### `withdrawPrincipal`
 
-This function is aimed for user withdrawing the unlocked amount of principal. Before withdrawing, user must make sure that there is enough principal unlocked by calling `claimPrincipalFromExocore`. The implementation of this function should check against user's claimable balance and transfer tokens to the destination address that the user specified.
+This function is aimed for user withdrawing the unlocked amount of principal. Before withdrawing, user must make sure that there is enough principal unlocked by calling `claimPrincipalFromImuachain`. The implementation of this function should check against user's claimable balance and transfer tokens to the destination address that the user specified.
 
 ### `depositThenDelegateTo`
 

@@ -23,11 +23,11 @@ enum Action {
 
 /// @title GatewayStorage
 /// @notice Storage used by both ends of the gateway contract.
-/// @dev This contract is used as the base storage and is inherited by the storage for Bootstrap and ExocoreGateway.
+/// @dev This contract is used as the base storage and is inherited by the storage for Bootstrap and ImuachainGateway.
 contract GatewayStorage {
 
-    /// @notice the human readable prefix for Exocore bech32 encoded address.
-    bytes public constant EXO_ADDRESS_PREFIX = bytes("exo1");
+    /// @notice the human readable prefix for Imuachain bech32 encoded address.
+    bytes public constant IMUA_ADDRESS_PREFIX = bytes("im1");
 
     /// @dev Mapping of actions to their corresponding function selectors.
     mapping(Action => bytes4) internal _whiteListFunctionSelectors;
@@ -50,25 +50,25 @@ contract GatewayStorage {
     /// @param nonce The nonce associated with the message.
     event MessageExecuted(Action indexed act, uint64 nonce);
 
-    /// @notice Ensures the provided address is a valid exo Bech32 encoded address.
+    /// @notice Ensures the provided address is a valid im Bech32 encoded address.
     /// @param addressToValidate The address to check.
     modifier isValidBech32Address(string calldata addressToValidate) {
-        require(isValidExocoreAddress(addressToValidate), "BootstrapStorage: invalid bech32 encoded Exocore address");
+        require(isValidImAddress(addressToValidate), "BootstrapStorage: invalid bech32 encoded Imuachain address");
         _;
     }
 
-    /// @notice Checks if the provided string is a valid Exocore address.
+    /// @notice Checks if the provided string is a valid Imuachain account address.
     /// @param addressToValidate The string to check.
     /// @return True if the string is valid, false otherwise.
     /// @dev Since implementation of bech32 is difficult in Solidity, this function only
-    /// checks that the address is 42 characters long and starts with "exo1".
-    function isValidExocoreAddress(string calldata addressToValidate) public pure returns (bool) {
+    /// checks that the address is 41 characters long and starts with "im1".
+    function isValidImAddress(string calldata addressToValidate) public pure returns (bool) {
         bytes memory stringBytes = bytes(addressToValidate);
-        if (stringBytes.length != 42) {
+        if (stringBytes.length != 41) {
             return false;
         }
-        for (uint256 i = 0; i < EXO_ADDRESS_PREFIX.length; ++i) {
-            if (stringBytes[i] != EXO_ADDRESS_PREFIX[i]) {
+        for (uint256 i = 0; i < IMUA_ADDRESS_PREFIX.length; ++i) {
+            if (stringBytes[i] != IMUA_ADDRESS_PREFIX[i]) {
                 return false;
             }
         }

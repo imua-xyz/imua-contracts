@@ -1,8 +1,0 @@
-{
-  "exocore": {
-    "exocoreGateway": "0xbf5497Deb7C409623Ad58D798E73a865a80873DD",
-    "exocoreGatewayLogic": "0xdd359906110Ae307eeCdE5d1179ab59461152348",
-    "exocoreProxyAdmin": "0xbf75076c383a8dede075faa250de4abdb6a15d76",
-    "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f"
-  }
-}

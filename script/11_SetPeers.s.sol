@@ -1,7 +1,7 @@
 pragma solidity ^0.8.19;
 
 import {Bootstrap} from "../src/core/Bootstrap.sol";
-import {ExocoreGateway} from "../src/core/ExocoreGateway.sol";
+import {ImuachainGateway} from "../src/core/ImuachainGateway.sol";
 import {Action, GatewayStorage} from "../src/storage/GatewayStorage.sol";
 
 import {BaseScript} from "./BaseScript.sol";
@@ -14,7 +14,7 @@ contract SetPeersAndUpgrade is BaseScript {
     using AddressCast for address;
 
     address bootstrapAddr;
-    address exocoreGatewayAddr;
+    address imuachainGatewayAddr;
 
     function setUp() public virtual override {
         // load keys
@@ -23,36 +23,36 @@ contract SetPeersAndUpgrade is BaseScript {
         string memory deployed = vm.readFile("script/deployments/deployedBootstrapOnly.json");
         bootstrapAddr = stdJson.readAddress(deployed, ".clientChain.bootstrap");
         require(address(bootstrapAddr) != address(0), "bootstrap address should not be empty");
-        deployed = vm.readFile("script/deployedExocoreGatewayOnly.json");
-        exocoreGatewayAddr = stdJson.readAddress(deployed, ".exocore.exocoreGateway");
-        require(address(exocoreGatewayAddr) != address(0), "exocore gateway address should not be empty");
+        deployed = vm.readFile("script/deployments/deployedImuachainGatewayOnly.json");
+        imuachainGatewayAddr = stdJson.readAddress(deployed, ".imuachain.imuachainGateway");
+        require(address(imuachainGatewayAddr) != address(0), "imuachain gateway address should not be empty");
         // forks
-        exocore = vm.createSelectFork(exocoreRPCURL);
+        imuachain = vm.createSelectFork(imuachainRPCURL);
         clientChain = vm.createSelectFork(clientChainRPCURL);
     }
 
     function run() public {
-        ExocoreGateway gateway = ExocoreGateway(payable(exocoreGatewayAddr));
+        ImuachainGateway gateway = ImuachainGateway(payable(imuachainGatewayAddr));
 
-        vm.selectFork(exocore);
-        if (!useExocorePrecompileMock) {
+        vm.selectFork(imuachain);
+        if (!useImuachainPrecompileMock) {
             _bindPrecompileMocks();
         }
-        vm.startBroadcast(exocoreValidatorSet.privateKey);
+        vm.startBroadcast(owner.privateKey);
         gateway.setPeer(clientChainId, bootstrapAddr.toBytes32());
         vm.stopBroadcast();
 
         Bootstrap bootstrap = Bootstrap(payable(bootstrapAddr));
 
         vm.selectFork(clientChain);
-        vm.startBroadcast(exocoreValidatorSet.privateKey);
-        bootstrap.setPeer(exocoreChainId, address(exocoreGatewayAddr).toBytes32());
+        vm.startBroadcast(owner.privateKey);
+        bootstrap.setPeer(imuachainChainId, address(imuachainGatewayAddr).toBytes32());
         vm.stopBroadcast();
 
-        vm.selectFork(exocore);
-        vm.startBroadcast(exocoreValidatorSet.privateKey);
-        uint256 nativeFee = exocoreGateway.quote(clientChainId, abi.encodePacked(Action.REQUEST_MARK_BOOTSTRAP, ""));
-        exocoreGateway.markBootstrap{value: nativeFee}(clientChainId);
+        vm.selectFork(imuachain);
+        vm.startBroadcast(owner.privateKey);
+        uint256 nativeFee = imuachainGateway.quote(clientChainId, abi.encodePacked(Action.REQUEST_MARK_BOOTSTRAP, ""));
+        imuachainGateway.markBootstrap{value: nativeFee}(clientChainId);
     }
 
 }

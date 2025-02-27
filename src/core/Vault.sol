@@ -11,7 +11,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title Vault
-/// @author ExocoreNetwork
+/// @author imua-xyz
 /// @notice Implementation of IVault, used to store user tokens. Each Vault is unique to an
 /// underlying token and is controlled by a gateway.
 contract Vault is Initializable, VaultStorage, IVault {

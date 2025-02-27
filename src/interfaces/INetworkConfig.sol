@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 /// @title INetworkConfig
 /// @notice Interface for a network config contract to report params like slots per epoch and seconds per slot.
 /// @dev This interface defines the necessary functions for interacting with the NetworkConfig contract.
-/// @author ExocoreNetwork
+/// @author imua-xyz
 interface INetworkConfig {
 
     /// @notice Returns the deposit contract address.

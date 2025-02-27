@@ -7,7 +7,7 @@ import {NetworkConstants} from "src/libraries/NetworkConstants.sol";
 import {IBeaconChainOracle} from "@beacon-oracle/contracts/src/IBeaconChainOracle.sol";
 
 /// @title BeaconOracle
-/// @author Succinct Labs and ExocoreNetwork
+/// @author Succinct Labs and imua-xyz
 contract BeaconOracle is IBeaconChainOracle {
 
     /// @notice The address of the beacon roots precompile.

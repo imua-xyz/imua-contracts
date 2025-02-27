@@ -6,7 +6,7 @@ import {NetworkParams} from "../interfaces/INetworkConfig.sol";
 
 /// @title NetworkConstants
 /// @notice This library provides constants for known Ethereum PoS networks.
-/// @author ExocoreNetwork
+/// @author imua-xyz
 /// @dev It does not have `is INetworkConfig` since libraries cannot do that.
 /// @dev It is a library because we do not expect the parameters to change at all.
 library NetworkConstants {

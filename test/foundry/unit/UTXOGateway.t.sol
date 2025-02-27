@@ -9,7 +9,7 @@ import "src/interfaces/precompiles/IDelegation.sol";
 import "src/interfaces/precompiles/IReward.sol";
 import {Errors} from "src/libraries/Errors.sol";
 
-import {ExocoreBytes} from "src/libraries/ExocoreBytes.sol";
+import {ImuachainBytes} from "src/libraries/ImuachainBytes.sol";
 import {SignatureVerifier} from "src/libraries/SignatureVerifier.sol";
 import {UTXOGatewayStorage} from "src/storage/UTXOGatewayStorage.sol";
 import "test/mocks/AssetsMock.sol";
@@ -22,7 +22,7 @@ contract UTXOGatewayTest is Test {
 
     using stdStorage for StdStorage;
     using SignatureVerifier for bytes32;
-    using ExocoreBytes for address;
+    using ImuachainBytes for address;
 
     struct Player {
         uint256 privateKey;
@@ -38,7 +38,7 @@ contract UTXOGatewayTest is Test {
     bytes btcAddress;
     string operator;
 
-    address public constant EXOCORE_WITNESS = address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
+    address public constant IMUACHAIN_WITNESS = address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
 
     // chain id from layerzero, virtual for bitcoin since it's not yet a layerzero chain
     string public constant BITCOIN_NAME = "Bitcoin";
@@ -61,12 +61,12 @@ contract UTXOGatewayTest is Test {
     event WitnessAdded(address indexed witness);
     event WitnessRemoved(address indexed witness);
     event AddressRegistered(
-        UTXOGatewayStorage.ClientChainID indexed chainId, bytes depositor, address indexed exocoreAddress
+        UTXOGatewayStorage.ClientChainID indexed chainId, bytes depositor, address indexed imuachainAddress
     );
     event DepositCompleted(
         UTXOGatewayStorage.ClientChainID indexed chainId,
         bytes32 indexed clientTxId,
-        address indexed exocoreAddress,
+        address indexed imuachainAddress,
         bytes srcAddress,
         uint256 amount,
         uint256 updatedBalance
@@ -76,7 +76,7 @@ contract UTXOGatewayTest is Test {
     );
     event UndelegationCompleted(
         UTXOGatewayStorage.ClientChainID indexed clientChainId,
-        address indexed exoDelegator,
+        address indexed imDelegator,
         string operator,
         uint256 amount
     );
@@ -89,14 +89,14 @@ contract UTXOGatewayTest is Test {
     event WhitelistTokenUpdated(UTXOGatewayStorage.ClientChainID indexed clientChainId, address indexed token);
     event DelegationFailedForStake(
         UTXOGatewayStorage.ClientChainID indexed clientChainId,
-        address indexed exoDelegator,
+        address indexed imDelegator,
         string operator,
         uint256 amount
     );
     event StakeMsgExecuted(
         UTXOGatewayStorage.ClientChainID indexed chainId,
         uint64 indexed nonce,
-        address indexed exocoreAddress,
+        address indexed imuachainAddress,
         uint256 amount
     );
     event TransactionProcessed(bytes32 indexed txId);
@@ -104,7 +104,7 @@ contract UTXOGatewayTest is Test {
     event WithdrawPrincipalRequested(
         UTXOGatewayStorage.ClientChainID indexed srcChainId,
         uint64 indexed requestId,
-        address indexed withdrawerExoAddr,
+        address indexed withdrawerImAddr,
         bytes withdrawerClientChainAddr,
         uint256 amount,
         uint256 updatedBalance
@@ -112,7 +112,7 @@ contract UTXOGatewayTest is Test {
     event WithdrawRewardRequested(
         UTXOGatewayStorage.ClientChainID indexed srcChainId,
         uint64 indexed requestId,
-        address indexed withdrawerExoAddr,
+        address indexed withdrawerImAddr,
         bytes withdrawerClientChainAddr,
         uint256 amount,
         uint256 updatedBalance
@@ -142,7 +142,7 @@ contract UTXOGatewayTest is Test {
         witnesses[2] = Player({privateKey: 0xc, addr: vm.addr(0xc)});
 
         btcAddress = bytes("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa");
-        operator = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+        operator = "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla";
 
         // Deploy and initialize gateway
         gatewayLogic = new UTXOGateway();
@@ -606,7 +606,7 @@ contract UTXOGatewayTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                Errors.RegisterClientChainToExocoreFailed.selector,
+                Errors.RegisterClientChainToImuachainFailed.selector,
                 uint32(uint8(UTXOGatewayStorage.ClientChainID.BITCOIN))
             )
         );
@@ -691,7 +691,7 @@ contract UTXOGatewayTest is Test {
             nonce: 1,
             clientTxId: bytes32(uint256(123)),
             clientAddress: btcAddress,
-            exocoreAddress: user,
+            imuachainAddress: user,
             operator: operator,
             amount: 1 ether
         });
@@ -726,7 +726,7 @@ contract UTXOGatewayTest is Test {
         signature = _generateSignature(stakeMsg, witnesses[2].privateKey);
         vm.prank(relayer);
         vm.expectEmit(true, false, false, false);
-        emit StakeMsgExecuted(stakeMsg.clientChainId, stakeMsg.nonce, stakeMsg.exocoreAddress, stakeMsg.amount);
+        emit StakeMsgExecuted(stakeMsg.clientChainId, stakeMsg.nonce, stakeMsg.imuachainAddress, stakeMsg.amount);
         vm.expectEmit(true, false, false, false);
         emit TransactionProcessed(txId);
         gateway.submitProofForStakeMsg(witnesses[2].addr, stakeMsg, signature);
@@ -747,7 +747,7 @@ contract UTXOGatewayTest is Test {
             nonce: 1,
             clientTxId: bytes32(uint256(123)),
             clientAddress: btcAddress,
-            exocoreAddress: user,
+            imuachainAddress: user,
             operator: operator,
             amount: 1 ether
         });
@@ -769,7 +769,7 @@ contract UTXOGatewayTest is Test {
             nonce: 1,
             clientTxId: bytes32(uint256(123)),
             clientAddress: btcAddress,
-            exocoreAddress: user,
+            imuachainAddress: user,
             operator: operator,
             amount: 1 ether
         });
@@ -790,7 +790,7 @@ contract UTXOGatewayTest is Test {
             nonce: 1,
             clientTxId: bytes32(uint256(123)),
             clientAddress: btcAddress,
-            exocoreAddress: user,
+            imuachainAddress: user,
             operator: operator,
             amount: 1 ether
         });
@@ -812,7 +812,7 @@ contract UTXOGatewayTest is Test {
             nonce: 1,
             clientTxId: bytes32(uint256(123)),
             clientAddress: btcAddress,
-            exocoreAddress: user,
+            imuachainAddress: user,
             operator: operator,
             amount: 1 ether
         });
@@ -848,7 +848,7 @@ contract UTXOGatewayTest is Test {
             nonce: 1,
             clientTxId: bytes32(uint256(123)),
             clientAddress: btcAddress,
-            exocoreAddress: user,
+            imuachainAddress: user,
             operator: operator,
             amount: 1 ether
         });
@@ -886,7 +886,7 @@ contract UTXOGatewayTest is Test {
             nonce: 1,
             clientTxId: bytes32(uint256(123)),
             clientAddress: btcAddress,
-            exocoreAddress: user,
+            imuachainAddress: user,
             operator: operator,
             amount: 1 ether
         });
@@ -929,7 +929,7 @@ contract UTXOGatewayTest is Test {
             nonce: 1,
             clientTxId: bytes32(uint256(123)),
             clientAddress: btcAddress,
-            exocoreAddress: user,
+            imuachainAddress: user,
             operator: operator,
             amount: 1 ether
         });
@@ -954,7 +954,7 @@ contract UTXOGatewayTest is Test {
             nonce: 1,
             clientTxId: bytes32(uint256(123)),
             clientAddress: btcAddress,
-            exocoreAddress: user,
+            imuachainAddress: user,
             operator: operator,
             amount: 1 ether
         });
@@ -974,7 +974,7 @@ contract UTXOGatewayTest is Test {
             nonce: 1,
             clientTxId: bytes32(uint256(123)),
             clientAddress: btcAddress,
-            exocoreAddress: user,
+            imuachainAddress: user,
             operator: "",
             amount: 1 ether
         });
@@ -1000,7 +1000,7 @@ contract UTXOGatewayTest is Test {
 
         // Verify address registration
         assertEq(gateway.getClientAddress(UTXOGatewayStorage.ClientChainID.BITCOIN, user), btcAddress);
-        assertEq(gateway.getExocoreAddress(UTXOGatewayStorage.ClientChainID.BITCOIN, btcAddress), user);
+        assertEq(gateway.getImuachainAddress(UTXOGatewayStorage.ClientChainID.BITCOIN, btcAddress), user);
     }
 
     function test_ProcessStakeMessage_WithBridgeFee() public {
@@ -1011,7 +1011,7 @@ contract UTXOGatewayTest is Test {
             nonce: 1,
             clientTxId: bytes32(uint256(123)),
             clientAddress: btcAddress,
-            exocoreAddress: user,
+            imuachainAddress: user,
             operator: operator,
             amount: 1 ether
         });
@@ -1059,7 +1059,7 @@ contract UTXOGatewayTest is Test {
             nonce: 1,
             clientTxId: bytes32(uint256(123)),
             clientAddress: btcAddress,
-            exocoreAddress: user,
+            imuachainAddress: user,
             operator: operator,
             amount: 1 ether
         });
@@ -1088,7 +1088,7 @@ contract UTXOGatewayTest is Test {
             nonce: 1,
             clientTxId: bytes32(uint256(123)),
             clientAddress: btcAddress,
-            exocoreAddress: user,
+            imuachainAddress: user,
             operator: operator,
             amount: 1 ether
         });
@@ -1132,7 +1132,7 @@ contract UTXOGatewayTest is Test {
             nonce: 1,
             clientTxId: bytes32(uint256(123)),
             clientAddress: btcAddress,
-            exocoreAddress: user,
+            imuachainAddress: user,
             operator: "",
             amount: 1 ether
         });
@@ -1157,7 +1157,7 @@ contract UTXOGatewayTest is Test {
             nonce: 1,
             clientTxId: bytes32(uint256(123)),
             clientAddress: btcAddress,
-            exocoreAddress: user,
+            imuachainAddress: user,
             operator: "",
             amount: 1 ether
         });
@@ -1180,7 +1180,7 @@ contract UTXOGatewayTest is Test {
             nonce: 1,
             clientTxId: bytes32(uint256(123)),
             clientAddress: btcAddress,
-            exocoreAddress: user,
+            imuachainAddress: user,
             operator: "",
             amount: 1 ether
         });
@@ -1202,7 +1202,7 @@ contract UTXOGatewayTest is Test {
             nonce: 0,
             clientTxId: bytes32(uint256(123)),
             clientAddress: bytes(""),
-            exocoreAddress: address(0),
+            imuachainAddress: address(0),
             operator: "",
             amount: 0
         });
@@ -1214,7 +1214,7 @@ contract UTXOGatewayTest is Test {
         gateway.processStakeMessage(witnesses[0].addr, stakeMsg, signature);
     }
 
-    function test_ProcessStakeMessage_RevertZeroExocoreAddressBeforeRegistration() public {
+    function test_ProcessStakeMessage_RevertZeroImuachainAddressBeforeRegistration() public {
         _deactivateConsensus();
 
         UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
@@ -1222,7 +1222,7 @@ contract UTXOGatewayTest is Test {
             nonce: 1,
             clientTxId: bytes32(uint256(123)),
             clientAddress: btcAddress,
-            exocoreAddress: address(0), // Zero address
+            imuachainAddress: address(0), // Zero address
             operator: "",
             amount: 1 ether
         });
@@ -1242,7 +1242,7 @@ contract UTXOGatewayTest is Test {
             nonce: gateway.nextInboundNonce(UTXOGatewayStorage.ClientChainID.BITCOIN) + 1,
             clientTxId: bytes32(uint256(123)),
             clientAddress: btcAddress,
-            exocoreAddress: user,
+            imuachainAddress: user,
             operator: "",
             amount: 1 ether
         });
@@ -1580,7 +1580,7 @@ contract UTXOGatewayTest is Test {
             IReward.claimReward.selector,
             uint32(uint8(UTXOGatewayStorage.ClientChainID.BITCOIN)),
             VIRTUAL_TOKEN,
-            user.toExocoreBytes(),
+            user.toImuachainBytes(),
             1 ether
         );
         vm.mockCall(REWARD_PRECOMPILE_ADDRESS, claimCall1, abi.encode(true, 2 ether));
@@ -1589,7 +1589,7 @@ contract UTXOGatewayTest is Test {
             IReward.claimReward.selector,
             uint32(uint8(UTXOGatewayStorage.ClientChainID.BITCOIN)),
             VIRTUAL_TOKEN,
-            user.toExocoreBytes(),
+            user.toImuachainBytes(),
             0.5 ether
         );
         vm.mockCall(REWARD_PRECOMPILE_ADDRESS, claimCall2, abi.encode(true, 1.5 ether));
@@ -1694,13 +1694,13 @@ contract UTXOGatewayTest is Test {
     }
 
     // Helper functions
-    function _mockRegisterAddress(address exocoreAddr, bytes memory btcAddr) internal {
+    function _mockRegisterAddress(address imuachainAddr, bytes memory btcAddr) internal {
         UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
             clientChainId: UTXOGatewayStorage.ClientChainID.BITCOIN,
             nonce: gateway.nextInboundNonce(UTXOGatewayStorage.ClientChainID.BITCOIN),
             clientTxId: bytes32(uint256(123)),
             clientAddress: btcAddr,
-            exocoreAddress: exocoreAddr,
+            imuachainAddress: imuachainAddr,
             operator: "",
             amount: 1 ether
         });
@@ -1718,14 +1718,14 @@ contract UTXOGatewayTest is Test {
         bytes memory signature = _generateSignature(stakeMsg, witnesses[0].privateKey);
 
         vm.expectEmit(true, true, true, true, address(gateway));
-        emit AddressRegistered(UTXOGatewayStorage.ClientChainID.BITCOIN, btcAddr, exocoreAddr);
+        emit AddressRegistered(UTXOGatewayStorage.ClientChainID.BITCOIN, btcAddr, imuachainAddr);
 
         vm.prank(relayer);
         gateway.processStakeMessage(witnesses[0].addr, stakeMsg, signature);
 
         // Verify address registration
-        assertEq(gateway.getClientAddress(UTXOGatewayStorage.ClientChainID.BITCOIN, exocoreAddr), btcAddr);
-        assertEq(gateway.getExocoreAddress(UTXOGatewayStorage.ClientChainID.BITCOIN, btcAddr), exocoreAddr);
+        assertEq(gateway.getClientAddress(UTXOGatewayStorage.ClientChainID.BITCOIN, imuachainAddr), btcAddr);
+        assertEq(gateway.getImuachainAddress(UTXOGatewayStorage.ClientChainID.BITCOIN, btcAddr), imuachainAddr);
     }
 
     function _addAllWitnesses() internal {
@@ -1746,7 +1746,7 @@ contract UTXOGatewayTest is Test {
                 msg_.nonce, // uint64
                 msg_.clientTxId, // bytes32
                 msg_.clientAddress, // bytes - Bitcoin address
-                msg_.exocoreAddress, // address
+                msg_.imuachainAddress, // address
                 msg_.operator, // string
                 msg_.amount // uint256
             )

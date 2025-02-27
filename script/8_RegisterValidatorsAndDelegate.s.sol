@@ -15,7 +15,7 @@ contract RegisterValidatorsAndDelegate is Script {
     uint256 primaryKey;
     // registration data for validators
     uint256[] validatorKeys;
-    string[] exoAddresses;
+    string[] imAddresses;
     string[] names;
     bytes32[] consKeys;
     // rpc settings
@@ -35,7 +35,7 @@ contract RegisterValidatorsAndDelegate is Script {
     function setUp() public {
         primaryKey = vm.envUint("TEST_ACCOUNT_THREE_PRIVATE_KEY");
         validatorKeys = vm.envUint("VALIDATOR_KEYS", ",");
-        exoAddresses = vm.envString("EXO_ADDRESSES", ",");
+        imAddresses = vm.envString("IM_ADDRESSES", ",");
         names = vm.envString("NAMES", ",");
         consKeys = vm.envBytes32("CONS_KEYS", ",");
 
@@ -43,7 +43,7 @@ contract RegisterValidatorsAndDelegate is Script {
         clientChain = vm.createSelectFork(clientChainRPCURL);
 
         require(
-            validatorKeys.length == exoAddresses.length && validatorKeys.length == names.length
+            validatorKeys.length == imAddresses.length && validatorKeys.length == names.length
                 && validatorKeys.length == consKeys.length,
             "Validator registration data length mismatch"
         );
@@ -65,12 +65,12 @@ contract RegisterValidatorsAndDelegate is Script {
             uint256 pk = validatorKeys[i];
             address addr = vm.addr(pk);
             console.log(i, addr);
-            string memory exoAddr = exoAddresses[i];
+            string memory imAddr = imAddresses[i];
             string memory name = names[i];
             bytes32 consKey = consKeys[i];
             vm.startBroadcast(pk);
             // register validator
-            bootstrap.registerValidator(exoAddr, name, commission, consKey);
+            bootstrap.registerValidator(imAddr, name, commission, consKey);
             vm.stopBroadcast();
             // give them the balance
             vm.startBroadcast(primaryKey);
@@ -98,8 +98,8 @@ contract RegisterValidatorsAndDelegate is Script {
                     continue;
                 }
                 // i is the transaction sender and j is the validator
-                string memory exoAddr = exoAddresses[j];
-                bootstrap.delegateTo(exoAddr, tokenAddr, amount);
+                string memory imAddr = imAddresses[j];
+                bootstrap.delegateTo(imAddr, tokenAddr, amount);
             }
             vm.stopBroadcast();
         }

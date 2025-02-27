@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.17;
 
-/// TODO: we might remove this precompile contract and merge it into assets precompile
-/// if we decide to handle reward withdrawal request by assets precompile
+// TODO: we might remove this precompile contract and merge it into assets precompile
+// if we decide to handle reward withdrawal request by assets precompile
 
 /// @dev The reward contract's address.
 address constant REWARD_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000806;
@@ -10,7 +10,7 @@ address constant REWARD_PRECOMPILE_ADDRESS = 0x000000000000000000000000000000000
 /// @dev The reward contract's instance.
 IReward constant REWARD_CONTRACT = IReward(REWARD_PRECOMPILE_ADDRESS);
 
-/// @author Exocore Team
+/// @author imua-xyz
 /// @title reward Precompile Contract
 /// @dev The interface through which solidity contracts will interact with Reward precompile.
 /// @custom:address 0x0000000000000000000000000000000000000806

@@ -10,7 +10,7 @@ import "forge-std/Script.sol";
 contract DeployScript is BaseScript {
 
     address tokenAddr;
-    bool exoEthFaucet;
+    bool imEthFaucet;
     address faucetOwner;
 
     function setUp() public virtual override {
@@ -22,22 +22,25 @@ contract DeployScript is BaseScript {
         require(tokenAddr != address(0), "token address should not be empty");
 
         clientChain = vm.createSelectFork(clientChainRPCURL);
-        exocore = vm.createSelectFork(exocoreRPCURL);
+        imuachain = vm.createSelectFork(imuachainRPCURL);
 
-        exoEthFaucet = vm.envBool("EXO_ETH_FAUCET");
+        // boolean to decide which item is being deployed on which chain
+        // true => client chain, imETH faucet
+        // false => imuachain, native token faucet
+        imEthFaucet = vm.envBool("IM_ETH_FAUCET");
         // for native token, using a different owner is better since the private key is exposed on the backend
         faucetOwner = vm.envAddress("FAUCET_OWNER");
     }
 
     function run() public {
-        vm.selectFork(exoEthFaucet ? clientChain : exocore);
-        vm.startBroadcast(exocoreValidatorSet.privateKey);
+        vm.selectFork(imEthFaucet ? clientChain : imuachain);
+        vm.startBroadcast(owner.privateKey);
         address proxyAdmin = address(new ProxyAdmin());
         CombinedFaucet faucetLogic = new CombinedFaucet();
         CombinedFaucet faucet = CombinedFaucet(
             payable(address(new TransparentUpgradeableProxy(address(faucetLogic), address(proxyAdmin), "")))
         );
-        faucet.initialize(exocoreValidatorSet.addr, exoEthFaucet ? tokenAddr : address(0), 1 ether);
+        faucet.initialize(owner.addr, imEthFaucet ? tokenAddr : address(0), 1 ether);
         vm.stopBroadcast();
         // do not store them as JSON since the address is intentionally kept private
         console.log("faucet", address(faucet));

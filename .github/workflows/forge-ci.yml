@@ -196,21 +196,25 @@ jobs:
           # however, we cannot do that in the PR context without leaking the
           # Etherscan API key.
 
-          # Note that the keys of the json dict below are case sensitive and
-          # must match the keys `x.deployed.json` defined in `compareLayouts.js`
-          # exactly.
+          # Note that
+          # (0) we use the logic addresses to match the comparison code: eg. Bootstrap is
+          #     compared against BootstrapLogic instead of Bootstrap because Bootstrap is
+          #     a proxy contract that points to the logic contract.
+          # (1) keys of the input json dict below are sourced from `deployedContracts.json`
+          # (2) keys of the output json dict below are case sensitive and must match the
+          #     keys `x.deployed.json` defined in `compareLayouts.js` exactly.
           jq -n \
-            --arg bootstrap "$bootstrap" \
-            --arg clientGateway "$clientGateway" \
-            --arg vault "$vault" \
-            --arg rewardVault "$rewardVault" \
-            --arg capsule "$capsule" \
+            --arg bootstrap "$bootstrapLogic" \
+            --arg clientGateway "$clientGatewayLogic" \
+            --arg vault "$vaultImplementation" \
+            --arg rewardVault "$rewardVaultImplementation" \
+            --arg capsule "$capsuleImplementation" \
             '{
               Bootstrap: $bootstrap,
               ClientChainGateway: $clientGateway,
               Vault: $vault,
               RewardVault: $rewardVault,
-              ExoCapsule: $capsule
+              ImuaCapsule: $capsule
             }' > validatedContracts.json
 
           echo "Validation passed: All fields are non-empty and valid Ethereum checksum addresses"
@@ -231,7 +235,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - contract: ExocoreGateway
+          - contract: ImuachainGateway
             base: true
           - contract: Bootstrap
             base: false
@@ -241,9 +245,9 @@ jobs:
             base: false
           - contract: Vault
             base: false
-          - contract: ExocoreGateway
+          - contract: ImuachainGateway
             base: false
-          - contract: ExoCapsule
+          - contract: ImuaCapsule
             base: false
     steps:
       - name: Restore cached Foundry toolchain

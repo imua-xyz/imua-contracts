@@ -25,8 +25,8 @@ import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
 /// @title ClientChainGateway
-/// @author ExocoreNetwork
-/// @notice The gateway contract deployed on client chains for Exocore operations.
+/// @author imua-xyz
+/// @notice The gateway contract deployed on client chains for Imuachain operations.
 contract ClientChainGateway is
     Initializable,
     PausableUpgradeable,
@@ -107,7 +107,7 @@ contract ClientChainGateway is
 
     /// @inheritdoc ITokenWhitelister
     function addWhitelistTokens(address[] calldata, uint256[] calldata) external view onlyOwner whenNotPaused {
-        revert Errors.ClientChainGatewayTokenAdditionViaExocore();
+        revert Errors.ClientChainGatewayTokenAdditionViaImuachain();
     }
 
     /// @inheritdoc ITokenWhitelister
@@ -129,7 +129,7 @@ contract ClientChainGateway is
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
             DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
         ).addExecutorOrderedExecutionOption();
-        MessagingFee memory fee = _quote(EXOCORE_CHAIN_ID, _message, options, false);
+        MessagingFee memory fee = _quote(IMUACHAIN_CHAIN_ID, _message, options, false);
         return fee.nativeFee;
     }
 

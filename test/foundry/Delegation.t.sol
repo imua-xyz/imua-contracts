@@ -1,18 +1,18 @@
 pragma solidity ^0.8.19;
 
-import "../../src/core/ExocoreGateway.sol";
+import "../../src/core/ImuachainGateway.sol";
 
 import "../../src/interfaces/precompiles/IDelegation.sol";
 import {Action, GatewayStorage} from "../../src/storage/GatewayStorage.sol";
 import "../mocks/DelegationMock.sol";
-import "./ExocoreDeployer.t.sol";
+import "./ImuachainDeployer.t.sol";
 
 import {OptionsBuilder} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/AddressCast.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import "forge-std/Test.sol";
 
-contract DelegateTest is ExocoreDeployer {
+contract DelegateTest is ImuachainDeployer {
 
     using AddressCast for address;
 
@@ -54,12 +54,12 @@ contract DelegateTest is ExocoreDeployer {
         delegator = players[0];
         relayer = players[1];
 
-        operatorAddress = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+        operatorAddress = "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla";
     }
 
     function test_Delegation() public {
         deal(delegator.addr, 1e22);
-        deal(address(exocoreGateway), 1e22);
+        deal(address(imuachainGateway), 1e22);
         uint256 delegateAmount = 10_000;
 
         // before delegate we should add whitelist tokens
@@ -71,7 +71,7 @@ contract DelegateTest is ExocoreDeployer {
 
     function test_Undelegation() public {
         deal(delegator.addr, 1e22);
-        deal(address(exocoreGateway), 1e22);
+        deal(address(imuachainGateway), 1e22);
         uint256 delegateAmount = 10_000;
         uint256 undelegateAmount = 5000;
 
@@ -102,9 +102,9 @@ contract DelegateTest is ExocoreDeployer {
         /// layerzero endpoint should emit the message packet including delegate payload.
         vm.expectEmit(true, true, true, true, address(clientChainLzEndpoint));
         emit NewPacket(
-            exocoreChainId,
+            imuachainChainId,
             address(clientGateway),
-            address(exocoreGateway).toBytes32(),
+            address(imuachainGateway).toBytes32(),
             outboundNonces[clientChainId],
             delegateRequestPayload
         );
@@ -132,8 +132,8 @@ contract DelegateTest is ExocoreDeployer {
             delegateAmount
         );
 
-        /// exocoreGateway contract should emit DelegateResult event
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        /// imuachainGateway contract should emit DelegateResult event
+        vm.expectEmit(true, true, true, true, address(imuachainGateway));
         emit DelegationRequest(
             true,
             true,
@@ -143,14 +143,14 @@ contract DelegateTest is ExocoreDeployer {
             delegateAmount
         );
 
-        vm.expectEmit(address(exocoreGateway));
-        emit MessageExecuted(Action.REQUEST_DELEGATE_TO, inboundNonces[exocoreChainId]++);
+        vm.expectEmit(address(imuachainGateway));
+        emit MessageExecuted(Action.REQUEST_DELEGATE_TO, inboundNonces[imuachainChainId]++);
 
         /// relayer call layerzero endpoint to deliver request messages and generate response message
         vm.startPrank(relayer.addr);
-        exocoreLzEndpoint.lzReceive(
-            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
-            address(exocoreGateway),
+        imuachainLzEndpoint.lzReceive(
+            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[imuachainChainId] - 1),
+            address(imuachainGateway),
             requestId,
             delegateRequestPayload,
             bytes("")
@@ -187,9 +187,9 @@ contract DelegateTest is ExocoreDeployer {
         /// layerzero endpoint should emit the message packet including undelegate payload.
         vm.expectEmit(true, true, true, true, address(clientChainLzEndpoint));
         emit NewPacket(
-            exocoreChainId,
+            imuachainChainId,
             address(clientGateway),
-            address(exocoreGateway).toBytes32(),
+            address(imuachainGateway).toBytes32(),
             outboundNonces[clientChainId],
             undelegateRequestPayload
         );
@@ -217,8 +217,8 @@ contract DelegateTest is ExocoreDeployer {
             undelegateAmount
         );
 
-        /// exocoreGateway contract should emit UndelegateResult event
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        /// imuachainGateway contract should emit UndelegateResult event
+        vm.expectEmit(true, true, true, true, address(imuachainGateway));
         emit DelegationRequest(
             false,
             true,
@@ -228,14 +228,14 @@ contract DelegateTest is ExocoreDeployer {
             undelegateAmount
         );
 
-        vm.expectEmit(address(exocoreGateway));
-        emit MessageExecuted(Action.REQUEST_UNDELEGATE_FROM, inboundNonces[exocoreChainId]++);
+        vm.expectEmit(address(imuachainGateway));
+        emit MessageExecuted(Action.REQUEST_UNDELEGATE_FROM, inboundNonces[imuachainChainId]++);
 
         /// relayer call layerzero endpoint to deliver request messages and generate response message
         vm.startPrank(relayer.addr);
-        exocoreLzEndpoint.lzReceive(
-            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
-            address(exocoreGateway),
+        imuachainLzEndpoint.lzReceive(
+            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[imuachainChainId] - 1),
+            address(imuachainGateway),
             requestId,
             undelegateRequestPayload,
             bytes("")

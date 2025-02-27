@@ -16,7 +16,7 @@ This guide walks through setting up and testing the BTC staking functionality in
 1. First, clone and set up the Esplora explorer:
 
 ```bash
-git clone https://github.com/ExocoreNetwork/esplora.git
+git clone https://github.com/imua-xyz/esplora.git
 cd esplora
 ```
 
@@ -32,7 +32,7 @@ Arguments:
   amount_btc                 Amount of BTC to send to faucet (default: 100)
   mining_interval_seconds    Block mining interval in seconds (default: 30)
 
-Faucet Information(only for regtest):
+Faucet Information (only for regtest):
   Private Key: 0xee01cfc3f08cdb020064f31ff1a993aa9ecc1d38e684665742faa705685532a6
   Address:     bcrt1qvj7e5av2eqrhhvle56f9aqtjpxgywwnt5tem5y
 
@@ -42,14 +42,14 @@ Example:
 
 NOTICE: Some amount of test BTC would be sent to the faucet address with known private key
 
-### Start Exocore Node
+### Start Imuachain Node
 
-1. Set up and start the Exocore node:
+1. Set up and start the Imuachain node:
 
 ```bash
 # Clone the repository
-git clone https://github.com/ExocoreNetwork/exocore.git
-cd exocore
+git clone https://github.com/imua-xyz/imuachain.git
+cd imuachain
 
 # Switch to develop branch
 git checkout develop
@@ -63,19 +63,19 @@ git checkout develop
 1. Clone repo and set up the UTXO gateway contract:
 
 ```bash
-git clone https://github.com/ExocoreNetwork/exocore-contracts.git
-cd exocore-contracts
+git clone https://github.com/imua-xyz/imua-contracts.git
+cd imua-contracts
 npm run deploy:utxogateway
 ```
 
-Before running the deployment command, please replace the URL path of `exocore_localnet` in `hardhat.config.js` with the URL path of your set up Exocore node, and also set the private key of the Exocore account in `hardhat.config.js` in your local `.env` file. We need at least 3 accounts (`deployer` == `faucet`, `owner` and `witness1`) to execute the deployment script.
+Before running the deployment command, please replace the URL path of `imuachain_localnet` in `hardhat.config.js` with the URL path of your set up Imuachain node, and also set the private key of the Imuachain account in `hardhat.config.js` in your local `.env` file. We need at least 3 accounts (`deployer` == `faucet`, `owner` and `witness1`) to execute the deployment script.
 
 ```javascript
-exocore_localnet: {
+imuachain_localnet: {
       url: "http://127.0.0.1:8545",
       chainId: 232,
       accounts: [
-        process.env.LOCAL_EXOCORE_FUNDED_ACCOUNT_PRIVATE_KEY, // Deployer/Faucet: Requires minimum 3 eth balance
+        process.env.LOCAL_IMUACHAIN_FUNDED_ACCOUNT_PRIVATE_KEY, // Deployer/Faucet: Requires minimum 3 eth balance
         process.env.TEST_ACCOUNT_ONE_PRIVATE_KEY, // Owner: the owner of the UTXOGateway contract
         process.env.TEST_ACCOUNT_TWO_PRIVATE_KEY, // Witness1: the only witness for current implementation, also needed by bridge
         process.env.TEST_ACCOUNT_THREE_PRIVATE_KEY,
@@ -86,7 +86,7 @@ exocore_localnet: {
     }
 ```
 
-This would deploy UTXOGateway contract on exocore node and setup it:
+This would deploy UTXOGateway contract on Imuachain node and set it up:
 
 - set deployed contract as authorized gateway
 - set required proofs count
@@ -101,7 +101,8 @@ The final output would be stored under `script/deployments/utxogateway.json`
 
 ```bash
 # Clone the repository
-git clone https://github.com/ExocoreNetwork/utxo-restaking.git
+# TODO: transfer out to imua-xyz after upgrading the org plan
+git clone https://github.com/imua-xyz/utxo-restaking.git
 cd utxo-restaking
 git checkout btc-restaking-v2
 ```
@@ -117,7 +118,7 @@ cp .env.example .env
 BITCOIN_RPC // URL of the esplora API
 VAULT_ADDRESS // Address of the BTC vault
 MIN_CONFIRMATIONS // Minimum number of confirmations for a Bitcoin transaction
-EXOCORE_RPC // URL of the Exocore node
+EXOCORE_RPC // URL of the Imuachain node
 CONTRACT_ADDRESS // Address of the UTXOGateway contract
 WITNESS_ADDRESS // Address of the witness
 WALLET_PRIV_KEY // Private key of the signing wallet, should be the same as the witness for current implementation
@@ -134,7 +135,7 @@ docker-compose up
 
 ### Run E2E Tests
 
-1. Go back to the exocore-contracts directory and run the BTC staking E2E test:
+1. Go back to the imua-contracts directory and run the BTC staking E2E test:
 
 ```bash
 npx hardhat test test/integration/btc-staking-e2e.test.js
@@ -150,4 +151,4 @@ BITCOIN_TX_FEE // Transaction fee for BTC deposit
 DUST_THRESHOLD // Dust threshold for BTC deposit
 ```
 
-This test would simulate the process of building a valid Bitcoin deposit transaction, broadcasting it to the Bitcoin network and waiting for it to be confirmed, and finally checking staker's balance on Exocore.
+This test would simulate the process of building a valid Bitcoin deposit transaction, broadcasting it to the Bitcoin network and waiting for it to be confirmed, and finally checking staker's balance on Imuachain.

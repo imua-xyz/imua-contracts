@@ -23,15 +23,15 @@ import "src/core/ClientChainGateway.sol";
 import {BootstrapStorage} from "src/storage/BootstrapStorage.sol";
 import "src/storage/ClientChainGatewayStorage.sol";
 
-import "src/core/ExoCapsule.sol";
-import "src/core/ExocoreGateway.sol";
+import "src/core/ImuaCapsule.sol";
+import "src/core/ImuachainGateway.sol";
 import {Vault} from "src/core/Vault.sol";
 import {Action, GatewayStorage} from "src/storage/GatewayStorage.sol";
 
 import {NonShortCircuitEndpointV2Mock} from "../../mocks/NonShortCircuitEndpointV2Mock.sol";
 
 import {RewardVault} from "src/core/RewardVault.sol";
-import "src/interfaces/IExoCapsule.sol";
+import "src/interfaces/IImuaCapsule.sol";
 import {IRewardVault} from "src/interfaces/IRewardVault.sol";
 import "src/interfaces/IVault.sol";
 
@@ -50,27 +50,27 @@ contract SetUp is Test {
 
     Player[] players;
     address[] whitelistTokens;
-    Player exocoreValidatorSet;
+    Player owner;
     Player deployer;
     address[] vaults;
     ERC20PresetFixedSupply restakeToken;
 
     ClientChainGateway clientGateway;
     ClientChainGateway clientGatewayLogic;
-    ExocoreGateway exocoreGateway;
+    ImuachainGateway imuachainGateway;
     ILayerZeroEndpointV2 clientChainLzEndpoint;
-    ILayerZeroEndpointV2 exocoreLzEndpoint;
+    ILayerZeroEndpointV2 imuachainLzEndpoint;
     IBeaconChainOracle beaconOracle;
     IVault vaultImplementation;
     IRewardVault rewardVaultImplementation;
-    IExoCapsule capsuleImplementation;
+    IImuaCapsule capsuleImplementation;
     IBeacon vaultBeacon;
     IBeacon rewardVaultBeacon;
     IBeacon capsuleBeacon;
     BeaconProxyBytecode beaconProxyBytecode;
 
-    string operatorAddress = "exo1v4s6vtjpmxwu9rlhqms5urzrc3tc2ae2gnuqhc";
-    uint32 exocoreChainId = 2;
+    string operatorAddress = "im13hasr43vvq8v44xpzh0l6yuym4kca983u4aj5n";
+    uint32 imuachainChainId = 2;
     uint32 clientChainId = 1;
 
     event Paused(address account);
@@ -81,23 +81,23 @@ contract SetUp is Test {
         players.push(Player({privateKey: uint256(0x1), addr: vm.addr(uint256(0x1))}));
         players.push(Player({privateKey: uint256(0x2), addr: vm.addr(uint256(0x2))}));
         players.push(Player({privateKey: uint256(0x3), addr: vm.addr(uint256(0x3))}));
-        exocoreValidatorSet = Player({privateKey: uint256(0xa), addr: vm.addr(uint256(0xa))});
+        owner = Player({privateKey: uint256(0xa), addr: vm.addr(uint256(0xa))});
         deployer = Player({privateKey: uint256(0xb), addr: vm.addr(uint256(0xb))});
-        exocoreGateway = ExocoreGateway(payable(address(0xc)));
-        exocoreLzEndpoint = ILayerZeroEndpointV2(address(0xd));
+        imuachainGateway = ImuachainGateway(payable(address(0xc)));
+        imuachainLzEndpoint = ILayerZeroEndpointV2(address(0xd));
 
-        vm.deal(exocoreValidatorSet.addr, 100 ether);
+        vm.deal(owner.addr, 100 ether);
         vm.deal(deployer.addr, 100 ether);
 
         vm.chainId(clientChainId);
         _deploy();
 
         NonShortCircuitEndpointV2Mock(address(clientChainLzEndpoint)).setDestLzEndpoint(
-            address(exocoreGateway), address(exocoreLzEndpoint)
+            address(imuachainGateway), address(imuachainLzEndpoint)
         );
 
-        vm.prank(exocoreValidatorSet.addr);
-        clientGateway.setPeer(exocoreChainId, address(exocoreGateway).toBytes32());
+        vm.prank(owner.addr);
+        clientGateway.setPeer(imuachainChainId, address(imuachainGateway).toBytes32());
         vm.stopPrank();
     }
 
@@ -108,7 +108,7 @@ contract SetUp is Test {
 
         vaultImplementation = new Vault();
         rewardVaultImplementation = new RewardVault();
-        capsuleImplementation = new ExoCapsule(address(0));
+        capsuleImplementation = new ImuaCapsule(address(0));
 
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
         rewardVaultBeacon = new UpgradeableBeacon(address(rewardVaultImplementation));
@@ -116,17 +116,17 @@ contract SetUp is Test {
 
         beaconProxyBytecode = new BeaconProxyBytecode();
 
-        restakeToken = new ERC20PresetFixedSupply("rest", "rest", 1e16, exocoreValidatorSet.addr);
+        restakeToken = new ERC20PresetFixedSupply("rest", "rest", 1e16, owner.addr);
         whitelistTokens.push(address(restakeToken));
 
-        clientChainLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, exocoreValidatorSet.addr);
+        clientChainLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, owner.addr);
         ProxyAdmin proxyAdmin = new ProxyAdmin();
 
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            exocoreChainId: exocoreChainId,
+            imuachainChainId: imuachainChainId,
             beaconOracleAddress: address(beaconOracle),
             vaultBeacon: address(vaultBeacon),
-            exoCapsuleBeacon: address(capsuleBeacon),
+            imuaCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode),
             networkConfig: address(0)
         });
@@ -137,19 +137,19 @@ contract SetUp is Test {
             payable(address(new TransparentUpgradeableProxy(address(clientGatewayLogic), address(proxyAdmin), "")))
         );
 
-        clientGateway.initialize(payable(exocoreValidatorSet.addr));
+        clientGateway.initialize(payable(owner.addr));
 
         vm.stopPrank();
     }
 
-    function generateUID(uint64 nonce, bool fromClientChainToExocore) internal view returns (bytes32 uid) {
-        if (fromClientChainToExocore) {
+    function generateUID(uint64 nonce, bool fromClientChainToImuachain) internal view returns (bytes32 uid) {
+        if (fromClientChainToImuachain) {
             uid = GUID.generate(
-                nonce, clientChainId, address(clientGateway), exocoreChainId, address(exocoreGateway).toBytes32()
+                nonce, clientChainId, address(clientGateway), imuachainChainId, address(imuachainGateway).toBytes32()
             );
         } else {
             uid = GUID.generate(
-                nonce, exocoreChainId, address(exocoreGateway), clientChainId, address(clientGateway).toBytes32()
+                nonce, imuachainChainId, address(imuachainGateway), clientChainId, address(clientGateway).toBytes32()
             );
         }
     }
@@ -175,22 +175,22 @@ contract Pausable is SetUp {
 
     function test_PauseClientChainGateway() public {
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit Paused(exocoreValidatorSet.addr);
-        vm.prank(exocoreValidatorSet.addr);
+        emit Paused(owner.addr);
+        vm.prank(owner.addr);
         clientGateway.pause();
         assertEq(clientGateway.paused(), true);
     }
 
     function test_UnpauseClientChainGateway() public {
-        vm.startPrank(exocoreValidatorSet.addr);
+        vm.startPrank(owner.addr);
 
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit PausableUpgradeable.Paused(exocoreValidatorSet.addr);
+        emit PausableUpgradeable.Paused(owner.addr);
         clientGateway.pause();
         assertEq(clientGateway.paused(), true);
 
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit PausableUpgradeable.Unpaused(exocoreValidatorSet.addr);
+        emit PausableUpgradeable.Unpaused(owner.addr);
         clientGateway.unpause();
         assertEq(clientGateway.paused(), false);
     }
@@ -202,7 +202,7 @@ contract Pausable is SetUp {
     }
 
     function test_RevertWhen_CallDisabledFunctionsWhenPaused() public {
-        vm.startPrank(exocoreValidatorSet.addr);
+        vm.startPrank(owner.addr);
         clientGateway.pause();
 
         vm.expectRevert("Pausable: paused");
@@ -215,7 +215,7 @@ contract Pausable is SetUp {
         clientGateway.deposit(address(restakeToken), uint256(1));
 
         vm.expectRevert("Pausable: paused");
-        clientGateway.claimPrincipalFromExocore(address(restakeToken), uint256(1));
+        clientGateway.claimPrincipalFromImuachain(address(restakeToken), uint256(1));
 
         vm.expectRevert("Pausable: paused");
         clientGateway.undelegateFrom(operatorAddress, address(restakeToken), uint256(1));
@@ -225,8 +225,8 @@ contract Pausable is SetUp {
 
 contract Initialize is SetUp {
 
-    function test_ExocoreChainIdInitialized() public {
-        assertEq(clientGateway.EXOCORE_CHAIN_ID(), exocoreChainId);
+    function test_ImuachainChainIdInitialized() public {
+        assertEq(clientGateway.IMUACHAIN_CHAIN_ID(), imuachainChainId);
     }
 
     function test_LzEndpointInitialized() public {
@@ -249,13 +249,13 @@ contract Initialize is SetUp {
         assertEq(clientGateway.BEACON_ORACLE_ADDRESS(), address(beaconOracle));
     }
 
-    function test_ExoCapsuleBeaconInitialized() public {
+    function test_ImuaCapsuleBeaconInitialized() public {
         assertFalse(address(capsuleBeacon) == address(0));
-        assertEq(address(clientGateway.EXO_CAPSULE_BEACON()), address(capsuleBeacon));
+        assertEq(address(clientGateway.IMUA_CAPSULE_BEACON()), address(capsuleBeacon));
     }
 
     function test_OwnerInitialized() public {
-        assertEq(clientGateway.owner(), exocoreValidatorSet.addr);
+        assertEq(clientGateway.owner(), owner.addr);
     }
 
     function test_NotPaused() public {
@@ -295,7 +295,7 @@ contract WithdrawNonBeaconChainETHFromCapsule is SetUp {
 
         // 1. User creates capsule through ClientChainGateway
         vm.prank(user);
-        capsuleAddress = payable(clientGateway.createExoCapsule());
+        capsuleAddress = payable(clientGateway.createImuaCapsule());
     }
 
     function test_success_withdrawNonBeaconChainETH() public {
@@ -336,14 +336,14 @@ contract WithdrawNonBeaconChainETHFromCapsule is SetUp {
 
         vm.prank(user);
         vm.expectRevert(
-            "ExoCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"
+            "ImuaCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"
         );
         clientGateway.withdrawNonBeaconChainETHFromCapsule(user, excessiveWithdrawAmount);
     }
 
 }
 
-contract WithdrawalPrincipalFromExocore is SetUp {
+contract WithdrawalPrincipalFromImuachain is SetUp {
 
     using stdStorage for StdStorage;
     using AddressCast for address;
@@ -366,7 +366,8 @@ contract WithdrawalPrincipalFromExocore is SetUp {
         // Simulate adding VIRTUAL_STAKED_ETH_ADDRESS to whitelist via lzReceive
         bytes memory message =
             abi.encodePacked(Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(tokens[0], uint128(0)));
-        Origin memory origin = Origin({srcEid: exocoreChainId, sender: address(exocoreGateway).toBytes32(), nonce: 1});
+        Origin memory origin =
+            Origin({srcEid: imuachainChainId, sender: address(imuachainGateway).toBytes32(), nonce: 1});
 
         vm.prank(address(clientChainLzEndpoint));
         clientGateway.lzReceive(origin, bytes32(0), message, address(0), bytes(""));
@@ -385,7 +386,7 @@ contract WithdrawalPrincipalFromExocore is SetUp {
         // Try to withdraw VIRTUAL_STAKED_ETH
         vm.prank(user);
         vm.expectRevert(Errors.VaultDoesNotExist.selector);
-        clientGateway.claimPrincipalFromExocore(VIRTUAL_STAKED_ETH_ADDRESS, WITHDRAWAL_AMOUNT);
+        clientGateway.claimPrincipalFromImuachain(VIRTUAL_STAKED_ETH_ADDRESS, WITHDRAWAL_AMOUNT);
     }
 
     function test_revert_withdrawNonWhitelistedToken() public {
@@ -393,13 +394,13 @@ contract WithdrawalPrincipalFromExocore is SetUp {
 
         vm.prank(players[0].addr);
         vm.expectRevert("BootstrapStorage: token is not whitelisted");
-        clientGateway.claimPrincipalFromExocore(nonWhitelistedToken, WITHDRAWAL_AMOUNT);
+        clientGateway.claimPrincipalFromImuachain(nonWhitelistedToken, WITHDRAWAL_AMOUNT);
     }
 
     function test_revert_withdrawZeroAmount() public {
         vm.prank(user);
         vm.expectRevert("BootstrapStorage: amount should be greater than zero");
-        clientGateway.claimPrincipalFromExocore(address(restakeToken), 0);
+        clientGateway.claimPrincipalFromImuachain(address(restakeToken), 0);
     }
 
 }

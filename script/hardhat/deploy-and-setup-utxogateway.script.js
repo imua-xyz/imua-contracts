@@ -21,10 +21,10 @@ async function main() {
   }
 
   // Check if contracts are already deployed
-  if (deployedContracts.exocore.utxoGateway) {
-    const utxoGatewayCode = await ethers.provider.getCode(deployedContracts.exocore.utxoGateway);
+  if (deployedContracts.imuachain.utxoGateway) {
+    const utxoGatewayCode = await ethers.provider.getCode(deployedContracts.imuachain.utxoGateway);
     if (utxoGatewayCode !== "0x") {
-      console.log("Using existing UTXOGateway deployment:", deployedContracts.exocore.utxoGateway);
+      console.log("Using existing UTXOGateway deployment:", deployedContracts.imuachain.utxoGateway);
       return;
     }
   }
@@ -54,21 +54,21 @@ async function main() {
     const create3Code = await ethers.provider.getCode(CREATE3_DESTINATION);
     if (create3Code === "0x") {
       console.log("Deploying CREATE3 factory...");
-      
+
       // Use low-level call to deploy CREATE3 factory
       const tx = await deployer.sendTransaction({
         to: CREATE2_DESTINATION,
         data: ethers.concat([CREATE3_SALT, CREATE3_INIT_CODE])
       });
-      
+
       await tx.wait();
-      
+
       // Verify deployment
       const newCode = await ethers.provider.getCode(CREATE3_DESTINATION);
       if (newCode === "0x") {
         throw new Error("Failed to deploy CREATE3 factory");
       }
-      
+
       console.log("CREATE3 factory deployed to:", CREATE3_DESTINATION);
     }
 
@@ -81,10 +81,10 @@ async function main() {
 
     // Get or Deploy ProxyAdmin
     let proxyAdmin;
-    if (deployedContracts.exocore?.exocoreProxyAdmin) {
-      console.log("\nUsing existing ProxyAdmin at:", deployedContracts.exocore.exocoreProxyAdmin);
+    if (deployedContracts.imuachain?.imuachainProxyAdmin) {
+      console.log("\nUsing existing ProxyAdmin at:", deployedContracts.imuachain.imuachainProxyAdmin);
       const ProxyAdminFactory = await ethers.getContractFactory("ProxyAdmin");
-      proxyAdmin = ProxyAdminFactory.attach(deployedContracts.exocore.exocoreProxyAdmin);
+      proxyAdmin = ProxyAdminFactory.attach(deployedContracts.imuachain.imuachainProxyAdmin);
     } else {
       console.log("\nDeploying new ProxyAdmin...");
       const ProxyAdminFactory = await ethers.getContractFactory("ProxyAdmin");
@@ -95,7 +95,7 @@ async function main() {
 
     // Deploy Proxy using CREATE3
     console.log("\nDeploying UTXOGateway Proxy via CREATE3...");
-    
+
     // Generate deterministic salt for UTXOGateway
     const PROXY_SALT = ethers.id("UTXOGateway_v1");
 
@@ -185,12 +185,12 @@ async function main() {
     );
 
     // Update deployedContracts.json
-    if (!deployedContracts.exocore) {
-        deployedContracts.exocore = {};
+    if (!deployedContracts.imuachain) {
+        deployedContracts.imuachain = {};
     }
-    
-    deployedContracts.exocore.utxoGateway = await utxoGateway.getAddress();
-    deployedContracts.exocore.utxoGatewayLogic = await utxoGatewayLogic.getAddress();
+
+    deployedContracts.imuachain.utxoGateway = await utxoGateway.getAddress();
+    deployedContracts.imuachain.utxoGatewayLogic = await utxoGatewayLogic.getAddress();
 
     fs.writeFileSync(
       DEPLOYED_CONTRACTS_PATH,

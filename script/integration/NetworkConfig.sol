@@ -7,7 +7,7 @@ import {INetworkConfig, NetworkParams} from "src/interfaces/INetworkConfig.sol";
 uint256 constant ALLOWED_CHAIN_ID = 31_337;
 
 /// @title NetworkConfig
-/// @author ExocoreNetwork
+/// @author imua-xyz
 /// @notice This contract provides an interface to expose the network configuration.
 /// @dev This contract is used for integration testing and is a substitute for the NetworkConstants library. Hence, it
 /// is located in the `integration` folder, and it is not used in the production environment. It needs to have the

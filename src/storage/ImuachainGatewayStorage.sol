@@ -5,10 +5,10 @@ import {ActionAttributes} from "../libraries/ActionAttributes.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {Action, GatewayStorage} from "./GatewayStorage.sol";
 
-/// @title ExocoreGatewayStorage
-/// @notice Storage used by the ExocoreGateway contract.
-/// @author ExocoreNetwork
-contract ExocoreGatewayStorage is GatewayStorage {
+/// @title ImuachainGatewayStorage
+/// @notice Storage used by the ImuachainGateway contract.
+/// @author imua-xyz
+contract ImuachainGatewayStorage is GatewayStorage {
 
     using ActionAttributes for Action;
 
@@ -39,7 +39,7 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// @notice Emitted when a precompile call fails.
     /// @param precompile Address of the precompile contract.
     /// @param nonce The LayerZero nonce
-    event ExocorePrecompileError(address indexed precompile, uint64 nonce);
+    event ImuachainPrecompileError(address indexed precompile, uint64 nonce);
 
     /// @notice Emitted upon the registration of a new client chain.
     /// @param clientChainId The LayerZero chain ID of the client chain.
@@ -101,7 +101,7 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// rejected.
     /// @param token The address of the token.
     /// @param delegator The address of the delegator.
-    /// @param operator The Exo account address of the operator.
+    /// @param operator The im-prefix account address of the operator.
     /// @param amount The amount of the token delegated/undelegated.
     event DelegationRequest(
         bool isDelegate,

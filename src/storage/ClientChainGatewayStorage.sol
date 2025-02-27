@@ -10,7 +10,7 @@ import {Action} from "../storage/GatewayStorage.sol";
 import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 
 /// @title ClientChainGatewayStorage
-/// @author ExocoreNetwork
+/// @author imua-xyz
 /// @notice ClientChainGatewayStorage is the storage used by the ClientChainGateway contract. It inherits from
 /// BootstrapStorage, since the Bootstrap contract upgrades itself to the ClientChainGateway contract in response to a
 /// cross-chain message.
@@ -51,7 +51,7 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     /// @param amount Amount of @param token claimed.
     event ClaimSucceeded(address token, address recipient, uint256 amount);
 
-    /// @notice Emitted upon reward withdrawal response from Exocore.
+    /// @notice Emitted upon reward withdrawal response from Imuachain.
     /// @param success Whether the withdrawal was successful.
     /// @param token Address of the token.
     /// @param withdrawer Address of the withdrawer.
@@ -61,7 +61,7 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     /// @notice Emitted when a response is processed.
     /// @param action The correspoding request action.
     /// @param requestId The corresponding request ID.
-    /// @param success Whether the corresponding request was successful on Exocore.
+    /// @param success Whether the corresponding request was successful on Imuachain.
     event ResponseProcessed(Action indexed action, uint64 indexed requestId, bool indexed success);
 
     /// @notice Emitted when a reward vault is created.

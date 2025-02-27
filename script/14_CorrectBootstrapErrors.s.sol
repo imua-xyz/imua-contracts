@@ -10,7 +10,7 @@ import {Bootstrap} from "../src/core/Bootstrap.sol";
 import {ClientChainGateway} from "../src/core/ClientChainGateway.sol";
 import "../src/utils/BeaconProxyBytecode.sol";
 
-import "../src/core/ExoCapsule.sol";
+import {ImuaCapsule} from "../src/core/ImuaCapsule.sol";
 import {Vault} from "../src/core/Vault.sol";
 import {ICustomProxyAdmin} from "../src/interfaces/ICustomProxyAdmin.sol";
 
@@ -77,9 +77,9 @@ contract CorrectBootstrapErrors is BaseScript {
         require(address(beaconOracle) != address(0), "beacon oracle should not be empty");
 
         capsuleBeacon = UpgradeableBeacon(stdJson.readAddress(deployed, ".clientChain.capsuleBeacon"));
-        require(address(capsuleBeacon) != address(0), "exo capsule beacon should not be empty");
+        require(address(capsuleBeacon) != address(0), "imuacapsule beacon should not be empty");
 
-        initialization = abi.encodeCall(ClientChainGateway.initialize, (payable(exocoreValidatorSet.addr)));
+        initialization = abi.encodeCall(ClientChainGateway.initialize, (payable(owner.addr)));
     }
 
     function run() public {
@@ -87,15 +87,15 @@ contract CorrectBootstrapErrors is BaseScript {
         uint256[] memory emptyListUint;
 
         vm.selectFork(clientChain);
-        vm.startBroadcast(exocoreValidatorSet.privateKey);
+        vm.startBroadcast(owner.privateKey);
         ProxyAdmin proxyAdmin = ProxyAdmin(proxyAdmin);
 
         // Create ImmutableConfig struct
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            exocoreChainId: exocoreChainId,
+            imuachainChainId: imuachainChainId,
             beaconOracleAddress: address(beaconOracle),
             vaultBeacon: address(vaultBeacon),
-            exoCapsuleBeacon: address(capsuleBeacon),
+            imuaCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode),
             networkConfig: address(0)
         });
@@ -105,7 +105,7 @@ contract CorrectBootstrapErrors is BaseScript {
         bytes memory data = abi.encodeCall(
             Bootstrap.initialize,
             (
-                exocoreValidatorSet.addr,
+                owner.addr,
                 // 1 week from now
                 block.timestamp + 168 hours,
                 2 seconds,

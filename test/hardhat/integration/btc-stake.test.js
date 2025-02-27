@@ -38,7 +38,7 @@ describe("BTC Stake", () => {
 
     const VIRTUAL_BTC_ADDR = "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB";
     const BTC_ID = ethers.getBytes(VIRTUAL_BTC_ADDR);
-    const OPERATOR = "exo18cggcpvwspnd5c6ny8wrqxpffj5zmhklprtnph";
+    const OPERATOR = "im18cggcpvwspnd5c6ny8wrqxpffj5zmhkl3agtrj";
 
     // Run once before all tests
     before(async () => {
@@ -143,7 +143,7 @@ describe("BTC Stake", () => {
         const stakeMsg = {
             clientChainId: CLIENT_CHAIN.BTC,  // enum value, probably 1
             clientAddress: ethers.toUtf8Bytes(STAKER_BTC_ADDR),  // convert address to bytes
-            exocoreAddress: staker.address,   // use signer's address
+            imuachainAddress: staker.address,   // use signer's address
             operator: OPERATOR,
             amount: ethers.parseUnits("1.0", 8),
             nonce: BigInt(1),
@@ -156,7 +156,7 @@ describe("BTC Stake", () => {
                 [
                     'uint8',          // clientChainId (enum is uint8)
                     'bytes',          // clientAddress
-                    'address',        // exocoreAddress
+                    'address',        // imuachainAddress
                     'string',         // operator
                     'uint256',        // amount
                     'uint64',         // nonce
@@ -165,7 +165,7 @@ describe("BTC Stake", () => {
                 [
                     stakeMsg.clientChainId,
                     stakeMsg.clientAddress,
-                    stakeMsg.exocoreAddress,
+                    stakeMsg.imuachainAddress,
                     stakeMsg.operator,
                     stakeMsg.amount,
                     stakeMsg.nonce,

@@ -6,7 +6,7 @@ import {NetworkConstants} from "../libraries/NetworkConstants.sol";
 import {Vault} from "../core/Vault.sol";
 
 import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
-import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
+import {IImuaCapsule} from "../interfaces/IImuaCapsule.sol";
 import {INetworkConfig} from "../interfaces/INetworkConfig.sol";
 import {IValidatorRegistry} from "../interfaces/IValidatorRegistry.sol";
 import {IVault} from "../interfaces/IVault.sol";
@@ -20,8 +20,8 @@ import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
 /// @title BootstrapStorage
 /// @notice The storage contract for the Bootstrap contract. It later upgrades to ClientChainGatewayStorage.
-/// @dev This contract is used as the base storage and is inherited by the storage for Bootstrap and ExocoreGateway.
-/// @author ExocoreNetwork
+/// @dev This contract is used as the base storage and is inherited by the storage for Bootstrap and ImuachainGateway.
+/// @author imua-xyz
 contract BootstrapStorage is GatewayStorage {
 
     /* -------------------------------------------------------------------------- */
@@ -29,13 +29,13 @@ contract BootstrapStorage is GatewayStorage {
     /* -------------------------------------------------------------------------- */
 
     // time and duration
-    /// @notice A timestamp representing the scheduled spawn time of the Exocore chain, which influences the contract's
+    /// @notice A timestamp representing the scheduled spawn time of Imuachain, which influences the contract's
     /// operational restrictions.
     /// @dev `offsetDuration` before `spawnTime`, the contract freezes and most actions are prohibited.
     uint256 public spawnTime;
 
-    /// @notice The amount of time before the Exocore spawn time during which operations are restricted.
-    /// @dev The duration before the Exocore spawn time during which most contract operations are locked.
+    /// @notice The amount of time before Imuachain's spawn time during which operations are restricted.
+    /// @dev The duration before Imuachain's spawn time during which most contract operations are locked.
     uint256 public offsetDuration;
 
     /// @notice This mapping is used to track the deposits made by all depositors for each token.
@@ -43,29 +43,29 @@ contract BootstrapStorage is GatewayStorage {
     mapping(address tokenAddress => uint256 amount) public depositsByToken;
 
     /// @notice This array stores the Ethereum addresses of all validators that have been registered in the contract.
-    /// These validators, sorted by their vote power, will be used to initialize the Exocore chain's validator set.
+    /// These validators, sorted by their vote power, will be used to initialize Imuachain's validator set.
     /// @dev A public array holding the Ethereum addresses of all validators that have been registered in the contract.
     address[] public registeredValidators;
 
-    /// @notice This mapping is used to track which Ethereum address is linked to which Exocore address.
-    /// @dev Maps Ethereum addresses to their corresponding Exocore addresses.
-    mapping(address ethAddress => string exoAddress) public ethToExocoreAddress;
+    /// @notice This mapping is used to track which Ethereum address is linked to which Imuachain address.
+    /// @dev Maps Ethereum addresses to their corresponding Imuachain addresses.
+    mapping(address ethAddress => string imAddress) public ethToImAddress;
 
-    /// @notice Use this mapping to access or modify validator details associated with a specific Exocore address.
-    /// @dev Maps Exocore addresses to their corresponding validator details stored in a `Validator` struct.
-    mapping(string exoAddress => IValidatorRegistry.Validator validator) public validators;
+    /// @notice Use this mapping to access or modify validator details associated with a specific Imuachain address.
+    /// @dev Maps Imuachain addresses to their corresponding validator details stored in a `Validator` struct.
+    mapping(string imAddress => IValidatorRegistry.Validator validator) public validators;
 
     /// @notice This mapping is used to enforce a once-only commission rate change for validators before the chain
     /// bootstrap.
-    /// @dev A mapping of validator Exocore address to a boolean indicating whether said validator has edited their
+    /// @dev A mapping of validator Imuachain address to a boolean indicating whether said validator has edited their
     /// commission rate.
-    mapping(string exoAddress => bool hasEdited) public commissionEdited;
+    mapping(string imAddress => bool hasEdited) public commissionEdited;
 
     /// @notice This allows tracking of how much each validator has been delegated by all delegators for each of the
     /// whitelisted tokens.
     /// @dev Maps a validator address to a mapping, where the key is the token address and the value is the amount of
     /// delegated tokens.
-    mapping(string exoAddress => mapping(address tokenAddress => uint256 amount)) public delegationsByValidator;
+    mapping(string imAddress => mapping(address tokenAddress => uint256 amount)) public delegationsByValidator;
 
     /// @notice This array stores all unique depositor addresses to manage and track staking participation.
     /// @dev List of addresses that have staked or deposited into the contract.
@@ -91,12 +91,12 @@ contract BootstrapStorage is GatewayStorage {
     /// whitelisted tokens.
     /// @dev Maps a delegator address to a nested mapping, where the first key is the validator address and the second
     /// key is the token's address, pointing to the amount of tokens delegated.
-    mapping(address delegator => mapping(string exoAddress => mapping(address tokenAddress => uint256 amount))) public
+    mapping(address delegator => mapping(string imAddress => mapping(address tokenAddress => uint256 amount))) public
         delegations;
 
     /// @notice This flag is used to determine whether the implementation of this contract has been switched over to the
     /// client chain gateway.
-    /// @dev A boolean indicating whether the Exocore chain has been bootstrapped.
+    /// @dev A boolean indicating whether Imuachain has been bootstrapped.
     bool public bootstrapped;
 
     /// @notice This proxy admin facilitates the implementation switch from Bootstrap to ClientChainGateway based on
@@ -133,8 +133,8 @@ contract BootstrapStorage is GatewayStorage {
     /// @dev Maps token addresses to their corresponding vault contracts.
     mapping(address token => IVault vault) public tokenToVault;
 
-    /// @notice The beacon for the ExoCapsule contract, which stores the ExoCapsule implementation.
-    IBeacon public immutable EXO_CAPSULE_BEACON;
+    /// @notice The beacon for the ImuaCapsule contract, which stores the ImuaCapsule implementation.
+    IBeacon public immutable IMUA_CAPSULE_BEACON;
 
     /// @notice The address of the beacon chain oracle.
     address public immutable BEACON_ORACLE_ADDRESS;
@@ -145,10 +145,9 @@ contract BootstrapStorage is GatewayStorage {
     /// @dev The address of the ETHPOS deposit contract.
     IETHPOSDeposit internal immutable ETH_POS;
 
-    /// @notice Used to identify the specific Exocore chain this contract interacts with for cross-chain
-    /// functionalities.
-    /// @dev Stores the Layer Zero chain ID of the Exocore chain.
-    uint32 public immutable EXOCORE_CHAIN_ID;
+    /// @notice Used to identify the specific chain this contract interacts with for cross-chain functionalities.
+    /// @dev Stores the Layer Zero chain ID of Imuachain.
+    uint32 public immutable IMUACHAIN_CHAIN_ID;
 
     /// @notice This stores the Vault implementation contract address for proxy, and it is shared among all beacon
     /// proxies.
@@ -179,23 +178,23 @@ contract BootstrapStorage is GatewayStorage {
     // slither-disable-next-line shadowing-state
     uint256[38] private __gap;
 
-    /// @notice Mapping of owner addresses to their corresponding ExoCapsule contracts.
-    /// @dev Maps owner addresses to their corresponding ExoCapsule contracts.
+    /// @notice Mapping of owner addresses to their corresponding ImuaCapsule contracts.
+    /// @dev Maps owner addresses to their corresponding ImuaCapsule contracts.
     /// @dev This state has been moved from ClientChainGatewayStorage to BootstrapStorage since it is shared by both
     /// contracts and we put it after __gap to maintain the storage layout compatible with deployed contracts. It was,
     /// before the move, at the top of the storage layout of ClientChainGatewayStorage.
-    mapping(address owner => IExoCapsule capsule) public ownerToCapsule;
+    mapping(address owner => IImuaCapsule capsule) public ownerToCapsule;
 
     /* -------------------------------------------------------------------------- */
     /*                                   Events                                   */
     /* -------------------------------------------------------------------------- */
 
-    /// @notice Emitted when the spawn time of the Exocore chain is updated.
-    /// @dev This event is triggered whenever the contract owner updates the spawn time of the Exocore chain.
+    /// @notice Emitted when the spawn time of Imuachain is updated.
+    /// @dev This event is triggered whenever the contract owner updates the spawn time of Imuachain.
     /// @param newSpawnTime The new time (in UNIX seconds) that has been set.
     event SpawnTimeUpdated(uint256 newSpawnTime);
 
-    /// @notice Emitted when the offset duration before the Exocore spawn time, during which operations are restricted,
+    /// @notice Emitted when the offset duration before Imuachain's spawn time, during which operations are restricted,
     /// is updated.
     /// @dev This event is triggered whenever the contract owner updates the offset duration.
     /// @param newOffsetDuration The new offset duration (in seconds) that has been set.
@@ -221,7 +220,7 @@ contract BootstrapStorage is GatewayStorage {
     /// @dev This event is triggered whenever a delegator delegates tokens to an operator.
     /// @param success Whether the operation succeeded.
     /// @param delegator The address of the delegator, on this chain.
-    /// @param delegatee The Exocore address of the operator.
+    /// @param delegatee The Imuachain address of the operator.
     /// @param token The address of the token being delegated, on this chain.
     /// @param amount The amount of the token delegated.
     event DelegateResult(
@@ -232,7 +231,7 @@ contract BootstrapStorage is GatewayStorage {
     /// @dev This event is triggered whenever a delegator removes a delegation from an operator.
     /// @param success Whether the operation succeeded.
     /// @param undelegator The address of the delegator, on this chain.
-    /// @param undelegatee The Exocore address of the operator.
+    /// @param undelegatee The Imuachain address of the operator.
     /// @param token The address of the token being undelegated, on this chain.
     /// @param amount The amount of the token undelegated.
     event UndelegateResult(
@@ -243,7 +242,7 @@ contract BootstrapStorage is GatewayStorage {
     /// @dev This event is triggered whenever a delegator deposits and then delegates tokens to an operator.
     /// @param delegateSuccess Whether the delegation succeeded (deposits always succeed!).
     /// @param delegator The address of the delegator, on this chain.
-    /// @param delegatee The Exocore address of the operator.
+    /// @param delegatee The Imuachain address of the operator.
     /// @param token The address of the token being delegated, on this chain.
     /// @param delegatedAmount The amount of the token delegated.
     event DepositThenDelegateResult(
@@ -254,9 +253,9 @@ contract BootstrapStorage is GatewayStorage {
         uint256 delegatedAmount
     );
 
-    /// @notice Emitted after the Exocore chain is bootstrapped.
-    /// @dev This event is triggered after the Exocore chain is bootstrapped, indicating that the contract has
-    /// successfully transitioned to the Client Chain Gateway logic. Exocore must send a message to the contract to
+    /// @notice Emitted after Imuachain is bootstrapped.
+    /// @dev This event is triggered after Imuachain is bootstrapped, indicating that the contract has
+    /// successfully transitioned to the Client Chain Gateway logic. Imuachain must send a message to the contract to
     /// trigger this event.
     event Bootstrapped();
 
@@ -291,9 +290,9 @@ contract BootstrapStorage is GatewayStorage {
     event WhitelistTokenAdded(address _token);
 
     /* ---------------------------- native restaking events ---------------------------- */
-    /// @notice Emitted when a new ExoCapsule is created.
-    /// @param owner Owner of the ExoCapsule.
-    /// @param capsule Address of the ExoCapsule.
+    /// @notice Emitted when a new ImuaCapsule is created.
+    /// @param owner Owner of the ImuaCapsule.
+    /// @param capsule Address of the ImuaCapsule.
     event CapsuleCreated(address indexed owner, address indexed capsule);
 
     /// @notice Emitted when a staker stakes with a capsule.
@@ -318,18 +317,18 @@ contract BootstrapStorage is GatewayStorage {
 
     /**
      * @dev Struct to store the parameters to initialize the immutable variables for the contract.
-     * @param exocoreChainId The chain ID of the Exocore chain.
+     * @param imuachainChainId The LZ chain ID of Imuachain.
      * @param beaconOracleAddress The address of the beacon chain oracle.
      * @param vaultBeacon The address of the vault beacon.
-     * @param exoCapsuleBeacon The address of the ExoCapsule beacon.
+     * @param imuaCapsuleBeacon The address of the ImuaCapsule beacon.
      * @param beaconProxyBytecode The address of the beacon proxy bytecode contract.
      * @param networkConfig The address of the network config contract, if any.
      */
     struct ImmutableConfig {
-        uint32 exocoreChainId;
+        uint32 imuachainChainId;
         address beaconOracleAddress;
         address vaultBeacon;
-        address exoCapsuleBeacon;
+        address imuaCapsuleBeacon;
         address beaconProxyBytecode;
         address networkConfig;
     }
@@ -367,17 +366,17 @@ contract BootstrapStorage is GatewayStorage {
     /// @param config The parameters to initialize the contract immutable variables.
     constructor(ImmutableConfig memory config) {
         if (
-            config.exocoreChainId == 0 || config.beaconOracleAddress == address(0) || config.vaultBeacon == address(0)
-                || config.exoCapsuleBeacon == address(0) || config.beaconProxyBytecode == address(0)
+            config.imuachainChainId == 0 || config.beaconOracleAddress == address(0) || config.vaultBeacon == address(0)
+                || config.imuaCapsuleBeacon == address(0) || config.beaconProxyBytecode == address(0)
         ) {
             // networkConfig is allowed to be 0
             revert Errors.InvalidImmutableConfig();
         }
 
-        EXOCORE_CHAIN_ID = config.exocoreChainId;
+        IMUACHAIN_CHAIN_ID = config.imuachainChainId;
         BEACON_ORACLE_ADDRESS = config.beaconOracleAddress;
         VAULT_BEACON = IBeacon(config.vaultBeacon);
-        EXO_CAPSULE_BEACON = IBeacon(config.exoCapsuleBeacon);
+        IMUA_CAPSULE_BEACON = IBeacon(config.imuaCapsuleBeacon);
         BEACON_PROXY_BYTECODE = BeaconProxyBytecode(config.beaconProxyBytecode);
         address depositContract;
         if (config.networkConfig == address(0)) {
@@ -400,10 +399,10 @@ contract BootstrapStorage is GatewayStorage {
         return vault;
     }
 
-    /// @dev Returns the ExoCapsule for the given owner, if it exists. Fails if the ExoCapsule does not exist.
-    /// @param owner The owner of the ExoCapsule.
-    function _getCapsule(address owner) internal view returns (IExoCapsule) {
-        IExoCapsule capsule = ownerToCapsule[owner];
+    /// @dev Returns the ImuaCapsule for the given owner, if it exists. Fails if the ImuaCapsule does not exist.
+    /// @param owner The owner of the ImuaCapsule.
+    function _getCapsule(address owner) internal view returns (IImuaCapsule) {
+        IImuaCapsule capsule = ownerToCapsule[owner];
         if (address(capsule) == address(0)) {
             revert Errors.CapsuleDoesNotExist();
         }
@@ -415,7 +414,8 @@ contract BootstrapStorage is GatewayStorage {
     /// @param underlyingToken The address of the underlying token.
     /// @param tvlLimit The TVL limit for the vault.
     /// @return The address of the newly deployed vault.
-    // The bytecode returned by `BEACON_PROXY_BYTECODE` and `EXO_CAPSULE_BEACON` address are actually fixed size of byte
+    // The bytecode returned by `BEACON_PROXY_BYTECODE` and `VAULT_BEACON` address are actually fixed size of
+    // byte
     // array, so it would not cause collision for encodePacked
     // slither-disable-next-line encode-packed-collision
     function _deployVault(address underlyingToken, uint256 tvlLimit) internal returns (IVault) {

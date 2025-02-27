@@ -3,15 +3,15 @@ pragma solidity ^0.8.19;
 
 import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 
-/// @title ExoCapsule interface
-/// @author ExocoreNetwork
-/// @notice IExoCapsule is the interface for the ExoCapsule contract. It provides a set of functions for ExoCapsule
+/// @title ImuaCapsule interface
+/// @author imua-xyz
+/// @notice ImuaCapsule is the interface for the ImuaCapsule contract. It provides a set of functions for ImuaCapsule
 /// operations. It is a contract used for native restaking.
-interface IExoCapsule {
+interface IImuaCapsule {
 
-    /// @notice Initializes the ExoCapsule contract with the given parameters.
+    /// @notice Initializes the ImuaCapsule contract with the given parameters.
     /// @param gateway The address of the ClientChainGateway contract.
-    /// @param capsuleOwner The payable address of the ExoCapsule owner.
+    /// @param capsuleOwner The payable address of the ImuaCapsule owner.
     /// @param beaconOracle The address of the BeaconOracle contract.
     function initialize(address gateway, address payable capsuleOwner, address beaconOracle) external;
 
@@ -56,11 +56,11 @@ interface IExoCapsule {
     /// @param amountToWithdraw The amount to withdraw.
     function withdrawNonBeaconChainETHBalance(address payable recipient, uint256 amountToWithdraw) external;
 
-    /// @notice Unlock and increase the withdrawable balance of the ExoCapsule for later withdrawal.
+    /// @notice Unlock and increase the withdrawable balance of the ImuaCapsule for later withdrawal.
     /// @param amount The amount of the ETH balance unlocked.
     function unlockETHPrincipal(uint256 amount) external;
 
-    /// @notice Returns the withdrawal credentials of the ExoCapsule.
+    /// @notice Returns the withdrawal credentials of the ImuaCapsule.
     /// @return The withdrawal credentials.
     /// @dev Returns '0x1' + '0x0' * 11 + 'address' of capsule.
     function capsuleWithdrawalCredentials() external view returns (bytes memory);

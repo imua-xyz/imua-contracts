@@ -20,8 +20,8 @@ contract PrerequisitesScript is BaseScript {
         clientChain = vm.createSelectFork(clientChainRPCURL);
 
         // transfer some eth to deployer address
-        exocore = vm.createSelectFork(exocoreRPCURL);
-        _topUpPlayer(exocore, address(0), exocoreGenesis, deployer.addr, 1 ether);
+        imuachain = vm.createSelectFork(imuachainRPCURL);
+        _topUpPlayer(imuachain, address(0), imuachainGenesis, deployer.addr, 1 ether);
     }
 
     function run() public {
@@ -29,20 +29,20 @@ contract PrerequisitesScript is BaseScript {
         if (useEndpointMock) {
             vm.selectFork(clientChain);
             vm.startBroadcast(deployer.privateKey);
-            clientChainLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, exocoreValidatorSet.addr);
+            clientChainLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, owner.addr);
             vm.stopBroadcast();
 
-            vm.selectFork(exocore);
+            vm.selectFork(imuachain);
             vm.startBroadcast(deployer.privateKey);
-            exocoreLzEndpoint = new NonShortCircuitEndpointV2Mock(exocoreChainId, exocoreValidatorSet.addr);
+            imuachainLzEndpoint = new NonShortCircuitEndpointV2Mock(imuachainChainId, owner.addr);
             vm.stopBroadcast();
         } else {
             clientChainLzEndpoint = ILayerZeroEndpointV2(sepoliaEndpointV2);
-            exocoreLzEndpoint = ILayerZeroEndpointV2(exocoreEndpointV2);
+            imuachainLzEndpoint = ILayerZeroEndpointV2(imuachainEndpointV2);
         }
 
-        if (useExocorePrecompileMock) {
-            vm.selectFork(exocore);
+        if (useImuachainPrecompileMock) {
+            vm.selectFork(imuachain);
             vm.startBroadcast(deployer.privateKey);
             assetsMock = address(new AssetsMock(clientChainId));
             delegationMock = address(new DelegationMock());
@@ -55,23 +55,23 @@ contract PrerequisitesScript is BaseScript {
 
         string memory deployedContracts = "deployedContracts";
         string memory clientChainContracts = "clientChainContracts";
-        string memory exocoreContracts = "exocoreContracts";
+        string memory imuachainContracts = "imuachainContracts";
         vm.serializeAddress(clientChainContracts, "lzEndpoint", address(clientChainLzEndpoint));
         vm.serializeAddress(clientChainContracts, "beaconOracle", address(beaconOracle));
         string memory clientChainContractsOutput =
             vm.serializeAddress(clientChainContracts, "erc20Token", address(restakeToken));
 
-        if (useExocorePrecompileMock) {
-            vm.serializeAddress(exocoreContracts, "assetsPrecompileMock", assetsMock);
-            vm.serializeAddress(exocoreContracts, "delegationPrecompileMock", delegationMock);
-            vm.serializeAddress(exocoreContracts, "rewardPrecompileMock", rewardMock);
+        if (useImuachainPrecompileMock) {
+            vm.serializeAddress(imuachainContracts, "assetsPrecompileMock", assetsMock);
+            vm.serializeAddress(imuachainContracts, "delegationPrecompileMock", delegationMock);
+            vm.serializeAddress(imuachainContracts, "rewardPrecompileMock", rewardMock);
         }
 
-        string memory exocoreContractsOutput =
-            vm.serializeAddress(exocoreContracts, "lzEndpoint", address(exocoreLzEndpoint));
+        string memory imuachainContractsOutput =
+            vm.serializeAddress(imuachainContracts, "lzEndpoint", address(imuachainLzEndpoint));
 
         vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
-        string memory finalJson = vm.serializeString(deployedContracts, "exocore", exocoreContractsOutput);
+        string memory finalJson = vm.serializeString(deployedContracts, "imuachain", imuachainContractsOutput);
 
         vm.writeJson(finalJson, "script/deployments/prerequisiteContracts.json");
     }

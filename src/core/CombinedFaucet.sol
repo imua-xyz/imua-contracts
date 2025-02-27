@@ -11,6 +11,9 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
+/// @title CombinedFaucet
+/// @author imua-xyz
+/// @notice This contract can support both ERC20 and the EVM native token.
 contract CombinedFaucet is
     IERC165,
     IERC1155Receiver,

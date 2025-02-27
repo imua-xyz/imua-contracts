@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {Errors} from "../libraries/Errors.sol";
-import {ExocoreBytes} from "../libraries/ExocoreBytes.sol";
+import {ImuachainBytes} from "../libraries/ImuachainBytes.sol";
 
 import {ASSETS_CONTRACT} from "../interfaces/precompiles/IAssets.sol";
 import {DELEGATION_CONTRACT} from "../interfaces/precompiles/IDelegation.sol";
@@ -16,7 +16,7 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/se
 
 /**
  * @title UTXOGateway
- * @dev This contract manages the gateway between Bitcoin like chains and the Exocore system.
+ * @dev This contract manages the gateway between Bitcoin like chains and Imua
  * It handles deposits, delegations, withdrawals, and peg-out requests for BTC like tokens.
  */
 contract UTXOGateway is
@@ -27,7 +27,7 @@ contract UTXOGateway is
     UTXOGatewayStorage
 {
 
-    using ExocoreBytes for address;
+    using ImuachainBytes for address;
     using SignatureVerifier for bytes32;
 
     /**
@@ -40,7 +40,7 @@ contract UTXOGateway is
 
     /**
      * @notice Returns the app version.
-     * @dev This is used to check the compatibility of the gateway with the Exocore system.
+     * @dev This is used to check the compatibility of the gateway with Imua
      * @return The app version.
      */
     function appVersion() external pure returns (uint256) {
@@ -48,7 +48,7 @@ contract UTXOGateway is
     }
 
     /**
-     * @notice Initializes the contract with the Exocore witness address, owner address and required proofs.
+     * @notice Initializes the contract with the Imuachain witness address, owner address and required proofs.
      * @dev If the witnesses length is greater or equal to the required proofs, the consensus requirement for stake
      * message would be activated.
      * @param owner_ The address of the owner.
@@ -89,7 +89,7 @@ contract UTXOGateway is
     }
 
     /**
-     * @notice Activates token staking by registering or updating the chain and token with the Exocore system.
+     * @notice Activates token staking by registering or updating the chain and token with Imua
      */
     function activateStakingForClientChain(ClientChainID clientChainId) external onlyOwner whenNotPaused {
         if (clientChainId == ClientChainID.BITCOIN) {
@@ -226,7 +226,7 @@ contract UTXOGateway is
     }
 
     /**
-     * @notice Deposits BTC like tokens to the Exocore system.
+     * @notice Deposits BTC like tokens to Imua
      * @param witness The witness address that signed the message.
      * @param _msg The stake message.
      * @param signature The signature of the message.
@@ -251,7 +251,7 @@ contract UTXOGateway is
     /**
      * @notice Delegates BTC like tokens to an operator.
      * @param token The value of the token enum.
-     * @param operator The operator's exocore address.
+     * @param operator The operator's Imuachain address.
      * @param amount The amount to delegate.
      */
     function delegateTo(Token token, string calldata operator, uint256 amount)
@@ -278,7 +278,7 @@ contract UTXOGateway is
     /**
      * @notice Undelegates BTC like tokens from an operator.
      * @param token The value of the token enum.
-     * @param operator The operator's exocore address.
+     * @param operator The operator's Imuachain address.
      * @param amount The amount to undelegate.
      */
     function undelegateFrom(Token token, string calldata operator, uint256 amount)
@@ -296,7 +296,7 @@ contract UTXOGateway is
 
         uint64 nonce = ++delegationNonce[clientChainId];
         bool success = DELEGATION_CONTRACT.undelegate(
-            uint32(uint8(clientChainId)), nonce, VIRTUAL_TOKEN, msg.sender.toExocoreBytes(), bytes(operator), amount
+            uint32(uint8(clientChainId)), nonce, VIRTUAL_TOKEN, msg.sender.toImuachainBytes(), bytes(operator), amount
         );
         if (!success) {
             revert Errors.UndelegationFailed();
@@ -318,7 +318,7 @@ contract UTXOGateway is
         }
 
         (bool success, uint256 updatedBalance) = ASSETS_CONTRACT.withdrawLST(
-            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, msg.sender.toExocoreBytes(), amount
+            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, msg.sender.toImuachainBytes(), amount
         );
         if (!success) {
             revert Errors.WithdrawPrincipalFailed();
@@ -342,7 +342,7 @@ contract UTXOGateway is
         }
 
         (bool success, uint256 updatedBalance) = REWARD_CONTRACT.claimReward(
-            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, msg.sender.toExocoreBytes(), amount
+            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, msg.sender.toImuachainBytes(), amount
         );
         if (!success) {
             revert Errors.WithdrawRewardFailed();
@@ -423,26 +423,26 @@ contract UTXOGateway is
     }
 
     /**
-     * @notice Gets the client chain address for a given Exocore address
+     * @notice Gets the client chain address for a given Imuachain address
      * @param clientChainId The client chain ID
-     * @param exocoreAddress The Exocore address
+     * @param imuachainAddress The Imuachain address
      * @return The client chain address
      */
-    function getClientAddress(ClientChainID clientChainId, address exocoreAddress)
+    function getClientAddress(ClientChainID clientChainId, address imuachainAddress)
         external
         view
         returns (bytes memory)
     {
-        return outboundRegistry[clientChainId][exocoreAddress];
+        return outboundRegistry[clientChainId][imuachainAddress];
     }
 
     /**
-     * @notice Gets the Exocore address for a given client chain address
+     * @notice Gets the Imuachain address for a given client chain address
      * @param clientChainId The client chain ID
      * @param clientAddress The client chain address
-     * @return The Exocore address
+     * @return The Imuachain address
      */
-    function getExocoreAddress(ClientChainID clientChainId, bytes calldata clientAddress)
+    function getImuachainAddress(ClientChainID clientChainId, bytes calldata clientAddress)
         external
         view
         returns (address)
@@ -610,7 +610,7 @@ contract UTXOGateway is
     }
 
     /**
-     * @notice Registers or updates the Bitcoin chain with the Exocore system.
+     * @notice Registers or updates the Bitcoin chain with Imua
      */
     function _registerOrUpdateClientChain(
         ClientChainID clientChainId,
@@ -623,7 +623,7 @@ contract UTXOGateway is
             uint32(uint8(clientChainId)), stakerAccountLength, name, metadata, signatureScheme
         );
         if (!success) {
-            revert Errors.RegisterClientChainToExocoreFailed(uint32(uint8(clientChainId)));
+            revert Errors.RegisterClientChainToImuachainFailed(uint32(uint8(clientChainId)));
         }
         if (updated) {
             emit ClientChainUpdated(clientChainId);
@@ -671,7 +671,7 @@ contract UTXOGateway is
             _msg.nonce,
             _msg.clientTxId,
             _msg.clientAddress,
-            _msg.exocoreAddress,
+            _msg.imuachainAddress,
             _msg.operator,
             _msg.amount
         );
@@ -732,7 +732,7 @@ contract UTXOGateway is
      * @dev This function creates a new peg-out request and stores it in the contract's state
      * @param clientChainId The client chain to be pegged out
      * @param _amount The amount of tokens to be pegged out
-     * @param withdrawer The Exocore address associated with the Bitcoin address
+     * @param withdrawer The Imuachain address associated with the Bitcoin address
      * @param clientAddress The client chain address
      * @param _withdrawType The type of withdrawal (e.g., normal, fast)
      * @return requestId The unique identifier for the peg-out request
@@ -767,31 +767,31 @@ contract UTXOGateway is
      * @notice Internal function to deposit BTC like token.
      * @param clientChainId The client chain ID.
      * @param srcAddress The source address.
-     * @param depositorExoAddr The Exocore address.
+     * @param depositorImAddr The Imuachain address.
      * @param amount The amount to deposit.
      * @param clientTxId The client chain transaction ID.
      */
     function _deposit(
         ClientChainID clientChainId,
         bytes memory srcAddress,
-        address depositorExoAddr,
+        address depositorImAddr,
         uint256 amount,
         bytes32 clientTxId
     ) internal {
         (bool success, uint256 updatedBalance) = ASSETS_CONTRACT.depositLST(
-            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, depositorExoAddr.toExocoreBytes(), amount
+            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, depositorImAddr.toImuachainBytes(), amount
         );
         if (!success) {
             revert Errors.DepositFailed(clientTxId);
         }
 
-        emit DepositCompleted(clientChainId, clientTxId, depositorExoAddr, srcAddress, amount, updatedBalance);
+        emit DepositCompleted(clientChainId, clientTxId, depositorImAddr, srcAddress, amount, updatedBalance);
     }
 
     /**
      * @notice Internal function to delegate BTC like token.
      * @param clientChainId The client chain ID.
-     * @param delegator The Exocore address.
+     * @param delegator The Imuachain address.
      * @param operator The operator's address.
      * @param amount The amount to delegate.
      * @return success True if the delegation was successful, false otherwise.
@@ -803,7 +803,7 @@ contract UTXOGateway is
     {
         uint64 nonce = ++delegationNonce[clientChainId];
         success = DELEGATION_CONTRACT.delegate(
-            uint32(uint8(clientChainId)), nonce, VIRTUAL_TOKEN, delegator.toExocoreBytes(), bytes(operator), amount
+            uint32(uint8(clientChainId)), nonce, VIRTUAL_TOKEN, delegator.toImuachainBytes(), bytes(operator), amount
         );
     }
 
@@ -815,15 +815,15 @@ contract UTXOGateway is
         }
     }
 
-    function _registerAddress(ClientChainID clientChainId, bytes memory depositor, address exocoreAddress) internal {
-        require(depositor.length > 0 && exocoreAddress != address(0), "Invalid address");
+    function _registerAddress(ClientChainID clientChainId, bytes memory depositor, address imuachainAddress) internal {
+        require(depositor.length > 0 && imuachainAddress != address(0), "Invalid address");
         require(inboundRegistry[clientChainId][depositor] == address(0), "Depositor address already registered");
-        require(outboundRegistry[clientChainId][exocoreAddress].length == 0, "Exocore address already registered");
+        require(outboundRegistry[clientChainId][imuachainAddress].length == 0, "Imuachain address already registered");
 
-        inboundRegistry[clientChainId][depositor] = exocoreAddress;
-        outboundRegistry[clientChainId][exocoreAddress] = depositor;
+        inboundRegistry[clientChainId][depositor] = imuachainAddress;
+        outboundRegistry[clientChainId][imuachainAddress] = depositor;
 
-        emit AddressRegistered(clientChainId, depositor, exocoreAddress);
+        emit AddressRegistered(clientChainId, depositor, imuachainAddress);
     }
 
     function _processStakeMsg(StakeMsg memory _msg) internal {
@@ -835,34 +835,34 @@ contract UTXOGateway is
         // register address if not already registered
         if (
             inboundRegistry[_msg.clientChainId][_msg.clientAddress] == address(0)
-                && outboundRegistry[_msg.clientChainId][_msg.exocoreAddress].length == 0
+                && outboundRegistry[_msg.clientChainId][_msg.imuachainAddress].length == 0
         ) {
-            if (_msg.exocoreAddress == address(0)) {
+            if (_msg.imuachainAddress == address(0)) {
                 revert Errors.ZeroAddress();
             }
-            _registerAddress(_msg.clientChainId, _msg.clientAddress, _msg.exocoreAddress);
+            _registerAddress(_msg.clientChainId, _msg.clientAddress, _msg.imuachainAddress);
         }
 
-        address stakerExoAddr = inboundRegistry[_msg.clientChainId][_msg.clientAddress];
+        address stakerImAddr = inboundRegistry[_msg.clientChainId][_msg.clientAddress];
         uint256 fee = _msg.amount * bridgeFeeRate / BASIS_POINTS;
         uint256 amountAfterFee = _msg.amount - fee;
 
-        // we use registered exocore address as the depositor
+        // we use registered Imuachain address as the depositor
         // this should always succeed and never revert, otherwise something is wrong.
-        _deposit(_msg.clientChainId, _msg.clientAddress, stakerExoAddr, amountAfterFee, _msg.clientTxId);
+        _deposit(_msg.clientChainId, _msg.clientAddress, stakerImAddr, amountAfterFee, _msg.clientTxId);
 
         // delegate to operator if operator is provided, and do not revert if it fails since we need to count the stake
         // as deposited
         if (bytes(_msg.operator).length > 0) {
-            bool success = _delegate(_msg.clientChainId, stakerExoAddr, _msg.operator, amountAfterFee);
+            bool success = _delegate(_msg.clientChainId, stakerImAddr, _msg.operator, amountAfterFee);
             if (!success) {
-                emit DelegationFailedForStake(_msg.clientChainId, stakerExoAddr, _msg.operator, amountAfterFee);
+                emit DelegationFailedForStake(_msg.clientChainId, stakerImAddr, _msg.operator, amountAfterFee);
             } else {
-                emit DelegationCompleted(_msg.clientChainId, stakerExoAddr, _msg.operator, amountAfterFee);
+                emit DelegationCompleted(_msg.clientChainId, stakerImAddr, _msg.operator, amountAfterFee);
             }
         }
 
-        emit StakeMsgExecuted(_msg.clientChainId, _msg.nonce, stakerExoAddr, amountAfterFee);
+        emit StakeMsgExecuted(_msg.clientChainId, _msg.nonce, stakerImAddr, amountAfterFee);
     }
 
 }

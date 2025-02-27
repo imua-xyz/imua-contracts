@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 /// @title ITokenWhitelister
-/// @author ExocoreNetwork
+/// @author imua-xyz
 /// @notice An interface for the TokenWhitelister contract that allows whitelisting and obtaining
 /// the count of whitelisted tokens.
 interface ITokenWhitelister {

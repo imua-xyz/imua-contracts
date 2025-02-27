@@ -21,7 +21,7 @@ interface IValidatorRegistry {
     /// @param name The name (meta info) for the validator.
     /// @param commission The commission for the validator.
     /// @param consensusPublicKey The public key used by the validator for consensus
-    /// on the Exocore chain.
+    /// on Imuachain.
     struct Validator {
         string name;
         Commission commission;
@@ -30,8 +30,8 @@ interface IValidatorRegistry {
 
     /// @notice Registers a new validator in the registry with the provided details.
     /// @dev The set of validators is a subset of operators; the validators represent the subset of operators that
-    /// intend to validate blocks on the Exocore chain.
-    /// @param validatorAddress The Exocore address of the operator (corresponding to the validator) as a string.
+    /// intend to validate blocks on the Imuachain.
+    /// @param validatorAddress The Imuachain address of the operator (corresponding to the validator) as a string.
     /// @param name The human-readable name of the operator (corresponding to the validator).
     /// @param commission A `Commission` struct containing the commission details for this operator (corresponding to
     /// the validator).
@@ -57,7 +57,7 @@ interface IValidatorRegistry {
 
     /// @dev Emitted when a new validator is registered in the contract.
     /// @param ethAddress The Ethereum address of the validator.
-    /// @param validatorAddress The Exocore address of the validator.
+    /// @param validatorAddress The Imuachain address of the validator.
     /// @param name The human-readable name of the validator.
     /// @param commission The commission details for the validator.
     /// @param consensusPublicKey The public key used for consensus operations.
@@ -70,7 +70,7 @@ interface IValidatorRegistry {
     );
 
     /// @dev Emitted when a validator's consensus key is updated.
-    /// @param validatorAddress The Exocore address of the validator.
+    /// @param validatorAddress The Imuachain address of the validator.
     /// @param newConsensusPublicKey The new consensus key for the validator.
     event ValidatorKeyReplaced(string validatorAddress, bytes32 newConsensusPublicKey);
 

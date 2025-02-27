@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-The Reward Vault is a crucial component of the Exocore ecosystem, designed to securely custody reward tokens distributed by the Exocore chain. It supports permissionless reward token deposits on behalf of AVS (Actively Validated Service) providers and allows stakers to claim their rewards after verification by the Exocore chain. The Reward Vault is managed by the Gateway contract, which acts as an intermediary for all operations.
+The Reward Vault is a crucial component of IMUA, designed to securely custody reward tokens distributed by Imuachain. It supports permissionless reward token deposits on behalf of AVS (Actively Validated Service) providers and allows stakers to claim their rewards after verification by Imuachain. The Reward Vault is managed by the Gateway contract, which acts as an intermediary for all operations.
 
 The Reward Vault is implemented using the beacon proxy pattern for upgradeability, and a single instance of the Reward Vault is deployed when the ClientChainGateway is initialized.
 
@@ -12,7 +12,7 @@ The Reward Vault is implemented using the beacon proxy pattern for upgradeabilit
     - The Reward Vault should handle standard ERC20 tokens without requiring prior whitelisting or governance approval.
     - Depositors should be able to deposit rewards in any standard ERC20 token on behalf of AVS providers without restrictions.
 
-2.2. Exocore Chain as Source of Truth: The Exocore chain maintains the record of reward balances and handles reward distribution/accounting for each staker. The Reward Vault only tracks withdrawable balances after claim approval.
+2.2. Imuachain as Source of Truth: Imuachain maintains the record of reward balances and handles reward distribution/accounting for each staker. The Reward Vault only tracks withdrawable balances after claim approval.
 
 2.3. Separation of Concerns: The Reward Vault is distinct from principal vaults, maintaining a clear separation between staked principals and earned rewards.
 
@@ -28,7 +28,7 @@ The Reward Vault is implemented using the beacon proxy pattern for upgradeabilit
 
 Key Functions:
 - `deposit(address token, address avs, uint256 amount)`: Allows the Gateway to deposit reward tokens on behalf of an AVS. Increases the total deposited rewards for the specified token and AVS.
-- `unlockReward(address token, address staker, uint256 amount)`: Allows the Gateway to unlock rewards for a staker after claim approval from the Exocore chain.
+- `unlockReward(address token, address staker, uint256 amount)`: Allows the Gateway to unlock rewards for a staker after claim approval from Imuachain.
 - `withdraw(address token, address withdrawer, address recipient, uint256 amount)`: Allows the Gateway to withdraw claimed rewards for a staker.
 - `getWithdrawableBalance(address token, address staker)`: Returns the withdrawable balance of a specific reward token for a staker.
 - `getTotalDepositedRewards(address token, address avs)`: Returns the total deposited rewards of a specific token for an AVS.
@@ -41,7 +41,7 @@ Implementation:
 
 New Functions:
 - `submitReward(address token, uint256 amount, address avs)`: Receives reward submissions and calls RewardVault's `deposit`.
-- `claimRewardFromExocore(address token, uint256 amount)`: Initiates a claim request to the Exocore chain.
+- `claimRewardFromImuachain(address token, uint256 amount)`: Initiates a claim request to Imuachain.
 - `withdrawReward(address token, address recipient, uint256 amount)`: Calls RewardVault's `withdraw` to transfer claimed rewards to the staker.
 
 Additional Responsibility:
@@ -121,19 +121,19 @@ contract RewardVaultProxy {
    a. Transfers the specified amount of tokens from the depositor to itself.
    b. Increases the total deposited rewards for the specified token and AVS in the `totalDepositedRewards` mapping.
    c. Emits a `RewardDeposited` event.
-3. Gateway sends a message to the Exocore chain to account for the deposited rewards.
-4. Exocore chain processes the request and emits a `RewardOperationResult` event to indicate the result of the submission.
+3. Gateway sends a message to Imuachain to account for the deposited rewards.
+4. Imuachain processes the request and emits a `RewardOperationResult` event to indicate the result of the submission.
 
 ### 4.2. Reward Distribution and Accounting
 
-1. Exocore chain handles the distribution and accounting of rewards to stakers based on their staking activities and the rewards submitted.
-2. Exocore chain maintains the record of each staker's earned rewards.
+1. Imuachain handles the distribution and accounting of rewards to stakers based on their staking activities and the rewards submitted.
+2. Imuachain maintains the record of each staker's earned rewards.
 
 ### 4.3. Reward Claiming and Withdrawal
 
-1. Staker calls `claimRewardFromExocore` on the Gateway.
-2. Gateway sends a claim request to the Exocore chain.
-3. Exocore chain verifies the request and sends a response back to the Gateway, emitting a `RewardOperation` event.
+1. Staker calls `claimRewardFromImuachain` on the Gateway.
+2. Gateway sends a claim request to Imuachain.
+3. Imuachain verifies the request and sends a response back to the Gateway, emitting a `RewardOperation` event.
 4. If the claim is approved, Gateway calls RewardVault's `unlockReward`, which:
    a. Increases the staker's withdrawable balance for the specified token.
    b. Emits a `RewardUnlocked` event.
@@ -148,7 +148,7 @@ contract RewardVaultProxy {
 5.1. Access Control: 
 - Only the Gateway should be able to call RewardVault's functions.
 - Any address should be able to call `ClientChainGateway.submitReward`.
-- Only stakers should be able to call `ClientChainGateway.claimRewardFromExocore` for their own rewards.
+- Only stakers should be able to call `ClientChainGateway.claimRewardFromImuachain` for their own rewards.
 
 5.2. Token Compatibility: While the system is permissionless, it is designed to work with standard ERC20 tokens to ensure consistent behavior and accounting.
 

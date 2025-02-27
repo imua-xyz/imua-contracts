@@ -1,11 +1,11 @@
 pragma solidity ^0.8.19;
 
-import "../src/core/ExoCapsule.sol";
+import {ImuaCapsule} from "../src/core/ImuaCapsule.sol";
 import "./BaseScript.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import "forge-std/Script.sol";
 
-contract UpgradeExoCapsuleScript is BaseScript {
+contract UpgradeImuaCapsuleScript is BaseScript {
 
     UpgradeableBeacon capsuleBeaconContract;
 
@@ -24,11 +24,11 @@ contract UpgradeExoCapsuleScript is BaseScript {
         vm.selectFork(clientChain);
         vm.startBroadcast(deployer.privateKey);
         console.log("owner", capsuleBeaconContract.owner());
-        ExoCapsule capsule = new ExoCapsule(address(0));
+        ImuaCapsule capsule = new ImuaCapsule(address(0));
         capsuleBeaconContract.upgradeTo(address(capsule));
         vm.stopBroadcast();
 
-        console.log("new Exocapsule Implementation address: ", address(capsule));
+        console.log("new ImuaCapsule Implementation address: ", address(capsule));
     }
 
 }

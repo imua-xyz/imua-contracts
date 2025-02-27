@@ -15,16 +15,16 @@ contract CreateMultisigScript is BaseScript {
     function setUp() public override {
         super.setUp();
 
-        exocore = vm.createSelectFork(exocoreRPCURL);
-        _topUpPlayer(exocore, address(0), exocoreGenesis, deployer.addr, 2 ether);
+        imuachain = vm.createSelectFork(imuachainRPCURL);
+        _topUpPlayer(imuachain, address(0), imuachainGenesis, deployer.addr, 2 ether);
     }
 
     function run() public {
-        vm.selectFork(exocore);
+        vm.selectFork(imuachain);
         vm.startBroadcast(deployer.privateKey);
 
         // Read deployed Safe contracts from JSON file
-        string memory json = vm.readFile("script/deployments/safe_contracts_on_exocore.json");
+        string memory json = vm.readFile("script/deployments/safe_contracts_on_imuachain.json");
 
         address proxyFactoryAddress = json.readAddress(".GnosisSafeProxyFactory");
         address safeSingletonAddress = json.readAddress(".GnosisSafeL2");
@@ -36,7 +36,7 @@ contract CreateMultisigScript is BaseScript {
         // Set up owners
         address[] memory owners = new address[](3);
         owners[0] = deployer.addr;
-        owners[1] = exocoreValidatorSet.addr;
+        owners[1] = owner.addr;
         owners[2] = relayer.addr;
 
         // Set up Safe parameters

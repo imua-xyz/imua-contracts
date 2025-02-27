@@ -17,11 +17,11 @@ module.exports = {
   networks: {
     hardhat: {
     },
-    exocore_localnet: {
+    imuachain_localnet: {
       url: "http://127.0.0.1:8545",
       chainId: 232,
       accounts: [
-        process.env.LOCAL_EXOCORE_FUNDED_ACCOUNT_PRIVATE_KEY,
+        process.env.LOCAL_IMUACHAIN_FUNDED_ACCOUNT_PRIVATE_KEY,
         process.env.TEST_ACCOUNT_ONE_PRIVATE_KEY,
         process.env.TEST_ACCOUNT_TWO_PRIVATE_KEY,
         process.env.TEST_ACCOUNT_THREE_PRIVATE_KEY,

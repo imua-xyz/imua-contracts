@@ -6,7 +6,7 @@ import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transpa
 import {Bootstrap} from "../src/core/Bootstrap.sol";
 import {ClientChainGateway} from "../src/core/ClientChainGateway.sol";
 
-import "../src/core/ExoCapsule.sol";
+import {ImuaCapsule} from "../src/core/ImuaCapsule.sol";
 
 import {RewardVault} from "../src/core/RewardVault.sol";
 import {Vault} from "../src/core/Vault.sol";
@@ -21,9 +21,12 @@ import "forge-std/Script.sol";
 import {BootstrapStorage} from "../src/storage/BootstrapStorage.sol";
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 
+import {CREATE3_FACTORY} from "../lib/create3-factory/src/ICREATE3Factory.sol";
+
 contract DeployBootstrapOnly is BaseScript {
 
     address wstETH;
+    bytes32 salt;
 
     function setUp() public virtual override {
         // load keys
@@ -47,11 +50,17 @@ contract DeployBootstrapOnly is BaseScript {
         // https://docs.lido.fi/deployed-contracts/sepolia/
         wstETH = stdJson.readAddress(prerequisiteContracts, ".clientChain.wstETH");
         require(wstETH != address(0), "wstETH not found");
+        // salt is automatically scoped to the deployer address
+        salt = keccak256(abi.encodePacked("Bootstrap"));
+        // check that the salt is not already taken
+        address deployed = CREATE3_FACTORY.getDeployed(owner.addr, salt);
+        console.log("deployed", deployed);
+        // require(deployed.code.length == 0, "Salt already taken");
     }
 
     function run() public {
         vm.selectFork(clientChain);
-        vm.startBroadcast(exocoreValidatorSet.privateKey);
+        vm.startBroadcast(owner.privateKey);
         whitelistTokens.push(address(restakeToken));
         tvlLimits.push(restakeToken.totalSupply() / 20);
         whitelistTokens.push(wstETH);
@@ -66,7 +75,7 @@ contract DeployBootstrapOnly is BaseScript {
         /// deploy vault implementation contract, capsule implementation contract, reward vault implementation contract
         /// that has logics called by proxy
         vaultImplementation = new Vault();
-        capsuleImplementation = new ExoCapsule(address(0));
+        capsuleImplementation = new ImuaCapsule(address(0));
 
         /// deploy the vault beacon, capsule beacon, reward vault beacon that store the implementation contract address
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
@@ -74,10 +83,10 @@ contract DeployBootstrapOnly is BaseScript {
 
         // Create ImmutableConfig struct
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            exocoreChainId: exocoreChainId,
+            imuachainChainId: imuachainChainId,
             beaconOracleAddress: address(beaconOracle),
             vaultBeacon: address(vaultBeacon),
-            exoCapsuleBeacon: address(capsuleBeacon),
+            imuaCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode),
             networkConfig: address(0)
         });
@@ -92,33 +101,27 @@ contract DeployBootstrapOnly is BaseScript {
             new ClientChainGateway(address(clientChainLzEndpoint), config, address(rewardVaultBeacon));
 
         // then the client chain initialization
-        bytes memory initialization =
-            abi.encodeWithSelector(clientGatewayLogic.initialize.selector, exocoreValidatorSet.addr);
+        bytes memory initialization = abi.encodeWithSelector(clientGatewayLogic.initialize.selector, owner.addr);
 
-        // bootstrap implementation
-        Bootstrap bootstrap = Bootstrap(
-            payable(
-                address(
-                    new TransparentUpgradeableProxy(
-                        address(bootstrapLogic),
-                        address(clientChainProxyAdmin),
-                        abi.encodeCall(
-                            Bootstrap.initialize,
-                            (
-                                exocoreValidatorSet.addr,
-                                block.timestamp + 168 hours,
-                                2 seconds,
-                                whitelistTokens,
-                                tvlLimits,
-                                address(clientChainProxyAdmin),
-                                address(clientGatewayLogic),
-                                initialization
-                            )
-                        )
-                    )
-                )
+        // bootstrap proxy, it should be deployed using CREATE3
+        bytes memory bootstrapInit = abi.encodeCall(
+            Bootstrap.initialize,
+            (
+                owner.addr,
+                block.timestamp + 168 hours,
+                2 seconds,
+                whitelistTokens,
+                tvlLimits,
+                address(clientChainProxyAdmin),
+                address(clientGatewayLogic),
+                initialization
             )
         );
+        bytes memory creationCode = abi.encodePacked(
+            type(TransparentUpgradeableProxy).creationCode,
+            abi.encode(address(bootstrapLogic), address(clientChainProxyAdmin), bootstrapInit)
+        );
+        Bootstrap bootstrap = Bootstrap(payable(CREATE3_FACTORY.deploy(salt, creationCode)));
 
         // initialize proxyAdmin with bootstrap address
         clientChainProxyAdmin.initialize(address(bootstrap));

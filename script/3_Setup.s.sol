@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 import {Action, GatewayStorage} from "../src/storage/GatewayStorage.sol";
 
 import "../src/interfaces/IClientChainGateway.sol";
-import "../src/interfaces/IExocoreGateway.sol";
+import "../src/interfaces/IImuachainGateway.sol";
 import "../src/interfaces/IVault.sol";
 
 import {NonShortCircuitEndpointV2Mock} from "../test/mocks/NonShortCircuitEndpointV2Mock.sol";
@@ -33,61 +33,63 @@ contract SetupScript is BaseScript {
         restakeToken = ERC20PresetFixedSupply(stdJson.readAddress(deployedContracts, ".clientChain.erc20Token"));
         require(address(restakeToken) != address(0), "restakeToken address should not be empty");
 
-        exocoreGateway = IExocoreGateway(payable(stdJson.readAddress(deployedContracts, ".exocore.exocoreGateway")));
-        require(address(exocoreGateway) != address(0), "exocoreGateway address should not be empty");
+        imuachainGateway =
+            IImuachainGateway(payable(stdJson.readAddress(deployedContracts, ".imuachain.imuachainGateway")));
+        require(address(imuachainGateway) != address(0), "imuachainGateway address should not be empty");
 
-        exocoreLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(deployedContracts, ".exocore.lzEndpoint"));
-        require(address(exocoreLzEndpoint) != address(0), "exocoreLzEndpoint address should not be empty");
+        imuachainLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(deployedContracts, ".imuachain.lzEndpoint"));
+        require(address(imuachainLzEndpoint) != address(0), "imuachainLzEndpoint address should not be empty");
 
         // transfer some gas fee to contract owner
         clientChain = vm.createSelectFork(clientChainRPCURL);
-        _topUpPlayer(clientChain, address(0), deployer, exocoreValidatorSet.addr, 0.2 ether);
+        _topUpPlayer(clientChain, address(0), deployer, owner.addr, 0.2 ether);
 
-        exocore = vm.createSelectFork(exocoreRPCURL);
-        _topUpPlayer(exocore, address(0), exocoreGenesis, exocoreValidatorSet.addr, 0.2 ether);
+        imuachain = vm.createSelectFork(imuachainRPCURL);
+        _topUpPlayer(imuachain, address(0), imuachainGenesis, owner.addr, 0.2 ether);
 
-        if (!useExocorePrecompileMock) {
+        if (!useImuachainPrecompileMock) {
             _bindPrecompileMocks();
         }
     }
 
     function run() public {
-        // 1. setup client chain contracts to make them ready for sending and receiving messages from exocore gateway
+        // 1. setup client chain contracts to make them ready for sending and receiving messages from imuachain gateway
 
         vm.selectFork(clientChain);
         // Set owner of these contracts and only owner could setup contracts state
-        vm.startBroadcast(exocoreValidatorSet.privateKey);
+        vm.startBroadcast(owner.privateKey);
         // set the destination endpoint for corresponding destinations in endpoint mock if USE_ENDPOINT_MOCK is true
         if (useEndpointMock) {
             NonShortCircuitEndpointV2Mock(address(clientChainLzEndpoint)).setDestLzEndpoint(
-                address(exocoreGateway), address(exocoreLzEndpoint)
+                address(imuachainGateway), address(imuachainLzEndpoint)
             );
         }
 
-        // as LzReceivers, client chain gateway should set exocoreGateway as trusted remote to receive messages from it
-        clientGateway.setPeer(exocoreChainId, address(exocoreGateway).toBytes32());
+        // as LzReceivers, client chain gateway should set imuachainGateway as trusted remote to receive messages from
+        // it
+        clientGateway.setPeer(imuachainChainId, address(imuachainGateway).toBytes32());
         vm.stopBroadcast();
 
-        // 2. setup Exocore contracts to make them ready for sending and receiving messages from client chain
-        // gateway, and register client chain meta data to Exocore native module
+        // 2. setup imuachain contracts to make them ready for sending and receiving messages from client chain
+        // gateway, and register client chain meta data to imuachain native module
 
-        vm.selectFork(exocore);
+        vm.selectFork(imuachain);
         // Set the owner of these contracts and only owner could setup contracts state
-        vm.startBroadcast(exocoreValidatorSet.privateKey);
+        vm.startBroadcast(owner.privateKey);
         // set the destination endpoint for corresponding destinations in endpoint mock if USE_ENDPOINT_MOCK is true
         if (useEndpointMock) {
-            NonShortCircuitEndpointV2Mock(address(exocoreLzEndpoint)).setDestLzEndpoint(
+            NonShortCircuitEndpointV2Mock(address(imuachainLzEndpoint)).setDestLzEndpoint(
                 address(clientGateway), address(clientChainLzEndpoint)
             );
         }
-        // register clientChainId to Exocore native module and set peer for client chain gateway to be ready for
+        // register clientChainId to imuachain native module and set peer for client chain gateway to be ready for
         // messaging
-        exocoreGateway.registerOrUpdateClientChain(
+        imuachainGateway.registerOrUpdateClientChain(
             clientChainId, address(clientGateway).toBytes32(), 20, "ClientChain", "EVM compatible network", "secp256k1"
         );
         vm.stopBroadcast();
 
-        // 3. adding tokens to the whtielist of both Exocore and client chain gateway to enable restaking
+        // 3. adding tokens to the whtielist of both imuachain and client chain gateway to enable restaking
         vm.selectFork(clientChain);
         // first we read decimals from client chain ERC20 token contract to prepare for token data
         bytes32[] memory whitelistTokensBytes32 = new bytes32[](2);
@@ -113,19 +115,20 @@ contract SetupScript is BaseScript {
         oracleInfos[1] = "ETH,Ethereum,8"; //[tokenName],[chainName],[tokenDecimal](,[interval],[contract](,[ChainDesc:{...}],[TokenDesc:{...}]))
         tvlLimits[1] = 0; // irrelevant for native restaking
 
-        // second add whitelist tokens and their meta data on Exocore side to enable LST Restaking and Native Restaking,
+        // second add whitelist tokens and their meta data on imuachain side to enable LST Restaking and Native
+        // Restaking,
         // and this would also add token addresses to client chain gateway's whitelist
-        vm.selectFork(exocore);
-        vm.startBroadcast(exocoreValidatorSet.privateKey);
+        vm.selectFork(imuachain);
+        vm.startBroadcast(owner.privateKey);
         uint256 nativeFee;
         for (uint256 i = 0; i < whitelistTokensBytes32.length; i++) {
-            nativeFee = exocoreGateway.quote(
+            nativeFee = imuachainGateway.quote(
                 clientChainId,
                 abi.encodePacked(
                     Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokensBytes32[i], tvlLimits[i])
                 )
             );
-            exocoreGateway.addWhitelistToken{value: nativeFee}(
+            imuachainGateway.addWhitelistToken{value: nativeFee}(
                 clientChainId,
                 whitelistTokensBytes32[i],
                 decimals[i],

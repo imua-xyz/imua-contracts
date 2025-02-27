@@ -6,12 +6,12 @@ import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.so
 import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Test.sol";
 
-import "src/core/ExoCapsule.sol";
-import "src/interfaces/IExoCapsule.sol";
+import "src/core/ImuaCapsule.sol";
+import "src/interfaces/IImuaCapsule.sol";
 
 import "src/libraries/BeaconChainProofs.sol";
 import "src/libraries/Endian.sol";
-import {ExoCapsuleStorage} from "src/storage/ExoCapsuleStorage.sol";
+import {ImuaCapsuleStorage} from "src/storage/ImuaCapsuleStorage.sol";
 
 contract DepositSetup is Test {
 
@@ -31,7 +31,7 @@ contract DepositSetup is Test {
     BeaconChainProofs.ValidatorContainerProof validatorProof;
     bytes32 beaconBlockRoot;
 
-    ExoCapsule capsule;
+    ImuaCapsule capsule;
     IBeaconChainOracle beaconOracle;
     address payable capsuleOwner;
 
@@ -73,11 +73,11 @@ contract DepositSetup is Test {
 
         capsuleOwner = payable(address(0x125));
 
-        ExoCapsule phantomCapsule = new ExoCapsule(address(0));
+        ImuaCapsule phantomCapsule = new ImuaCapsule(address(0));
 
         address capsuleAddress = _getCapsuleFromWithdrawalCredentials(_getWithdrawalCredentials(validatorContainer));
         vm.etch(capsuleAddress, address(phantomCapsule).code);
-        capsule = ExoCapsule(payable(capsuleAddress));
+        capsule = ImuaCapsule(payable(capsuleAddress));
 
         capsule.initialize(address(this), capsuleOwner, address(beaconOracle));
     }
@@ -156,9 +156,9 @@ contract VerifyDepositProof is DepositSetup {
 
         capsule.verifyDepositProof(validatorContainer, validatorProof);
 
-        ExoCapsuleStorage.Validator memory validator =
+        ImuaCapsuleStorage.Validator memory validator =
             capsule.getRegisteredValidatorByPubkey(_getPubkey(validatorContainer));
-        assertEq(uint8(validator.status), uint8(ExoCapsuleStorage.VALIDATOR_STATUS.REGISTERED));
+        assertEq(uint8(validator.status), uint8(ImuaCapsuleStorage.VALIDATOR_STATUS.REGISTERED));
         assertEq(validator.validatorIndex, validatorProof.validatorIndex);
     }
 
@@ -180,7 +180,7 @@ contract VerifyDepositProof is DepositSetup {
 
         // deposit again should revert
         vm.expectRevert(
-            abi.encodeWithSelector(ExoCapsule.DoubleDepositedValidator.selector, _getPubkey(validatorContainer))
+            abi.encodeWithSelector(ImuaCapsule.DoubleDepositedValidator.selector, _getPubkey(validatorContainer))
         );
         capsule.verifyDepositProof(validatorContainer, validatorProof);
     }
@@ -202,7 +202,7 @@ contract VerifyDepositProof is DepositSetup {
         // deposit should revert because of proof is stale
         vm.expectRevert(
             abi.encodeWithSelector(
-                ExoCapsule.StaleValidatorContainer.selector, _getPubkey(validatorContainer), mockProofTimestamp
+                ImuaCapsule.StaleValidatorContainer.selector, _getPubkey(validatorContainer), mockProofTimestamp
             )
         );
         capsule.verifyDepositProof(validatorContainer, validatorProof);
@@ -227,7 +227,7 @@ contract VerifyDepositProof is DepositSetup {
         // construct malformed validator container that has extra fields
         validatorContainer.push(bytes32(uint256(123)));
         vm.expectRevert(
-            abi.encodeWithSelector(ExoCapsule.InvalidValidatorContainer.selector, _getPubkey(validatorContainer))
+            abi.encodeWithSelector(ImuaCapsule.InvalidValidatorContainer.selector, _getPubkey(validatorContainer))
         );
         capsule.verifyDepositProof(validatorContainer, validatorProof);
 
@@ -235,7 +235,7 @@ contract VerifyDepositProof is DepositSetup {
         // construct malformed validator container that misses fields
         validatorContainer.pop();
         vm.expectRevert(
-            abi.encodeWithSelector(ExoCapsule.InvalidValidatorContainer.selector, _getPubkey(validatorContainer))
+            abi.encodeWithSelector(ImuaCapsule.InvalidValidatorContainer.selector, _getPubkey(validatorContainer))
         );
         capsule.verifyDepositProof(validatorContainer, validatorProof);
     }
@@ -258,9 +258,9 @@ contract VerifyDepositProof is DepositSetup {
 
         capsule.verifyDepositProof(validatorContainer, validatorProof);
 
-        ExoCapsuleStorage.Validator memory validator =
+        ImuaCapsuleStorage.Validator memory validator =
             capsule.getRegisteredValidatorByPubkey(_getPubkey(validatorContainer));
-        assertEq(uint8(validator.status), uint8(ExoCapsuleStorage.VALIDATOR_STATUS.REGISTERED));
+        assertEq(uint8(validator.status), uint8(ImuaCapsuleStorage.VALIDATOR_STATUS.REGISTERED));
         assertEq(validator.validatorIndex, validatorProof.validatorIndex);
     }
 
@@ -279,7 +279,7 @@ contract VerifyDepositProof is DepositSetup {
         );
 
         // validator container withdrawal credentials are pointed to another capsule
-        ExoCapsule anotherCapsule = new ExoCapsule(address(0));
+        ImuaCapsule anotherCapsule = new ImuaCapsule(address(0));
 
         bytes32 gatewaySlot = bytes32(stdstore.target(address(anotherCapsule)).sig("gateway()").find());
         vm.store(address(anotherCapsule), gatewaySlot, bytes32(uint256(uint160(address(this)))));
@@ -290,7 +290,7 @@ contract VerifyDepositProof is DepositSetup {
         bytes32 beaconOraclerSlot = bytes32(stdstore.target(address(anotherCapsule)).sig("beaconOracle()").find());
         vm.store(address(anotherCapsule), beaconOraclerSlot, bytes32(uint256(uint160(address(beaconOracle)))));
 
-        vm.expectRevert(abi.encodeWithSelector(ExoCapsule.WithdrawalCredentialsNotMatch.selector));
+        vm.expectRevert(abi.encodeWithSelector(ImuaCapsule.WithdrawalCredentialsNotMatch.selector));
         anotherCapsule.verifyDepositProof(validatorContainer, validatorProof);
     }
 
@@ -311,7 +311,7 @@ contract VerifyDepositProof is DepositSetup {
 
         // verify proof against mismatch beacon block root
         vm.expectRevert(
-            abi.encodeWithSelector(ExoCapsule.InvalidValidatorContainer.selector, _getPubkey(validatorContainer))
+            abi.encodeWithSelector(ImuaCapsule.InvalidValidatorContainer.selector, _getPubkey(validatorContainer))
         );
         capsule.verifyDepositProof(validatorContainer, validatorProof);
     }
@@ -339,7 +339,7 @@ contract WithdrawalSetup is Test {
     BeaconChainProofs.WithdrawalProof withdrawalProof;
     bytes32 beaconBlockRoot; // latest beacon block root
 
-    ExoCapsule capsule;
+    ImuaCapsule capsule;
     IBeaconChainOracle beaconOracle;
     address capsuleOwner;
 
@@ -366,11 +366,11 @@ contract WithdrawalSetup is Test {
 
         capsuleOwner = address(0x125);
 
-        ExoCapsule phantomCapsule = new ExoCapsule(address(0));
+        ImuaCapsule phantomCapsule = new ImuaCapsule(address(0));
 
         address capsuleAddress = _getCapsuleFromWithdrawalCredentials(_getWithdrawalCredentials(validatorContainer));
         vm.etch(capsuleAddress, address(phantomCapsule).code);
-        capsule = ExoCapsule(payable(capsuleAddress));
+        capsule = ImuaCapsule(payable(capsuleAddress));
         assertEq(bytes32(capsule.capsuleWithdrawalCredentials()), _getWithdrawalCredentials(validatorContainer));
 
         stdstore.target(capsuleAddress).sig("gateway()").checked_write(bytes32(uint256(uint160(address(this)))));
@@ -396,9 +396,9 @@ contract WithdrawalSetup is Test {
 
         uint256 depositAmount = capsule.verifyDepositProof(validatorContainer, validatorProof);
 
-        ExoCapsuleStorage.Validator memory validator =
+        ImuaCapsuleStorage.Validator memory validator =
             capsule.getRegisteredValidatorByPubkey(_getPubkey(validatorContainer));
-        assertEq(uint8(validator.status), uint8(ExoCapsuleStorage.VALIDATOR_STATUS.REGISTERED));
+        assertEq(uint8(validator.status), uint8(ImuaCapsuleStorage.VALIDATOR_STATUS.REGISTERED));
         assertEq(validator.validatorIndex, validatorProof.validatorIndex);
 
         vm.deal(address(capsule), 1 ether); // Deposit 1 ether to handle excess amount withdraw
@@ -517,7 +517,7 @@ contract VerifyWithdrawalProof is WithdrawalSetup {
 
         vm.expectRevert(
             bytes(
-                "ExoCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"
+                "ImuaCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"
             )
         );
         capsule.withdrawNonBeaconChainETHBalance(payable(recipient), 0.5 ether);
@@ -535,7 +535,7 @@ contract VerifyWithdrawalProof is WithdrawalSetup {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                ExoCapsule.WithdrawalAlreadyProven.selector,
+                ImuaCapsule.WithdrawalAlreadyProven.selector,
                 _getPubkey(validatorContainer),
                 uint256(_getWithdrawalIndex(withdrawalContainer))
             )

@@ -8,25 +8,25 @@ import {INetworkConfig} from "../interfaces/INetworkConfig.sol";
 
 import {IBeaconChainOracle} from "@beacon-oracle/contracts/src/IBeaconChainOracle.sol";
 
-/// @title ExoCapsuleStorage
-/// @author ExocoreNetwork
-/// @notice The storage contract for the ExoCapsule contract.
+/// @title ImuaCapsuleStorage
+/// @author imua-xyz
+/// @notice The storage contract for the ImuaCapsule contract.
 /// @dev It does not inherit from INetworkConfig because the functions are `internal` and not `external` or `public`.
-/// Additionally, not all functions are used in the ExoCapsule contract.
-contract ExoCapsuleStorage {
+/// Additionally, not all functions are used in the ImuaCapsule contract.
+contract ImuaCapsuleStorage {
 
     /// @notice Enum representing the status of a validator.
     // solhint-disable-next-line contract-name-camelcase
     enum VALIDATOR_STATUS {
-        UNREGISTERED, // the validator has not been registered in this ExoCapsule
-        REGISTERED, // staked on ethpos and withdrawal credentials are pointed to the ExoCapsule
+        UNREGISTERED, // the validator has not been registered in this ImuaCapsule
+        REGISTERED, // staked on ethpos and withdrawal credentials are pointed to the ImuaCapsule
         WITHDRAWN // withdrawn from the Beacon Chain
 
     }
 
-    /// @notice Struct representing a validator in the ExoCapsule.
+    /// @notice Struct representing a validator in the ImuaCapsule.
     /// @param validatorIndex The index of the validator in the Beacon Chain.
-    /// @param restakedBalanceGwei The amount of Beacon Chain ETH restaked on Exocore in gwei.
+    /// @param restakedBalanceGwei The amount of Beacon Chain ETH restaked on Imuachain in gwei.
     /// @param mostRecentBalanceUpdateTimestamp The timestamp of the validator's most recent balance update.
     /// @param status The status of the validator.
     struct Validator {
@@ -61,14 +61,14 @@ contract ExoCapsuleStorage {
     address public immutable NETWORK_CONFIG;
 
     /// @notice the amount of execution layer ETH in this contract that is staked in(i.e. withdrawn from the Beacon
-    /// Chain but not from Exocore)
+    /// Chain but not from Imuachain)
     uint256 public withdrawableBalance;
 
     /// @notice The amount of non-beacon chain ETH balance.
     /// @dev This variable tracks any ETH deposited into this contract via the `receive` fallback function
     uint256 public nonBeaconChainETHBalance;
 
-    /// @notice The owner of the ExoCapsule.
+    /// @notice The owner of the ImuaCapsule.
     address payable public capsuleOwner;
 
     /// @notice The address of the NativeRestakingController contract.
@@ -90,7 +90,7 @@ contract ExoCapsuleStorage {
     /// @dev Storage gap to allow for future upgrades.
     uint256[40] private __gap;
 
-    /// @notice Sets the network configuration contract address for the ExoCapsule contract.
+    /// @notice Sets the network configuration contract address for the ImuaCapsule contract.
     /// @param networkConfig_ The address of the NetworkConfig contract.
     constructor(address networkConfig_) {
         NETWORK_CONFIG = networkConfig_;

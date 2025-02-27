@@ -1,6 +1,6 @@
-# Exocore Contracts
+# Imua Contracts
 
-The Exocore contracts repository contains a set of smart contracts deployed on both Exocore and the target client chains, which facilitate assets deposit and withdrawal, cross-chain communication, and restaking operations for native assets and liquid staking tokens (LSTs), ensuring secure interactions and efficient management of restaked assets.
+The imua-contracts repository contains a set of smart contracts deployed on both Imuachain and the target client chains, which facilitate assets deposit and withdrawal, cross-chain communication, and restaking operations for native assets and liquid staking tokens (LSTs), ensuring secure interactions and efficient management of restaked assets.
 
 ## Getting Started
 
@@ -12,7 +12,7 @@ The Exocore contracts repository contains a set of smart contracts deployed on b
 
 ### Basics
 
-Our docs site is [here](https://docs.exocore.network/components/smart-contracts). It contains tutorials, explainers, and smart contract documentation. If you'd like to view these docs on github instead, check out [the docs](/docs) repo:
+Our docs site is [here](https://docs.imua.xyz/components/smart-contracts). It contains tutorials, explainers, and smart contract documentation. If you'd like to view these docs on github instead, check out [the docs](/docs) repo:
 
 - [Contracts summary](./docs/summary.md)
 - [Architecture diagrams](/docs/architecture.svg)
@@ -31,7 +31,7 @@ This repository utilizes Foundry. For more information on installation and usage
 ```
 foundryup
 
-git clone --recurse-submodules git@github.com:ExocoreNetwork/exocore-contracts.git && cd exocore-contracts
+git clone --recurse-submodules git@github.com:imua-xyz/imua-contracts.git && cd imua-contracts
 
 forge build
 
@@ -69,14 +69,8 @@ Deposit & Withdraw e2e test:
 
 ### Current Testnet Deployment
 
-The current main deployment is our v1.0.0 release. You can view the deployed contract addresses below, or check out the code itself on the [`main`](https://github.com/ExocoreNetwork/exocore-contracts/tree/main) branch.
+You can view the deployed contract addresses below, or check out the code itself on the [`main`](https://github.com/imua-xyz/imua-contracts/tree/main) branch.
 
-###### Core
+#### Core
 
-| Name | Proxy | Implementation | Notes |
-| -------- | -------- | -------- | -------- |
-| [`ClientChainGateway`](https://github.com/ExocoreNetwork/exocore-contracts/blob/main/src/contracts/core/ClientChainGateway.sol) | [`0xe9591d5b1ea9733ad36834cd0bde40ce0028ae33`](https://sepolia.etherscan.io/address/0xe9591d5b1ea9733ad36834cd0bde40ce0028ae33) | [`0xdC51F6d62ce78EfF7c98f3BD59227B4D0785C6ef`](https://sepolia.etherscan.io/address/0xdC51F6d62ce78EfF7c98f3BD59227B4D0785C6ef) | Proxy: [`TUP@4.7.1`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.7.1/contracts/proxy/transparent/TransparentUpgradeableProxy.sol) |
-| [`ExocoreGateway`](https://github.com/ExocoreNetwork/exocore-contracts/blob/main/src/contracts/core/ExocoreGateway.sol) | [`0xe13Ef2fE9B4bC1A3bBB62Df6bB19d6aD79525036`](https://exoscan.org/address/0xe13Ef2fE9B4bC1A3bBB62Df6bB19d6aD79525036) | [`0xe13Ef2fE9B4bC1A3bBB62Df6bB19d6aD79525036`](https://exoscan.org/address/0xe13Ef2fE9B4bC1A3bBB62Df6bB19d6aD79525036) | Proxy: - |
-| [`TokenVault`](https://github.com/ExocoreNetwork/exocore-contracts/blob/main/src/contracts/core/Vault.sol) | [`0x0F4760CCab936a8fb0C9459dba2a739B22059b5f`](https://sepolia.etherscan.io/address/0x0F4760CCab936a8fb0C9459dba2a739B22059b5f) | [`0xF22097E6799DF7D8b25CCeF6E64DA3CB9133012D`](https://sepolia.etherscan.io/address/0xF22097E6799DF7D8b25CCeF6E64DA3CB9133012D) | Proxy: [`TUP@4.7.1`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.7.1/contracts/proxy/transparent/TransparentUpgradeableProxy.sol) |
-| [`Bootstrap`](https://github.com/ExocoreNetwork/exocore-contracts/blob/main/src/contracts/core/Bootstrap.sol) | [`0x53E91EB5105ec8C1c22055F790616cB8F82c664e`](https://sepolia.etherscan.io/address/0x53E91EB5105ec8C1c22055F790616cB8F82c664e) | [`0x417CaBa1E4a63D1202dCc6E19F7c3eC79b31EC45`](https://sepolia.etherscan.io/address/0x417CaBa1E4a63D1202dCc6E19F7c3eC79b31EC45) | Proxy: [`TUP@4.7.1`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.7.1/contracts/proxy/transparent/TransparentUpgradeableProxy.sol) |
-| [`LzEndpoint`](https://github.com/ExocoreNetwork/exocore-contracts/blob/main/src/contracts/core/Bootstrap.sol) | [`0x6EDCE65403992e310A62460808c4b910D972f10f`](https://sepolia.etherscan.io/address/0x6EDCE65403992e310A62460808c4b910D972f10f) | [`0x6EDCE65403992e310A62460808c4b910D972f10f`](https://sepolia.etherscan.io/address/0x6EDCE65403992e310A62460808c4b910D972f10f) | Proxy: [`TUP@4.7.1`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.7.1/contracts/proxy/transparent/TransparentUpgradeableProxy.sol) |
+For the latest deployment addresses, see [script/deployments/deployedContracts.json](./script/deployments/deployedContracts.json).

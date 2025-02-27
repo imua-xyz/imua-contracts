@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {IExocoreGateway} from "../interfaces/IExocoreGateway.sol";
+import {IImuachainGateway} from "../interfaces/IImuachainGateway.sol";
 
 import {Action} from "../storage/GatewayStorage.sol";
 
@@ -17,7 +17,7 @@ import {
     OAppUpgradeable,
     Origin
 } from "../lzApp/OAppUpgradeable.sol";
-import {ExocoreGatewayStorage} from "../storage/ExocoreGatewayStorage.sol";
+import {ImuachainGatewayStorage} from "../storage/ImuachainGatewayStorage.sol";
 
 import {Errors} from "../libraries/Errors.sol";
 import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
@@ -29,17 +29,17 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-/// @title ExocoreGateway
-/// @author ExocoreNetwork
-/// @notice The gateway contract deployed on Exocore chain for client chain operations.
+/// @title ImuachainGateway
+/// @author imua-xyz
+/// @notice The gateway contract deployed on Imuachain for client chain operations.
 /// @dev This contract address must be registered in the `x/assets` module for the precompile operations to go through.
-contract ExocoreGateway is
+contract ImuachainGateway is
     Initializable,
     PausableUpgradeable,
     OwnableUpgradeable,
     ReentrancyGuardUpgradeable,
-    IExocoreGateway,
-    ExocoreGatewayStorage,
+    IImuachainGateway,
+    ImuachainGatewayStorage,
     OAppUpgradeable
 {
 
@@ -48,12 +48,12 @@ contract ExocoreGateway is
     /// @dev Ensures that the function is called only from this contract via low-level call.
     modifier onlyCalledFromThis() {
         if (msg.sender != address(this)) {
-            revert Errors.ExocoreGatewayOnlyCalledFromThis();
+            revert Errors.ImuachainGatewayOnlyCalledFromThis();
         }
         _;
     }
 
-    /// @notice Creates the ExocoreGateway contract.
+    /// @notice Creates the ImuachainGateway contract.
     /// @param endpoint_ The LayerZero endpoint address deployed on this chain
     constructor(address endpoint_) OAppUpgradeable(endpoint_) {
         _disableInitializers();
@@ -61,7 +61,7 @@ contract ExocoreGateway is
 
     receive() external payable {}
 
-    /// @notice Initializes the ExocoreGateway contract.
+    /// @notice Initializes the ImuachainGateway contract.
     /// @param owner_ The address of the contract owner.
     function initialize(address owner_) external initializer {
         if (owner_ == address(0)) {
@@ -116,7 +116,7 @@ contract ExocoreGateway is
         emit BootstrapRequestSent(chainIndex);
     }
 
-    /// @inheritdoc IExocoreGateway
+    /// @inheritdoc IImuachainGateway
     function registerOrUpdateClientChain(
         uint32 clientChainId,
         bytes32 peer,
@@ -162,7 +162,7 @@ contract ExocoreGateway is
         super.setPeer(clientChainId, clientChainGateway);
     }
 
-    /// @inheritdoc IExocoreGateway
+    /// @inheritdoc IImuachainGateway
     /// @notice Tokens can only be normal reward-bearing LST tokens like wstETH, rETH, jitoSol...
     /// And they are not intended to be: 1) rebasing tokens like stETH, since we assume staker's
     /// balance would not change if nothing is done after deposit, 2) fee-on-transfer tokens, since we
@@ -179,11 +179,21 @@ contract ExocoreGateway is
         string calldata oracleInfo,
         uint128 tvlLimit
     ) external payable onlyOwner whenNotPaused nonReentrant {
-        require(clientChainId != 0, "ExocoreGateway: client chain id cannot be zero");
-        require(token != bytes32(0), "ExocoreGateway: token cannot be zero address");
-        require(bytes(name).length != 0, "ExocoreGateway: name cannot be empty");
-        require(bytes(metaData).length != 0, "ExocoreGateway: meta data cannot be empty");
-        require(bytes(oracleInfo).length != 0, "ExocoreGateway: oracleInfo cannot be empty");
+        if (clientChainId == 0) {
+            revert Errors.ZeroValue();
+        }
+        if (token == bytes32(0)) {
+            revert Errors.ZeroAddress();
+        }
+        if (bytes(name).length == 0) {
+            revert Errors.ZeroValue();
+        }
+        if (bytes(metaData).length == 0) {
+            revert Errors.ZeroValue();
+        }
+        if (bytes(oracleInfo).length == 0) {
+            revert Errors.ZeroValue();
+        }
         // setting a TVL limit of 0 is permitted to simply add an inactive token, which may
         // be activated later by updating the TVL limit on the client chain
 
@@ -205,16 +215,22 @@ contract ExocoreGateway is
         }
     }
 
-    /// @inheritdoc IExocoreGateway
+    /// @inheritdoc IImuachainGateway
     function updateWhitelistToken(uint32 clientChainId, bytes32 token, string calldata metaData)
         external
         onlyOwner
         whenNotPaused
         nonReentrant
     {
-        require(clientChainId != 0, "ExocoreGateway: client chain id cannot be zero");
-        require(token != bytes32(0), "ExocoreGateway: token cannot be zero address");
-        require(bytes(metaData).length != 0, "ExocoreGateway: meta data cannot be empty");
+        if (clientChainId == 0) {
+            revert Errors.ZeroValue();
+        }
+        if (token == bytes32(0)) {
+            revert Errors.ZeroAddress();
+        }
+        if (bytes(metaData).length == 0) {
+            revert Errors.ZeroValue();
+        }
         bool success = ASSETS_CONTRACT.updateToken(clientChainId, abi.encodePacked(token), metaData);
         if (success) {
             emit WhitelistTokenUpdated(clientChainId, token);
@@ -224,10 +240,10 @@ contract ExocoreGateway is
     }
 
     /**
-     * @notice Associate an Exocore operator with an EVM staker(msg.sender),  and this would count staker's delegation
+     * @notice Associate an Imuachain operator with an EVM staker(msg.sender),  and this would count staker's delegation
      * as operator's self-delegation when staker delegates to operator.
      * @param clientChainId The id of client chain
-     * @param operator The Exocore operator address
+     * @param operator The Imuachain operator address
      * @dev one staker(chainId+stakerAddress) can only associate one operator, while one operator might be associated
      * with multiple stakers
      */
@@ -244,7 +260,7 @@ contract ExocoreGateway is
     }
 
     /**
-     * @notice Dissociate an Exocore operator from an EVM staker(msg.sender),  and this requires that the staker has
+     * @notice Dissociate an Imuachain operator from an EVM staker(msg.sender),  and this requires that the staker has
      * already been associated to operator.
      * @param clientChainId The id of client chain
      */
@@ -264,10 +280,10 @@ contract ExocoreGateway is
     function _validateClientChainIdRegistered(uint32 clientChainId) internal view {
         (bool success, bool isRegistered) = ASSETS_CONTRACT.isRegisteredClientChain(clientChainId);
         if (!success) {
-            revert Errors.ExocoreGatewayFailedToCheckClientChainId();
+            revert Errors.ImuachainGatewayFailedToCheckClientChainId();
         }
         if (!isRegistered) {
-            revert Errors.ExocoreGatewayNotRegisteredClientChainId();
+            revert Errors.ImuachainGatewayNotRegisteredClientChainId();
         }
     }
 
@@ -287,7 +303,7 @@ contract ExocoreGateway is
         (bool success, bool updated) =
             ASSETS_CONTRACT.registerOrUpdateClientChain(clientChainId, addressLength, name, metaInfo, signatureType);
         if (!success) {
-            revert Errors.RegisterClientChainToExocoreFailed(clientChainId);
+            revert Errors.RegisterClientChainToImuachainFailed(clientChainId);
         }
         return updated;
     }
@@ -354,11 +370,7 @@ contract ExocoreGateway is
         }
         emit LSTTransfer(isDeposit, success, bytes32(token), bytes32(staker), amount);
 
-        if (_isSolana(srcChainId)) {
-            response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success, bytes32(token), bytes32(staker));
-        } else {
-            response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success);
-        }
+        response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success);
     }
 
     /// @notice Handles NST transfer from a client chain.
@@ -427,13 +439,7 @@ contract ExocoreGateway is
         }
         emit RewardOperation(isSubmitReward, success, bytes32(token), bytes32(avsOrWithdrawer), amount);
 
-        if (_isSolana(srcChainId)) {
-            response = isSubmitReward
-                ? bytes("")
-                : abi.encodePacked(lzNonce, success, bytes32(token), bytes32(avsOrWithdrawer));
-        } else {
-            response = isSubmitReward ? bytes("") : abi.encodePacked(lzNonce, success);
-        }
+        response = isSubmitReward ? bytes("") : abi.encodePacked(lzNonce, success);
     }
 
     /// @notice Handles delegation request from a client chain.
@@ -508,8 +514,7 @@ contract ExocoreGateway is
 
         bool isAssociate = act == Action.REQUEST_ASSOCIATE_OPERATOR;
         if (isAssociate) {
-            bytes calldata operator = payload[32:74];
-
+            bytes calldata operator = payload[32:];
             success = DELEGATION_CONTRACT.associateOperatorWithStaker(srcChainId, staker, operator);
         } else {
             success = DELEGATION_CONTRACT.dissociateOperatorFromStaker(srcChainId, staker);
@@ -540,7 +545,7 @@ contract ExocoreGateway is
         emit MessageSent(act, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 
-    /// @inheritdoc IExocoreGateway
+    /// @inheritdoc IImuachainGateway
     function quote(uint32 srcChainId, bytes calldata _message) public view returns (uint256 nativeFee) {
         Action act = Action(uint8(_message[0]));
 

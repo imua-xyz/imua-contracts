@@ -7,8 +7,8 @@ const fileMappings = [
   { before: 'ClientChainGateway.deployed.json', after: 'ClientChainGateway.compiled.json', mustExist: true },
   { before: 'Vault.deployed.json', after: 'Vault.compiled.json', mustExist: true },
   { before: 'RewardVault.deployed.json', after: 'RewardVault.compiled.json', mustExist: true },
-  { before: 'ExoCapsule.deployed.json', after: 'ExoCapsule.compiled.json', mustExist: true },
-  { before: 'ExocoreGateway.base.json', after: 'ExocoreGateway.compiled.json', mustExist: true },
+  { before: 'ImuaCapsule.deployed.json', after: 'ImuaCapsule.compiled.json', mustExist: true },
+  { before: 'ImuachainGateway.base.json', after: 'ImuachainGateway.compiled.json', mustExist: true },
   { before: 'Bootstrap.compiled.json', after: 'ClientChainGateway.compiled.json', mustExist: true },
 ];
 

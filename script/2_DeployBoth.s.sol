@@ -1,15 +1,15 @@
 pragma solidity ^0.8.19;
 
 import "../src/core/ClientChainGateway.sol";
-import "../src/core/ExoCapsule.sol";
-import "../src/core/ExocoreGateway.sol";
+import "../src/core/ImuaCapsule.sol";
+import "../src/core/ImuachainGateway.sol";
 
 import {RewardVault} from "../src/core/RewardVault.sol";
 import {Vault} from "../src/core/Vault.sol";
 import {NetworkConstants} from "../src/libraries/NetworkConstants.sol";
 import "../src/utils/BeaconProxyBytecode.sol";
 import "../src/utils/CustomProxyAdmin.sol";
-import {ExocoreGatewayMock} from "../test/mocks/ExocoreGatewayMock.sol";
+import {ImuachainGatewayMock} from "../test/mocks/ImuachainGatewayMock.sol";
 
 import {BootstrapStorage} from "../src/storage/BootstrapStorage.sol";
 import {BaseScript} from "./BaseScript.sol";
@@ -33,24 +33,24 @@ contract DeployScript is BaseScript {
         restakeToken = ERC20PresetFixedSupply(stdJson.readAddress(prerequisites, ".clientChain.erc20Token"));
         require(address(restakeToken) != address(0), "restake token address should not be empty");
 
-        exocoreLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(prerequisites, ".exocore.lzEndpoint"));
-        require(address(exocoreLzEndpoint) != address(0), "exocore l0 endpoint should not be empty");
+        imuachainLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(prerequisites, ".imuachain.lzEndpoint"));
+        require(address(imuachainLzEndpoint) != address(0), "imuachain l0 endpoint should not be empty");
 
-        if (useExocorePrecompileMock) {
-            assetsMock = stdJson.readAddress(prerequisites, ".exocore.assetsPrecompileMock");
+        if (useImuachainPrecompileMock) {
+            assetsMock = stdJson.readAddress(prerequisites, ".imuachain.assetsPrecompileMock");
             require(assetsMock != address(0), "assetsMock should not be empty");
 
-            delegationMock = stdJson.readAddress(prerequisites, ".exocore.delegationPrecompileMock");
+            delegationMock = stdJson.readAddress(prerequisites, ".imuachain.delegationPrecompileMock");
             require(delegationMock != address(0), "delegationMock should not be empty");
 
-            rewardMock = stdJson.readAddress(prerequisites, ".exocore.rewardPrecompileMock");
+            rewardMock = stdJson.readAddress(prerequisites, ".imuachain.rewardPrecompileMock");
             require(rewardMock != address(0), "rewardMock should not be empty");
         }
 
         clientChain = vm.createSelectFork(clientChainRPCURL);
 
-        exocore = vm.createSelectFork(exocoreRPCURL);
-        _topUpPlayer(exocore, address(0), exocoreGenesis, deployer.addr, 1 ether);
+        imuachain = vm.createSelectFork(imuachainRPCURL);
+        _topUpPlayer(imuachain, address(0), imuachainGenesis, deployer.addr, 1 ether);
     }
 
     function run() public {
@@ -63,7 +63,7 @@ contract DeployScript is BaseScript {
 
         /// deploy implementations and beacons
         vaultImplementation = new Vault();
-        capsuleImplementation = new ExoCapsule(address(0));
+        capsuleImplementation = new ImuaCapsule(address(0));
         rewardVaultImplementation = new RewardVault();
 
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
@@ -75,10 +75,10 @@ contract DeployScript is BaseScript {
 
         // Create ImmutableConfig struct
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            exocoreChainId: exocoreChainId,
+            imuachainChainId: imuachainChainId,
             beaconOracleAddress: address(beaconOracle),
             vaultBeacon: address(vaultBeacon),
-            exoCapsuleBeacon: address(capsuleBeacon),
+            imuaCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode),
             networkConfig: address(0)
         });
@@ -93,9 +93,7 @@ contract DeployScript is BaseScript {
                     new TransparentUpgradeableProxy(
                         address(clientGatewayLogic),
                         address(clientChainProxyAdmin),
-                        abi.encodeWithSelector(
-                            clientGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr)
-                        )
+                        abi.encodeWithSelector(clientGatewayLogic.initialize.selector, payable(owner.addr))
                     )
                 )
             )
@@ -111,40 +109,36 @@ contract DeployScript is BaseScript {
 
         vm.stopBroadcast();
 
-        // deploy on Exocore via rpc
-        vm.selectFork(exocore);
+        // deploy on Imuachain via rpc
+        vm.selectFork(imuachain);
         vm.startBroadcast(deployer.privateKey);
 
-        // deploy Exocore network contracts
-        ProxyAdmin exocoreProxyAdmin = new ProxyAdmin();
+        // deploy Imuachain network contracts
+        ProxyAdmin imuachainProxyAdmin = new ProxyAdmin();
 
-        if (useExocorePrecompileMock) {
-            ExocoreGatewayMock exocoreGatewayLogic =
-                new ExocoreGatewayMock(address(exocoreLzEndpoint), assetsMock, rewardMock, delegationMock);
-            exocoreGateway = ExocoreGateway(
+        if (useImuachainPrecompileMock) {
+            ImuachainGatewayMock imuachainGatewayLogic =
+                new ImuachainGatewayMock(address(imuachainLzEndpoint), assetsMock, rewardMock, delegationMock);
+            imuachainGateway = ImuachainGateway(
                 payable(
                     address(
                         new TransparentUpgradeableProxy(
-                            address(exocoreGatewayLogic),
-                            address(exocoreProxyAdmin),
-                            abi.encodeWithSelector(
-                                exocoreGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr)
-                            )
+                            address(imuachainGatewayLogic),
+                            address(imuachainProxyAdmin),
+                            abi.encodeWithSelector(imuachainGatewayLogic.initialize.selector, payable(owner.addr))
                         )
                     )
                 )
             );
         } else {
-            ExocoreGateway exocoreGatewayLogic = new ExocoreGateway(address(exocoreLzEndpoint));
-            exocoreGateway = ExocoreGateway(
+            ImuachainGateway imuachainGatewayLogic = new ImuachainGateway(address(imuachainLzEndpoint));
+            imuachainGateway = ImuachainGateway(
                 payable(
                     address(
                         new TransparentUpgradeableProxy(
-                            address(exocoreGatewayLogic),
-                            address(exocoreProxyAdmin),
-                            abi.encodeWithSelector(
-                                exocoreGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr)
-                            )
+                            address(imuachainGatewayLogic),
+                            address(imuachainProxyAdmin),
+                            abi.encodeWithSelector(imuachainGatewayLogic.initialize.selector, payable(owner.addr))
                         )
                     )
                 )
@@ -155,7 +149,7 @@ contract DeployScript is BaseScript {
 
         string memory deployedContracts = "deployedContracts";
         string memory clientChainContracts = "clientChainContracts";
-        string memory exocoreContracts = "exocoreContracts";
+        string memory imuachainContracts = "imuachainContracts";
         vm.serializeAddress(clientChainContracts, "lzEndpoint", address(clientChainLzEndpoint));
         vm.serializeAddress(clientChainContracts, "beaconOracle", address(beaconOracle));
         vm.serializeAddress(clientChainContracts, "clientChainGateway", address(clientGateway));
@@ -169,20 +163,20 @@ contract DeployScript is BaseScript {
         string memory clientChainContractsOutput =
             vm.serializeAddress(clientChainContracts, "proxyAdmin", address(clientChainProxyAdmin));
 
-        vm.serializeAddress(exocoreContracts, "lzEndpoint", address(exocoreLzEndpoint));
-        vm.serializeAddress(exocoreContracts, "exocoreGateway", address(exocoreGateway));
+        vm.serializeAddress(imuachainContracts, "lzEndpoint", address(imuachainLzEndpoint));
+        vm.serializeAddress(imuachainContracts, "imuachainGateway", address(imuachainGateway));
 
-        if (useExocorePrecompileMock) {
-            vm.serializeAddress(exocoreContracts, "assetsPrecompileMock", assetsMock);
-            vm.serializeAddress(exocoreContracts, "delegationPrecompileMock", delegationMock);
-            vm.serializeAddress(exocoreContracts, "rewardPrecompileMock", rewardMock);
+        if (useImuachainPrecompileMock) {
+            vm.serializeAddress(imuachainContracts, "assetsPrecompileMock", assetsMock);
+            vm.serializeAddress(imuachainContracts, "delegationPrecompileMock", delegationMock);
+            vm.serializeAddress(imuachainContracts, "rewardPrecompileMock", rewardMock);
         }
 
-        string memory exocoreContractsOutput =
-            vm.serializeAddress(exocoreContracts, "proxyAdmin", address(exocoreProxyAdmin));
+        string memory imuachainContractsOutput =
+            vm.serializeAddress(imuachainContracts, "proxyAdmin", address(imuachainProxyAdmin));
 
         vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
-        string memory finalJson = vm.serializeString(deployedContracts, "exocore", exocoreContractsOutput);
+        string memory finalJson = vm.serializeString(deployedContracts, "imuachain", imuachainContractsOutput);
 
         vm.writeJson(finalJson, "script/deployments/deployedContracts.json");
     }

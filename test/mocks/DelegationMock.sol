@@ -38,7 +38,7 @@ contract DelegationMock is IDelegation {
         if (!AssetsMock(ASSETS_PRECOMPILE_ADDRESS).isRegisteredChain(clientChainLzId)) {
             return false;
         }
-        if (operatorAddr.length != 42) {
+        if (operatorAddr.length != 41) {
             return false;
         }
         delegateToRecords[stakerAddress][operatorAddr][clientChainLzId][assetsAddress] += opAmount;
@@ -60,7 +60,7 @@ contract DelegationMock is IDelegation {
         if (!AssetsMock(ASSETS_PRECOMPILE_ADDRESS).isRegisteredChain(clientChainLzId)) {
             return false;
         }
-        if (operatorAddr.length != 42) {
+        if (operatorAddr.length != 41) {
             return false;
         }
         if (opAmount > delegateToRecords[stakerAddress][operatorAddr][clientChainLzId][assetsAddress]) {

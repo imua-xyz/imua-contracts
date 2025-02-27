@@ -1,13 +1,13 @@
 pragma solidity ^0.8.19;
 
-import "../../src/core/ExocoreGateway.sol";
+import "../../src/core/ImuachainGateway.sol";
 
 import "../../src/interfaces/precompiles/IDelegation.sol";
 import {Action, GatewayStorage} from "../../src/storage/GatewayStorage.sol";
 
 import "../mocks/AssetsMock.sol";
 import "../mocks/DelegationMock.sol";
-import "./ExocoreDeployer.t.sol";
+import "./ImuachainDeployer.t.sol";
 
 import {OptionsBuilder} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/AddressCast.sol";
@@ -15,11 +15,11 @@ import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "forge-std/Test.sol";
 
-contract DepositThenDelegateToTest is ExocoreDeployer {
+contract DepositThenDelegateToTest is ImuachainDeployer {
 
     using AddressCast for address;
 
-    // ExocoreGateway emits these two events after handling the request
+    // ImuachainGateway emits these two events after handling the request
     event LSTTransfer(
         bool isDeposit, bool indexed success, bytes32 indexed token, bytes32 indexed depositor, uint256 amount
     );
@@ -45,10 +45,10 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
     function test_DepositThenDelegateTo() public {
         address delegator = players[0].addr;
         address relayer = players[1].addr;
-        string memory operatorAddress = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+        string memory operatorAddress = "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla";
 
         deal(delegator, 1e22);
-        deal(address(exocoreGateway), 1e22);
+        deal(address(imuachainGateway), 1e22);
 
         uint256 delegateAmount = 10_000;
 
@@ -56,11 +56,11 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         test_AddWhitelistTokens();
 
         // ensure there is enough balance
-        vm.startPrank(exocoreValidatorSet.addr);
+        vm.startPrank(owner.addr);
         restakeToken.transfer(delegator, delegateAmount);
         vm.stopPrank();
 
-        // approve it
+        // // approve it
         vm.startPrank(delegator);
         restakeToken.approve(address(vault), delegateAmount);
         vm.stopPrank();
@@ -73,10 +73,10 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
     function test_BalanceUpdatedWhen_DepositThenDelegateToResponseNotSuccess() public {
         address delegator = players[0].addr;
         address relayer = players[1].addr;
-        string memory operatorAddress = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+        string memory operatorAddress = "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla";
 
         deal(delegator, 1e22);
-        deal(address(exocoreGateway), 1e22);
+        deal(address(imuachainGateway), 1e22);
 
         uint256 delegateAmount = 10_000;
 
@@ -84,7 +84,7 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         test_AddWhitelistTokens();
 
         // ensure there is enough balance
-        vm.startPrank(exocoreValidatorSet.addr);
+        vm.startPrank(owner.addr);
         restakeToken.transfer(delegator, delegateAmount);
         vm.stopPrank();
 
@@ -96,7 +96,7 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         (bytes32 requestId, bytes memory requestPayload) = _testRequest(delegator, operatorAddress, delegateAmount);
         _testRequestExecutionFailure(delegator, relayer, delegateAmount);
         // this cannot be called here because we have artificially failed the delegation and avoided the
-        // inboundNonce increment on Exocore
+        // inboundNonce increment on Imuachain
         // _validateNonces();
     }
 
@@ -122,9 +122,9 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
 
         vm.expectEmit(address(clientChainLzEndpoint));
         emit NewPacket(
-            exocoreChainId,
+            imuachainChainId,
             address(clientGateway),
-            address(exocoreGateway).toBytes32(),
+            address(imuachainGateway).toBytes32(),
             outboundNonces[clientChainId],
             requestPayload
         );
@@ -147,7 +147,7 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         assertEq(afterBalanceVault, beforeBalanceVault + delegateAmount);
     }
 
-    // test that request is successfully executed on Exocore side
+    // test that request is successfully executed on Imuachain
     function _testRequestExecutionSuccess(
         bytes32 requestId,
         bytes memory requestPayload,
@@ -157,7 +157,7 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         uint256 delegateAmount
     ) private {
         // deposit request is firstly handled and its event is firstly emitted
-        vm.expectEmit(address(exocoreGateway));
+        vm.expectEmit(address(imuachainGateway));
         emit LSTTransfer(
             true, true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(delegator)), delegateAmount
         );
@@ -173,7 +173,7 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
             delegateAmount
         );
 
-        vm.expectEmit(address(exocoreGateway));
+        vm.expectEmit(address(imuachainGateway));
         emit DelegationRequest(
             true,
             true,
@@ -183,13 +183,13 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
             delegateAmount
         );
 
-        vm.expectEmit(address(exocoreGateway));
-        emit MessageExecuted(Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, inboundNonces[exocoreChainId]++);
+        vm.expectEmit(address(imuachainGateway));
+        emit MessageExecuted(Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, inboundNonces[imuachainChainId]++);
 
         vm.startPrank(relayer);
-        exocoreLzEndpoint.lzReceive(
-            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
-            address(exocoreGateway),
+        imuachainLzEndpoint.lzReceive(
+            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[imuachainChainId] - 1),
+            address(imuachainGateway),
             requestId,
             requestPayload,
             bytes("")
@@ -223,25 +223,25 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
             outboundNonces[clientChainId] - 1,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator))),
-            "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac",
+            "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla",
             delegateAmount
         );
         vm.mockCall(DELEGATION_PRECOMPILE_ADDRESS, delegateCalldata, abi.encode(false));
 
         // Expect LSTTransfer event for successful deposit
-        vm.expectEmit(address(exocoreGateway));
+        vm.expectEmit(address(imuachainGateway));
         emit LSTTransfer(
             true, true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(delegator)), delegateAmount
         );
 
         // Expect DelegationRequest event with 'accepted' as false
-        vm.expectEmit(address(exocoreGateway));
+        vm.expectEmit(address(imuachainGateway));
         emit DelegationRequest(
             true,
             false,
             bytes32(bytes20(address(restakeToken))),
             bytes32(bytes20(delegator)),
-            "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac",
+            "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla",
             delegateAmount
         );
 
@@ -251,17 +251,17 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
             abi.encodePacked(bytes32(bytes20(delegator))),
             delegateAmount,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
-            bytes("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac")
+            bytes("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla")
         );
         bytes32 requestId = generateUID(outboundNonces[clientChainId] - 1, true);
 
-        vm.expectEmit(address(exocoreGateway));
-        emit MessageExecuted(Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, inboundNonces[exocoreChainId]++);
+        vm.expectEmit(address(imuachainGateway));
+        emit MessageExecuted(Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, inboundNonces[imuachainChainId]++);
 
         vm.startPrank(relayer);
-        exocoreLzEndpoint.lzReceive(
-            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
-            address(exocoreGateway),
+        imuachainLzEndpoint.lzReceive(
+            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[imuachainChainId] - 1),
+            address(imuachainGateway),
             requestId,
             requestPayload,
             bytes("")
@@ -278,7 +278,7 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
 
         // Verify that the delegation was not successful
         uint256 actualDelegateAmount = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getDelegateAmount(
-            delegator, "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", clientChainId, address(restakeToken)
+            delegator, "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", clientChainId, address(restakeToken)
         );
         assertEq(actualDelegateAmount, 0);
 

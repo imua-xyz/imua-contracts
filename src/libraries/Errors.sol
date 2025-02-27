@@ -4,8 +4,8 @@ pragma solidity ^0.8.19;
 import {Action} from "../storage/GatewayStorage.sol";
 
 /// @dev @title Errors library
-/// @dev @notice A library for all errors that can be thrown in the Exocore contracts
-/// @dev All errors in Exocore follow the following syntax: 'error ContractNameErrorName(arg1, arg2, ...)', where
+/// @dev @notice A library for all errors that can be thrown in imua-contracts
+/// @dev All errors in imua-contracts follow the following syntax: 'error ContractNameErrorName(arg1, arg2, ...)', where
 /// @dev 'ContractName' is the name of the contract
 /// @dev that the error originates from and 'ErrorName' is the name of the error. The arguments are optional and are
 /// used to
@@ -83,7 +83,7 @@ library Errors {
     /// @param validator The Ethereum address of the validator
     error BootstrapValidatorAlreadyHasAddress(address validator);
 
-    /// @dev Bootstrap: Validator with this Exocore address is already registered
+    /// @dev Bootstrap: Validator with this Imuachain address is already registered
     error BootstrapValidatorAlreadyRegistered();
 
     /// @dev Bootstrap: Consensus public key already in use
@@ -157,9 +157,9 @@ library Errors {
     /// @dev ClientChainGateway: token should not be whitelisted before
     error ClientChainGatewayAlreadyWhitelisted(address token);
 
-    /// @dev ClientChainGateway: token addition must happen via Exocore
-    error ClientChainGatewayTokenAdditionViaExocore();
-    /// @notice Error thrown when the ExoCapsule does not exist.
+    /// @dev ClientChainGateway: token addition must happen via Imuachain
+    error ClientChainGatewayTokenAdditionViaImuachain();
+    /// @notice Error thrown when the ImuaCapsule does not exist.
     error CapsuleDoesNotExist();
 
     //////////////////////////////////////
@@ -178,20 +178,21 @@ library Errors {
     /// @param nonce The nonce of the request.
     error UnexpectedResponse(uint64 nonce);
 
-    /// @dev Thrown when deposit fails on the Exocore end.
+    /// @dev Thrown when deposit fails on Imuachain.
     /// @param token The token address.
     /// @param depositor The depositor address.
-    error DepositShouldNotFailOnExocore(address token, address depositor);
+    /// @dev This error will result in an irrecoverable failure.
+    error DepositShouldNotFailOnImuachain(address token, address depositor);
 
     /// @dev Thrown when the whitelist tokens length is invalid.
     /// @param expectedLength The expected length of the request payload.
     /// @param actualLength The actual length of the request payload.
     error InvalidAddWhitelistTokensRequest(uint256 expectedLength, uint256 actualLength);
 
-    /// @notice Emitted when withdrawal fails on the Exocore end.
+    /// @notice Emitted when withdrawal fails on Imuachain.
     /// @param token The token address.
     /// @param withdrawer The withdrawer address.
-    event WithdrawFailedOnExocore(address indexed token, address indexed withdrawer);
+    event WithdrawFailedOnImuachain(address indexed token, address indexed withdrawer);
 
     ///////////////////////////////
     //  CustomProxyAdmin Errors  //
@@ -204,38 +205,38 @@ library Errors {
     error CustomProxyAdminOnlyCalledFromProxy();
 
     /////////////////////////
-    //  ExoCapsule Errors  //
+    //  ImuaCapsule Errors  //
     /////////////////////////
 
-    /// @dev ExoCapsule: withdrawal amount is larger than staker's withdrawable balance
-    error ExoCapsuleWithdrawalAmountExceeds();
+    /// @dev ImuaCapsule: withdrawal amount is larger than staker's withdrawable balance
+    error ImuaCapsuleWithdrawalAmountExceeds();
 
-    /// @dev ExoCapsule: withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance
-    error ExoCapsuleNonBeaconChainWithdrawalAmountExceeds();
+    /// @dev ImuaCapsule: withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance
+    error ImuaCapsuleNonBeaconChainWithdrawalAmountExceeds();
 
-    /// @dev ExoCapsule: timestamp should be greater than beacon chain genesis timestamp
-    error ExoCapsuleTimestampBeforeGenesis();
+    /// @dev ImuaCapsule: timestamp should be greater than beacon chain genesis timestamp
+    error ImuaCapsuleTimestampBeforeGenesis();
 
     /////////////////////////////
-    //  ExocoreGateway Errors  //
+    //  ImuachainGateway Errors  //
     /////////////////////////////
 
-    /// @dev ExocoreGateway: can only be called from this contract itself with a low-level call
-    error ExocoreGatewayOnlyCalledFromThis();
+    /// @dev ImuachainGateway: can only be called from this contract itself with a low-level call
+    error ImuachainGatewayOnlyCalledFromThis();
 
-    /// @dev ExocoreGateway: failed to get client chain ids
-    error ExocoreGatewayFailedToGetClientChainIds();
+    /// @dev ImuachainGateway: failed to get client chain ids
+    error ImuachainGatewayFailedToGetClientChainIds();
 
-    /// @dev ExocoreGateway: client chain should be registered before.
-    error ExocoreGatewayNotRegisteredClientChainId();
+    /// @dev ImuachainGateway: client chain should be registered before.
+    error ImuachainGatewayNotRegisteredClientChainId();
 
-    /// @dev ExocoreGateway: failed to check if the client id is registered
-    error ExocoreGatewayFailedToCheckClientChainId();
+    /// @dev ImuachainGateway: failed to check if the client id is registered
+    error ImuachainGatewayFailedToCheckClientChainId();
 
-    /// @dev ExocoreGateway: thrown when associateOperatorWithEVMStaker failed
+    /// @dev ImuachainGateway: thrown when associateOperatorWithEVMStaker failed
     error AssociateOperatorFailed(uint32 clientChainId, address staker, string operator);
 
-    /// @dev thrown when dissociateOperatorFromEVMStaker failed
+    /// @dev ImuachainGateway: thrown when dissociateOperatorFromEVMStaker failed
     error DissociateOperatorFailed(uint32 clientChainId, address staker);
 
     /// @notice Thrown when the execution of a precompile call fails.
@@ -254,7 +255,7 @@ library Errors {
 
     /// @notice Thrown when a client chain registration fails
     /// @param clientChainId The LayerZero chain ID of the client chain.
-    error RegisterClientChainToExocoreFailed(uint32 clientChainId);
+    error RegisterClientChainToImuachainFailed(uint32 clientChainId);
 
     /// @notice Thrown when a whitelist token addition fails
     /// @param clientChainId The LayerZero chain ID (or otherwise) of the client chain.

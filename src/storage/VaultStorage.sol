@@ -5,7 +5,7 @@ import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title VaultStorage
-/// @author ExocoreNetwork
+/// @author imua-xyz
 /// @notice Storage contract for the Vault contract.
 contract VaultStorage {
 

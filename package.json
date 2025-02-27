@@ -1,7 +1,7 @@
 {
-  "name": "exocore-contracts",
+  "name": "imua-contracts",
   "version": "1.0.0",
-  "description": "The Exocore contracts repository contains a set of smart contracts deployed on both Exocore and the target client chains, which facilitate assets deposit and withdrawal, cross-chain communication, and restaking operations for native assets and liquid staking tokens (LSTs), ensuring secure interactions and efficient management of restaked assets.",
+  "description": "The imua-contracts repository contains a set of smart contracts deployed on both Imuachain and the target client chains, which facilitate assets deposit and withdrawal, cross-chain communication, and restaking operations for native assets and liquid staking tokens (LSTs), ensuring secure interactions and efficient management of restaked assets.",
   "main": "hardhat.config.js",
   "directories": {
     "doc": "docs",
@@ -10,7 +10,7 @@
   },
   "scripts": {
     "test": "hardhat test",
-    "deploy:utxogateway": "hardhat run script/hardhat/deploy-and-setup-utxogateway.script.js --network exocore_localnet"
+    "deploy:utxogateway": "hardhat run script/hardhat/deploy-and-setup-utxogateway.script.js --network imuachain_localnet"
   },
   "keywords": [],
   "author": "",

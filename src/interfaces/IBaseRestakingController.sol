@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 /// @title IBaseRestakingController
-/// @author ExocoreNetwork
+/// @author imua-xyz
 /// @notice The IBaseRestakingController interface provides a set of functions for staker operations.
 interface IBaseRestakingController {
 
@@ -20,7 +20,7 @@ interface IBaseRestakingController {
 
     /// @notice Client chain users call to withdraw their unlocked assets from the vault.
     /// @dev This function assumes that the withdrawable assets should have been unlocked before calling this.
-    /// @dev This function does not interact with Exocore.
+    /// @dev This function does not interact with Imuachain.
     /// @param token The address of specific token that the user wants to claim from the vault.
     /// @param amount The amount of @param token that the user wants to claim from the vault.
     /// @param recipient The destination address that the assets would be transfered to.
@@ -32,10 +32,10 @@ interface IBaseRestakingController {
     /// @param rewardAmount The amount of reward tokens that the user wants to submit.
     function submitReward(address token, address avs, uint256 rewardAmount) external payable;
 
-    /// @notice Claims reward tokens from Exocore.
+    /// @notice Claims reward tokens from Imuachain.
     /// @param token The address of the specific token that the user wants to claim as a reward.
     /// @param rewardAmount The amount of reward tokens that the user wants to claim.
-    function claimRewardFromExocore(address token, uint256 rewardAmount) external payable;
+    function claimRewardFromImuachain(address token, uint256 rewardAmount) external payable;
 
     /// @notice Withdraws reward tokens from vault to the recipient.
     /// @param token The address of the specific token that the user wants to withdraw as a reward.

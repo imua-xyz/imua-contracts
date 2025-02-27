@@ -2,16 +2,15 @@
 pragma solidity ^0.8.19;
 
 /// @title BeaconProxyBytecode
-/// @author ExocoreNetwork
+/// @author imua-xyz
 /// @notice The BeaconProxyBytecode contract stores the creation code of the BeaconProxy contract.
 contract BeaconProxyBytecode {
 
     ///
     /// @notice Stored code of type(BeaconProxy).creationCode
     /// @dev Maintained as a constant to solve an edge case - changes to OpenZeppelin's BeaconProxy code should not
-    /// cause
-    /// addresses of ExoCapsules that are pre-computed with Create2 to change, even upon upgrading this contract,
-    /// changing compiler version, etc.
+    /// cause addresses of ImuaCapsules that are pre-computed with Create2 to change, even upon upgrading this
+    /// contract, changing compiler version, etc.
     // It is not possible to verify the init bytecode against a specific version of the contract
     // because it appears to be deployed using a mix of versions of the imported contracts or
     // another reason we don't understand yet.

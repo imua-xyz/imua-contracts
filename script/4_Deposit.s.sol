@@ -2,7 +2,7 @@ pragma solidity ^0.8.19;
 
 import "../src/interfaces/IClientChainGateway.sol";
 
-import "../src/interfaces/IExocoreGateway.sol";
+import "../src/interfaces/IImuachainGateway.sol";
 import "../src/interfaces/IVault.sol";
 import {Action, GatewayStorage} from "../src/storage/GatewayStorage.sol";
 
@@ -35,24 +35,25 @@ contract DepositScript is BaseScript {
         vault = IVault(stdJson.readAddress(deployedContracts, ".clientChain.resVault"));
         require(address(vault) != address(0), "vault address should not be empty");
 
-        exocoreGateway = IExocoreGateway(payable(stdJson.readAddress(deployedContracts, ".exocore.exocoreGateway")));
-        require(address(exocoreGateway) != address(0), "exocoreGateway address should not be empty");
+        imuachainGateway =
+            IImuachainGateway(payable(stdJson.readAddress(deployedContracts, ".imuachain.imuachainGateway")));
+        require(address(imuachainGateway) != address(0), "imuachainGateway address should not be empty");
 
-        exocoreLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(deployedContracts, ".exocore.lzEndpoint"));
-        require(address(exocoreLzEndpoint) != address(0), "exocoreLzEndpoint address should not be empty");
+        imuachainLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(deployedContracts, ".imuachain.lzEndpoint"));
+        require(address(imuachainLzEndpoint) != address(0), "imuachainLzEndpoint address should not be empty");
 
-        if (!useExocorePrecompileMock) {
+        if (!useImuachainPrecompileMock) {
             _bindPrecompileMocks();
         }
 
-        // transfer some gas fee to depositor, relayer and exocore gateway
+        // transfer some gas fee to depositor, relayer and imuachain gateway
         clientChain = vm.createSelectFork(clientChainRPCURL);
         _topUpPlayer(clientChain, address(0), deployer, depositor.addr, 0.2 ether);
-        _topUpPlayer(clientChain, address(restakeToken), exocoreValidatorSet, depositor.addr, 2 * DEPOSIT_AMOUNT);
+        _topUpPlayer(clientChain, address(restakeToken), owner, depositor.addr, 2 * DEPOSIT_AMOUNT);
 
-        exocore = vm.createSelectFork(exocoreRPCURL);
-        _topUpPlayer(exocore, address(0), exocoreGenesis, relayer.addr, 0.2 ether);
-        _topUpPlayer(exocore, address(0), exocoreGenesis, address(exocoreGateway), 2 ether);
+        imuachain = vm.createSelectFork(imuachainRPCURL);
+        _topUpPlayer(imuachain, address(0), imuachainGenesis, relayer.addr, 0.2 ether);
+        _topUpPlayer(imuachain, address(0), imuachainGenesis, address(imuachainGateway), 2 ether);
     }
 
     function run() public {
@@ -76,14 +77,18 @@ contract DepositScript is BaseScript {
         vm.stopBroadcast();
 
         if (useEndpointMock) {
-            vm.selectFork(exocore);
+            vm.selectFork(imuachain);
             vm.startBroadcast(relayer.privateKey);
-            uint64 nonce = exocoreGateway.nextNonce(clientChainId, address(clientGateway).toBytes32());
-            exocoreLzEndpoint.lzReceive{gas: 500_000}(
+            uint64 nonce = imuachainGateway.nextNonce(clientChainId, address(clientGateway).toBytes32());
+            imuachainLzEndpoint.lzReceive{gas: 500_000}(
                 Origin(clientChainId, address(clientGateway).toBytes32(), nonce),
-                address(exocoreGateway),
+                address(imuachainGateway),
                 GUID.generate(
-                    nonce, clientChainId, address(clientGateway), exocoreChainId, address(exocoreGateway).toBytes32()
+                    nonce,
+                    clientChainId,
+                    address(clientGateway),
+                    imuachainChainId,
+                    address(imuachainGateway).toBytes32()
                 ),
                 msg_,
                 bytes("")

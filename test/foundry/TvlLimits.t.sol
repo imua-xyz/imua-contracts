@@ -1,20 +1,20 @@
 pragma solidity ^0.8.19;
 
-import "../../src/core/ExoCapsule.sol";
-import "../../src/core/ExocoreGateway.sol";
+import "../../src/core/ImuaCapsule.sol";
+import "../../src/core/ImuachainGateway.sol";
 
-import {IExoCapsule} from "../../src/interfaces/IExoCapsule.sol";
+import {IImuaCapsule} from "../../src/interfaces/IImuaCapsule.sol";
 import {ILSTRestakingController} from "../../src/interfaces/ILSTRestakingController.sol";
 
 import "../../src/storage/GatewayStorage.sol";
-import "./ExocoreDeployer.t.sol";
+import "./ImuachainDeployer.t.sol";
 import "forge-std/Test.sol";
 
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/AddressCast.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
 
-contract TvlLimitsTest is ExocoreDeployer {
+contract TvlLimitsTest is ImuachainDeployer {
 
     event TvlLimitUpdated(uint256 newTvlLimit);
 
@@ -26,7 +26,7 @@ contract TvlLimitsTest is ExocoreDeployer {
     // for a token that is not whitelisted, nothing should happen
     function test07_UpdateTvlLimit_NotWhitelisted() public {
         address addr = address(0xa);
-        vm.startPrank(exocoreValidatorSet.addr);
+        vm.startPrank(owner.addr);
         vm.expectRevert(abi.encodeWithSelector(Errors.TokenNotWhitelisted.selector, addr));
         clientGateway.updateTvlLimit(addr, 500);
         vm.stopPrank();
@@ -34,7 +34,7 @@ contract TvlLimitsTest is ExocoreDeployer {
 
     // native restaking does not have a TVL limit
     function test07_UpdateTvlLimit_NativeEth() public {
-        vm.startPrank(exocoreValidatorSet.addr);
+        vm.startPrank(owner.addr);
         vm.expectRevert(Errors.NoTvlLimitForNativeRestaking.selector);
         clientGateway.updateTvlLimit(VIRTUAL_STAKED_ETH_ADDRESS, 500);
         vm.stopPrank();
@@ -50,7 +50,7 @@ contract TvlLimitsTest is ExocoreDeployer {
     }
 
     function test07_UpdateTvlLimit_Paused() public {
-        vm.startPrank(exocoreValidatorSet.addr);
+        vm.startPrank(owner.addr);
         clientGateway.pause();
         IVault vault = clientGateway.tokenToVault(address(restakeToken));
         assertTrue(address(vault) != address(0));
@@ -66,8 +66,8 @@ contract TvlLimitsTest is ExocoreDeployer {
         tokens[0] = address(restakeToken);
         uint256[] memory tvlLimits = new uint256[](1);
         tvlLimits[0] = 500;
-        vm.startPrank(exocoreValidatorSet.addr);
-        vm.expectRevert(Errors.ClientChainGatewayTokenAdditionViaExocore.selector);
+        vm.startPrank(owner.addr);
+        vm.expectRevert(Errors.ClientChainGatewayTokenAdditionViaImuachain.selector);
         clientGateway.addWhitelistTokens(tokens, tvlLimits);
     }
 
@@ -78,7 +78,7 @@ contract TvlLimitsTest is ExocoreDeployer {
         assertTrue(address(vault) != address(0));
         uint256 tvlLimit = vault.getTvlLimit();
         uint256 proposedTvlLimit = tvlLimit * factor;
-        vm.startPrank(exocoreValidatorSet.addr);
+        vm.startPrank(owner.addr);
         vm.expectEmit(address(vault));
         emit TvlLimitUpdated(proposedTvlLimit);
         clientGateway.updateTvlLimit(address(restakeToken), proposedTvlLimit);
@@ -92,7 +92,7 @@ contract TvlLimitsTest is ExocoreDeployer {
         assertTrue(address(vault) != address(0));
         uint256 tvlLimit = vault.getTvlLimit();
         uint256 proposedTvlLimit = tvlLimit / factor;
-        vm.startPrank(exocoreValidatorSet.addr);
+        vm.startPrank(owner.addr);
         vm.expectEmit(address(vault));
         emit TvlLimitUpdated(proposedTvlLimit);
         clientGateway.updateTvlLimit(address(restakeToken), proposedTvlLimit);

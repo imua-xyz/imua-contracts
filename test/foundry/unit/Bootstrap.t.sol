@@ -36,7 +36,7 @@ import "@openzeppelin/contracts/utils/Create2.sol";
 import "forge-std/Test.sol";
 import "src/libraries/Errors.sol";
 
-import "src/core/ExoCapsule.sol";
+import "src/core/ImuaCapsule.sol";
 import "src/storage/GatewayStorage.sol";
 import "src/utils/BeaconProxyBytecode.sol";
 
@@ -60,19 +60,19 @@ contract BootstrapTest is Test {
     address deployer = address(0xdeadbeef);
     uint256 spawnTime;
     uint256 offsetDuration;
-    uint16 exocoreChainId = 1;
+    uint16 imuachainChainId = 1;
     uint16 clientChainId = 2;
     address[] whitelistTokens;
     uint256[] tvlLimits;
     NonShortCircuitEndpointV2Mock clientChainLzEndpoint;
-    address exocoreValidatorSet = vm.addr(uint256(0x8));
-    address undeployedExocoreGateway = vm.addr(uint256(0x9));
-    address undeployedExocoreLzEndpoint = vm.addr(uint256(0xb));
+    address owner = vm.addr(uint256(0x8));
+    address undeployedImuachainGateway = vm.addr(uint256(0x9));
+    address undeployedImuachainLzEndpoint = vm.addr(uint256(0xb));
     address constant lzActor = address(0x20);
 
     IVault vaultImplementation;
     IRewardVault rewardVaultImplementation;
-    IExoCapsule capsuleImplementation;
+    IImuaCapsule capsuleImplementation;
     IBeacon vaultBeacon;
     IBeacon rewardVaultBeacon;
     IBeacon capsuleBeacon;
@@ -102,7 +102,7 @@ contract BootstrapTest is Test {
         // deploy vault implementationcontract that has logics called by proxy
         vaultImplementation = new Vault();
         rewardVaultImplementation = new RewardVault();
-        capsuleImplementation = new ExoCapsule(address(0));
+        capsuleImplementation = new ImuaCapsule(address(0));
 
         // deploy the vault beacon that store the implementation contract address
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
@@ -115,13 +115,13 @@ contract BootstrapTest is Test {
         // then the ProxyAdmin
         proxyAdmin = new CustomProxyAdmin();
         // then the logic
-        clientChainLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, exocoreValidatorSet);
+        clientChainLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, owner);
         // Create ImmutableConfig struct
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            exocoreChainId: exocoreChainId,
+            imuachainChainId: imuachainChainId,
             beaconOracleAddress: address(0x1),
             vaultBeacon: address(vaultBeacon),
-            exoCapsuleBeacon: address(capsuleBeacon),
+            imuaCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode),
             networkConfig: address(0)
         });
@@ -130,7 +130,7 @@ contract BootstrapTest is Test {
         ClientChainGateway clientGatewayLogic =
             new ClientChainGateway(address(clientChainLzEndpoint), config, address(rewardVaultBeacon));
         // we could also use encodeWithSelector and supply .initialize.selector instead.
-        bytes memory initialization = abi.encodeCall(clientGatewayLogic.initialize, (payable(exocoreValidatorSet)));
+        bytes memory initialization = abi.encodeCall(clientGatewayLogic.initialize, (payable(owner)));
         // then the params + proxy
         spawnTime = block.timestamp + 1 hours;
         offsetDuration = 30 minutes;
@@ -172,9 +172,9 @@ contract BootstrapTest is Test {
         IVault vault = bootstrap.tokenToVault(address(myToken));
         assertTrue(address(vault) == expectedVaultAddress);
         assertTrue(vault.getTvlLimit() == tvlLimits[0]);
-        // now set the gateway address for Exocore.
-        clientChainLzEndpoint.setDestLzEndpoint(undeployedExocoreGateway, undeployedExocoreLzEndpoint);
-        bootstrap.setPeer(exocoreChainId, bytes32(bytes20(undeployedExocoreGateway)));
+        // now set the gateway address for Imuachain.
+        clientChainLzEndpoint.setDestLzEndpoint(undeployedImuachainGateway, undeployedImuachainLzEndpoint);
+        bootstrap.setPeer(imuachainChainId, bytes32(bytes20(undeployedImuachainGateway)));
         vm.stopPrank();
     }
 
@@ -410,7 +410,7 @@ contract BootstrapTest is Test {
 
         // now attempt to withdraw, which should go through
         vm.startPrank(addr);
-        bootstrap.claimPrincipalFromExocore(address(myToken), withdrawAmount);
+        bootstrap.claimPrincipalFromImuachain(address(myToken), withdrawAmount);
         bootstrap.withdrawPrincipal(address(myToken), withdrawAmount, addr);
         vm.stopPrank();
 
@@ -429,7 +429,7 @@ contract BootstrapTest is Test {
         // withdraw to get just below tvl limit
         withdrawAmount = vault.getConsumedTvl() - vault.getTvlLimit() + 1;
         vm.startPrank(addr);
-        bootstrap.claimPrincipalFromExocore(address(myToken), withdrawAmount);
+        bootstrap.claimPrincipalFromImuachain(address(myToken), withdrawAmount);
         bootstrap.withdrawPrincipal(address(myToken), withdrawAmount, addr);
         vm.stopPrank();
 
@@ -458,9 +458,9 @@ contract BootstrapTest is Test {
         assertTrue(bootstrap.getValidatorsCount() == 0);
         // Register validators. The keys used below do not matter since they are unit test only.
         string[3] memory validators = [
-            "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac",
-            "exo1wnw7zcl9fy04ax69uffumwkdxftfqsjyj37wt2",
-            "exo1rtg0cgw94ep744epyvanc0wdd5kedwql73vlmr"
+            "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla",
+            "im1wnw7zcl9fy04ax69uffumwkdxftfqsjyz0akf0",
+            "im1rtg0cgw94ep744epyvanc0wdd5kedwqlw008ex"
         ];
         string[3] memory names = ["validator1", "validator2", "validator3"];
         bytes32[3] memory pubKeys = [
@@ -474,11 +474,11 @@ contract BootstrapTest is Test {
             bootstrap.registerValidator(validators[i], names[i], commission, pubKeys[i]);
             // check count
             assertTrue(bootstrap.getValidatorsCount() == i + 1);
-            // check ethToExocoreAddress mapping
-            string memory exoAddress = bootstrap.ethToExocoreAddress(addrs[i]);
-            assertTrue(keccak256(abi.encodePacked(exoAddress)) == keccak256(abi.encodePacked(validators[i])));
+            // check ethToImAddress mapping
+            string memory imAddress = bootstrap.ethToImAddress(addrs[i]);
+            assertTrue(keccak256(abi.encodePacked(imAddress)) == keccak256(abi.encodePacked(validators[i])));
             (string memory name, IValidatorRegistry.Commission memory thisCommision, bytes32 key) =
-                bootstrap.validators(exoAddress);
+                bootstrap.validators(imAddress);
             assertTrue(keccak256(abi.encodePacked(name)) == keccak256(abi.encodePacked(names[i])));
             assertTrue(key == pubKeys[i]);
             assertTrue(thisCommision.rate == commission.rate);
@@ -490,96 +490,96 @@ contract BootstrapTest is Test {
     function test03_RegisterValidator_EthAlreadyRegistered() public {
         IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
         // Register validator
-        string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+        string memory im = "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla";
         string memory name = "validator1";
         bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
         vm.startPrank(addrs[0]);
-        bootstrap.registerValidator(exo, name, commission, pubKey);
+        bootstrap.registerValidator(im, name, commission, pubKey);
         // change all identifying params except eth address of validator
-        exo = "exo1wnw7zcl9fy04ax69uffumwkdxftfqsjyj37wt2";
+        im = "im1wnw7zcl9fy04ax69uffumwkdxftfqsjyz0akf0";
         name = "validator1_re";
         pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540783);
         vm.expectRevert(abi.encodeWithSelector(Errors.BootstrapValidatorAlreadyHasAddress.selector, addrs[0]));
-        bootstrap.registerValidator(exo, name, commission, pubKey);
+        bootstrap.registerValidator(im, name, commission, pubKey);
         vm.stopPrank();
     }
 
-    function test03_RegisterValidator_ExoAlreadyRegistered() public {
+    function test03_RegisterValidator_ImAlreadyRegistered() public {
         IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
         // Register validator
-        string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+        string memory im = "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla";
         string memory name = "validator1";
         bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
         vm.startPrank(addrs[0]);
-        bootstrap.registerValidator(exo, name, commission, pubKey);
-        // change all identifying params except exo address of validator
+        bootstrap.registerValidator(im, name, commission, pubKey);
+        // change all identifying params except im address of validator
         vm.stopPrank();
         vm.startPrank(addrs[1]);
         name = "validator1_re";
         pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540783);
         vm.expectRevert(Errors.BootstrapValidatorAlreadyRegistered.selector);
-        bootstrap.registerValidator(exo, name, commission, pubKey);
+        bootstrap.registerValidator(im, name, commission, pubKey);
         vm.stopPrank();
     }
 
     function test03_RegisterValidator_ConsensusKeyInUse() public {
         IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
         // Register validator
-        string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+        string memory im = "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla";
         string memory name = "validator1";
         bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
         vm.startPrank(addrs[0]);
-        bootstrap.registerValidator(exo, name, commission, pubKey);
+        bootstrap.registerValidator(im, name, commission, pubKey);
 
         // change all identifying params except consensus key of validator
         vm.stopPrank();
         vm.startPrank(addrs[1]);
-        exo = "exo1wnw7zcl9fy04ax69uffumwkdxftfqsjyj37wt2";
+        im = "im1wnw7zcl9fy04ax69uffumwkdxftfqsjyz0akf0";
         name = "validator1_re";
         vm.expectRevert(abi.encodeWithSelector(Errors.BootstrapConsensusPubkeyAlreadyUsed.selector, pubKey));
-        bootstrap.registerValidator(exo, name, commission, pubKey);
+        bootstrap.registerValidator(im, name, commission, pubKey);
         vm.stopPrank();
     }
 
     function test03_RegisterValidator_NameInUse() public {
         IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
         // Register validator
-        string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+        string memory im = "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla";
         string memory name = "validator1";
         bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
         vm.startPrank(addrs[0]);
-        bootstrap.registerValidator(exo, name, commission, pubKey);
+        bootstrap.registerValidator(im, name, commission, pubKey);
 
         // change all identifying params except name of validator
         vm.stopPrank();
         vm.startPrank(addrs[1]);
-        exo = "exo1wnw7zcl9fy04ax69uffumwkdxftfqsjyj37wt2";
+        im = "im1wnw7zcl9fy04ax69uffumwkdxftfqsjyz0akf0";
         pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540783);
         vm.expectRevert(Errors.BootstrapValidatorNameAlreadyUsed.selector);
-        bootstrap.registerValidator(exo, name, commission, pubKey);
+        bootstrap.registerValidator(im, name, commission, pubKey);
         vm.stopPrank();
     }
 
     function test03_RegisterValidator_EmptyName() public {
         IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
         // Register validator
-        string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+        string memory im = "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla";
         string memory name = "";
         bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapValidatorNameLengthZero.selector);
-        bootstrap.registerValidator(exo, name, commission, pubKey);
+        bootstrap.registerValidator(im, name, commission, pubKey);
     }
 
     function test03_RegisterValidator_ZeroConsensusKey() public {
         IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
         // Register validator
-        string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+        string memory im = "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla";
         string memory name = "validator1";
         bytes32 pubKey = bytes32(0);
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.ZeroValue.selector);
-        bootstrap.registerValidator(exo, name, commission, pubKey);
+        bootstrap.registerValidator(im, name, commission, pubKey);
     }
 
     function test04_DepositThenDelegate() public {
@@ -589,32 +589,32 @@ contract BootstrapTest is Test {
         vm.startPrank(addrs[0]);
         IVault vault = IVault(bootstrap.tokenToVault(address(myToken)));
         myToken.approve(address(vault), amounts[0]);
-        bootstrap.depositThenDelegateTo(address(myToken), amounts[0], "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac");
+        bootstrap.depositThenDelegateTo(address(myToken), amounts[0], "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla");
         vm.stopPrank();
 
         uint256 deposited = bootstrap.totalDepositAmounts(addrs[0], address(myToken));
         assertTrue(deposited == amounts[0]);
 
         uint256 delegated =
-            bootstrap.delegations(addrs[0], "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken));
+            bootstrap.delegations(addrs[0], "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken));
         assertTrue(delegated == amounts[0]);
     }
 
     function test05_ReplaceKey() public {
         IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
         // Register validator
-        string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+        string memory im = "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla";
         string memory name = "validator1";
         bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
         vm.startPrank(addrs[0]);
-        bootstrap.registerValidator(exo, name, commission, pubKey);
+        bootstrap.registerValidator(im, name, commission, pubKey);
         assertTrue(bootstrap.getValidatorsCount() == 1);
-        (,, bytes32 consensusPublicKey) = bootstrap.validators(exo);
+        (,, bytes32 consensusPublicKey) = bootstrap.validators(im);
         assertTrue(consensusPublicKey == pubKey);
         // Then change the key
         bytes32 newKey = bytes32(0xd995b7f4b2178b0466cfa512955ce2299a4487ebcd86f817d686880dd2b7c4b0);
         bootstrap.replaceKey(newKey);
-        (,, consensusPublicKey) = bootstrap.validators(exo);
+        (,, consensusPublicKey) = bootstrap.validators(im);
         assertTrue(consensusPublicKey == newKey);
         vm.stopPrank();
         // check the key values
@@ -662,13 +662,13 @@ contract BootstrapTest is Test {
     function test06_UpdateRate() public {
         IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
         // Register one validator
-        string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+        string memory im = "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla";
         string memory name = "validator1";
         bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
         vm.startPrank(addrs[0]);
-        bootstrap.registerValidator(exo, name, commission, pubKey);
+        bootstrap.registerValidator(im, name, commission, pubKey);
         bootstrap.updateRate(1e17);
-        (, IValidatorRegistry.Commission memory newCommission,) = bootstrap.validators(exo);
+        (, IValidatorRegistry.Commission memory newCommission,) = bootstrap.validators(im);
         assertTrue(newCommission.rate == 1e17);
         vm.stopPrank();
     }
@@ -676,13 +676,13 @@ contract BootstrapTest is Test {
     function test06_UpdateRate_Twice() public {
         IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
         // Register one validator
-        string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+        string memory im = "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla";
         string memory name = "validator1";
         bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
         vm.startPrank(addrs[0]);
-        bootstrap.registerValidator(exo, name, commission, pubKey);
+        bootstrap.registerValidator(im, name, commission, pubKey);
         bootstrap.updateRate(1e17);
-        (, IValidatorRegistry.Commission memory newCommission,) = bootstrap.validators(exo);
+        (, IValidatorRegistry.Commission memory newCommission,) = bootstrap.validators(im);
         assertTrue(newCommission.rate == 1e17);
         vm.expectRevert(Errors.BootstrapComissionAlreadyEdited.selector);
         bootstrap.updateRate(1e17);
@@ -692,11 +692,11 @@ contract BootstrapTest is Test {
     function test06_UpdateRate_MoreThanMaxRate() public {
         IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e17, 1e17);
         // Register one validator
-        string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+        string memory im = "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla";
         string memory name = "validator1";
         bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
         vm.startPrank(addrs[0]);
-        bootstrap.registerValidator(exo, name, commission, pubKey);
+        bootstrap.registerValidator(im, name, commission, pubKey);
         vm.expectRevert(Errors.BootstrapRateExceedsMaxRate.selector);
         bootstrap.updateRate(2e17);
         vm.stopPrank();
@@ -706,11 +706,11 @@ contract BootstrapTest is Test {
         // 0, 0.1, 0.01
         IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e17, 1e16);
         // Register one validator
-        string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+        string memory im = "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla";
         string memory name = "validator1";
         bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
         vm.startPrank(addrs[0]);
-        bootstrap.registerValidator(exo, name, commission, pubKey);
+        bootstrap.registerValidator(im, name, commission, pubKey);
         vm.expectRevert(Errors.BootstrapRateChangeExceedsMaxChangeRate.selector);
         bootstrap.updateRate(2e16);
         vm.stopPrank();
@@ -754,16 +754,16 @@ contract BootstrapTest is Test {
         vm.stopPrank();
     }
 
-    function test08_ExocoreAddressIsValid() public {
-        assertTrue(bootstrap.isValidExocoreAddress("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac"));
+    function test08_ImuachainAddressIsValid() public {
+        assertTrue(bootstrap.isValidImAddress("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla"));
     }
 
-    function test08_ExocoreAddressIsValid_Length() public {
-        assertFalse(bootstrap.isValidExocoreAddress("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7acaa"));
+    function test08_ImuachainAddressIsValid_Length() public {
+        assertFalse(bootstrap.isValidImAddress("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xlaaa"));
     }
 
-    function test08_ExocoreAddressIsValid_Prefix() public {
-        assertFalse(bootstrap.isValidExocoreAddress("asd"));
+    function test08_ImuachainAddressIsValid_Prefix() public {
+        assertFalse(bootstrap.isValidImAddress("mi13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xlaaa"));
     }
 
     function test09_DelegateTo() public {
@@ -774,13 +774,13 @@ contract BootstrapTest is Test {
         // first, self delegate
         for (uint256 i = 0; i < 3; i++) {
             vm.startPrank(addrs[i]);
-            string memory exo = bootstrap.ethToExocoreAddress(addrs[i]);
-            uint256 prevDelegation = bootstrap.delegations(addrs[i], exo, address(myToken));
-            uint256 prevDelegationByValidator = bootstrap.delegationsByValidator(exo, address(myToken));
+            string memory im = bootstrap.ethToImAddress(addrs[i]);
+            uint256 prevDelegation = bootstrap.delegations(addrs[i], im, address(myToken));
+            uint256 prevDelegationByValidator = bootstrap.delegationsByValidator(im, address(myToken));
             uint256 prevWithdrawableAmount = bootstrap.withdrawableAmounts(addrs[i], address(myToken));
-            bootstrap.delegateTo(exo, address(myToken), amounts[i]);
-            uint256 postDelegation = bootstrap.delegations(addrs[i], exo, address(myToken));
-            uint256 postDelegationByValidator = bootstrap.delegationsByValidator(exo, address(myToken));
+            bootstrap.delegateTo(im, address(myToken), amounts[i]);
+            uint256 postDelegation = bootstrap.delegations(addrs[i], im, address(myToken));
+            uint256 postDelegationByValidator = bootstrap.delegationsByValidator(im, address(myToken));
             uint256 postWithdrawableAmount = bootstrap.withdrawableAmounts(addrs[i], address(myToken));
             assertTrue(postDelegation == prevDelegation + amounts[i]);
             assertTrue(postDelegationByValidator == prevDelegationByValidator + amounts[i]);
@@ -795,13 +795,13 @@ contract BootstrapTest is Test {
             for (uint256 j = 0; j < 3; j++) {
                 uint256 amount = delegations[i][j] * 10 ** 18;
                 if (amount != 0) {
-                    string memory exo = bootstrap.ethToExocoreAddress(addrs[j]);
-                    uint256 prevDelegation = bootstrap.delegations(delegator, exo, address(myToken));
-                    uint256 prevDelegationByValidator = bootstrap.delegationsByValidator(exo, address(myToken));
+                    string memory im = bootstrap.ethToImAddress(addrs[j]);
+                    uint256 prevDelegation = bootstrap.delegations(delegator, im, address(myToken));
+                    uint256 prevDelegationByValidator = bootstrap.delegationsByValidator(im, address(myToken));
                     uint256 prevWithdrawableAmount = bootstrap.withdrawableAmounts(delegator, address(myToken));
-                    bootstrap.delegateTo(exo, address(myToken), uint256(amount));
-                    uint256 postDelegation = bootstrap.delegations(delegator, exo, address(myToken));
-                    uint256 postDelegationByValidator = bootstrap.delegationsByValidator(exo, address(myToken));
+                    bootstrap.delegateTo(im, address(myToken), uint256(amount));
+                    uint256 postDelegation = bootstrap.delegations(delegator, im, address(myToken));
+                    uint256 postDelegationByValidator = bootstrap.delegationsByValidator(im, address(myToken));
                     uint256 postWithdrawableAmount = bootstrap.withdrawableAmounts(delegator, address(myToken));
                     assertTrue(postDelegation == prevDelegation + amount);
                     assertTrue(postDelegationByValidator == prevDelegationByValidator + amount);
@@ -816,7 +816,7 @@ contract BootstrapTest is Test {
         test02_Deposit();
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapValidatorNotExist.selector);
-        bootstrap.delegateTo("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0]);
+        bootstrap.delegateTo("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0]);
     }
 
     function test09_DelegateTo_TokenNotWhitelisted() public {
@@ -824,7 +824,7 @@ contract BootstrapTest is Test {
         test02_Deposit();
         vm.startPrank(addrs[0]);
         vm.expectRevert("BootstrapStorage: token is not whitelisted");
-        bootstrap.delegateTo("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(0xa), amounts[0]);
+        bootstrap.delegateTo("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(0xa), amounts[0]);
     }
 
     function test09_DelegateTo_NotEnoughBalance() public {
@@ -832,7 +832,7 @@ contract BootstrapTest is Test {
         MyToken myToken = test01_AddWhitelistToken();
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapInsufficientWithdrawableBalance.selector);
-        bootstrap.delegateTo("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0]);
+        bootstrap.delegateTo("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0]);
     }
 
     function test09_DelegateTo_ZeroAmount() public {
@@ -840,14 +840,14 @@ contract BootstrapTest is Test {
         test02_Deposit();
         vm.startPrank(addrs[0]);
         vm.expectRevert("BootstrapStorage: amount should be greater than zero");
-        bootstrap.delegateTo("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), 0);
+        bootstrap.delegateTo("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), 0);
     }
 
     function test09_DelegateTo_NoDeposits() public {
         test03_RegisterValidator();
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapInsufficientWithdrawableBalance.selector);
-        bootstrap.delegateTo("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0]);
+        bootstrap.delegateTo("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0]);
     }
 
     function test09_DelegateTo_Excess() public {
@@ -855,7 +855,7 @@ contract BootstrapTest is Test {
         test02_Deposit();
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapInsufficientWithdrawableBalance.selector);
-        bootstrap.delegateTo("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0] + 1);
+        bootstrap.delegateTo("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0] + 1);
     }
 
     function test10_UndelegateFrom() public {
@@ -863,13 +863,13 @@ contract BootstrapTest is Test {
         // first, self undelegate
         for (uint256 i = 0; i < 3; i++) {
             vm.startPrank(addrs[i]);
-            string memory exo = bootstrap.ethToExocoreAddress(addrs[i]);
-            uint256 prevDelegation = bootstrap.delegations(addrs[i], exo, address(myToken));
-            uint256 prevDelegationByValidator = bootstrap.delegationsByValidator(exo, address(myToken));
+            string memory im = bootstrap.ethToImAddress(addrs[i]);
+            uint256 prevDelegation = bootstrap.delegations(addrs[i], im, address(myToken));
+            uint256 prevDelegationByValidator = bootstrap.delegationsByValidator(im, address(myToken));
             uint256 prevWithdrawableAmount = bootstrap.withdrawableAmounts(addrs[i], address(myToken));
-            bootstrap.undelegateFrom(exo, address(myToken), amounts[i]);
-            uint256 postDelegation = bootstrap.delegations(addrs[i], exo, address(myToken));
-            uint256 postDelegationByValidator = bootstrap.delegationsByValidator(exo, address(myToken));
+            bootstrap.undelegateFrom(im, address(myToken), amounts[i]);
+            uint256 postDelegation = bootstrap.delegations(addrs[i], im, address(myToken));
+            uint256 postDelegationByValidator = bootstrap.delegationsByValidator(im, address(myToken));
             uint256 postWithdrawableAmount = bootstrap.withdrawableAmounts(addrs[i], address(myToken));
             assertTrue(postDelegation == prevDelegation - amounts[i]);
             assertTrue(postDelegationByValidator == prevDelegationByValidator - amounts[i]);
@@ -884,13 +884,13 @@ contract BootstrapTest is Test {
             for (uint256 j = 0; j < 3; j++) {
                 uint256 amount = delegations[i][j] * 10 ** 18;
                 if (amount != 0) {
-                    string memory exo = bootstrap.ethToExocoreAddress(addrs[j]);
-                    uint256 prevDelegation = bootstrap.delegations(delegator, exo, address(myToken));
-                    uint256 prevDelegationByValidator = bootstrap.delegationsByValidator(exo, address(myToken));
+                    string memory im = bootstrap.ethToImAddress(addrs[j]);
+                    uint256 prevDelegation = bootstrap.delegations(delegator, im, address(myToken));
+                    uint256 prevDelegationByValidator = bootstrap.delegationsByValidator(im, address(myToken));
                     uint256 prevWithdrawableAmount = bootstrap.withdrawableAmounts(delegator, address(myToken));
-                    bootstrap.undelegateFrom(exo, address(myToken), uint256(amount));
-                    uint256 postDelegation = bootstrap.delegations(delegator, exo, address(myToken));
-                    uint256 postDelegationByValidator = bootstrap.delegationsByValidator(exo, address(myToken));
+                    bootstrap.undelegateFrom(im, address(myToken), uint256(amount));
+                    uint256 postDelegation = bootstrap.delegations(delegator, im, address(myToken));
+                    uint256 postDelegationByValidator = bootstrap.delegationsByValidator(im, address(myToken));
                     uint256 postWithdrawableAmount = bootstrap.withdrawableAmounts(delegator, address(myToken));
                     assertTrue(postDelegation == prevDelegation - amount);
                     assertTrue(postDelegationByValidator == prevDelegationByValidator - amount);
@@ -905,14 +905,14 @@ contract BootstrapTest is Test {
         test09_DelegateTo();
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapValidatorNotExist.selector);
-        bootstrap.undelegateFrom("exo1awm72f4sc5yhedurdunx9afcshfq6ymqva8an4", address(myToken), amounts[0]);
+        bootstrap.undelegateFrom("im1awm72f4sc5yhedurdunx9afcshfq6ymqury93s", address(myToken), amounts[0]);
     }
 
     function test10_UndelegateFrom_TokenNotWhitelisted() public {
         test03_RegisterValidator();
         vm.startPrank(addrs[0]);
         vm.expectRevert("BootstrapStorage: token is not whitelisted");
-        bootstrap.undelegateFrom("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(0xa), amounts[0]);
+        bootstrap.undelegateFrom("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(0xa), amounts[0]);
     }
 
     function test10_UndelegateFrom_NotEnoughBalance() public {
@@ -920,7 +920,7 @@ contract BootstrapTest is Test {
         MyToken myToken = test01_AddWhitelistToken();
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapInsufficientDelegatedBalance.selector);
-        bootstrap.undelegateFrom("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0]);
+        bootstrap.undelegateFrom("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0]);
     }
 
     function test10_UndelegateFrom_ZeroAmount() public {
@@ -928,24 +928,24 @@ contract BootstrapTest is Test {
         test02_Deposit();
         vm.startPrank(addrs[0]);
         vm.expectRevert("BootstrapStorage: amount should be greater than zero");
-        bootstrap.undelegateFrom("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), 0);
+        bootstrap.undelegateFrom("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), 0);
     }
 
     function test10_UndelegateFromValidator_Excess() public {
         test09_DelegateTo();
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapInsufficientDelegatedBalance.selector);
-        bootstrap.undelegateFrom("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0] + 1);
+        bootstrap.undelegateFrom("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0] + 1);
     }
 
     function test10_UndelegateFrom_NoDelegation() public {
         test03_RegisterValidator();
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapInsufficientDelegatedBalance.selector);
-        bootstrap.undelegateFrom("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0]);
+        bootstrap.undelegateFrom("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0]);
     }
 
-    function test11_ClaimPrincipalFromExocore() public {
+    function test11_ClaimPrincipalFromImuachain() public {
         // delegate and then undelegate
         test10_UndelegateFrom();
         // now, withdraw
@@ -956,7 +956,7 @@ contract BootstrapTest is Test {
             uint256 prevTokenDeposit = bootstrap.depositsByToken(address(myToken));
             uint256 prevVaultWithdrawable =
                 Vault(address(bootstrap.tokenToVault(address(myToken)))).withdrawableBalances(addrs[i]);
-            bootstrap.claimPrincipalFromExocore(address(myToken), amounts[i]);
+            bootstrap.claimPrincipalFromImuachain(address(myToken), amounts[i]);
             uint256 postDeposit = bootstrap.totalDepositAmounts(addrs[i], address(myToken));
             uint256 postWithdrawable = bootstrap.withdrawableAmounts(addrs[i], address(myToken));
             uint256 postTokenDeposit = bootstrap.depositsByToken(address(myToken));
@@ -971,40 +971,40 @@ contract BootstrapTest is Test {
         }
     }
 
-    function test11_ClaimPrincipalFromExocore_TokenNotWhitelisted() public {
+    function test11_ClaimPrincipalFromImuachain_TokenNotWhitelisted() public {
         vm.startPrank(addrs[0]);
         vm.expectRevert("BootstrapStorage: token is not whitelisted");
-        bootstrap.claimPrincipalFromExocore(address(0xa), amounts[0]);
+        bootstrap.claimPrincipalFromImuachain(address(0xa), amounts[0]);
         vm.stopPrank();
     }
 
-    function test11_ClaimPrincipalFromExocore_ZeroAmount() public {
+    function test11_ClaimPrincipalFromImuachain_ZeroAmount() public {
         vm.startPrank(addrs[0]);
         vm.expectRevert("BootstrapStorage: amount should be greater than zero");
-        bootstrap.claimPrincipalFromExocore(address(myToken), 0);
+        bootstrap.claimPrincipalFromImuachain(address(myToken), 0);
         vm.stopPrank();
     }
 
-    function test11_ClaimPrincipalFromExocore_NoDeposits() public {
+    function test11_ClaimPrincipalFromImuachain_NoDeposits() public {
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapInsufficientDepositedBalance.selector);
-        bootstrap.claimPrincipalFromExocore(address(myToken), amounts[0]);
+        bootstrap.claimPrincipalFromImuachain(address(myToken), amounts[0]);
         vm.stopPrank();
     }
 
-    function test11_ClaimPrincipalFromExocore_Excess() public {
+    function test11_ClaimPrincipalFromImuachain_Excess() public {
         test10_UndelegateFrom();
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapInsufficientDepositedBalance.selector);
-        bootstrap.claimPrincipalFromExocore(address(myToken), amounts[0] + 1);
+        bootstrap.claimPrincipalFromImuachain(address(myToken), amounts[0] + 1);
         vm.stopPrank();
     }
 
-    function test11_ClaimPrincipalFromExocore_ExcessFree() public {
+    function test11_ClaimPrincipalFromImuachain_ExcessFree() public {
         test09_DelegateTo();
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapInsufficientWithdrawableBalance.selector);
-        bootstrap.claimPrincipalFromExocore(address(myToken), amounts[0]);
+        bootstrap.claimPrincipalFromImuachain(address(myToken), amounts[0]);
         vm.stopPrank();
     }
 
@@ -1017,7 +1017,7 @@ contract BootstrapTest is Test {
     function _markBootstrapped(uint64 nonce, bool success) internal {
         vm.startPrank(lzActor);
         clientChainLzEndpoint.lzReceive(
-            Origin(exocoreChainId, bytes32(bytes20(undeployedExocoreGateway)), nonce),
+            Origin(imuachainChainId, bytes32(bytes20(undeployedImuachainGateway)), nonce),
             address(bootstrap),
             generateUID(nonce),
             abi.encodePacked(Action.REQUEST_MARK_BOOTSTRAP, ""),
@@ -1029,7 +1029,7 @@ contract BootstrapTest is Test {
             // no more upgrades are possible
             assertTrue(bootstrap.customProxyAdmin() == address(0));
             assertTrue(proxyAdmin.bootstrapper() == address(0));
-            assertTrue(bootstrap.owner() == exocoreValidatorSet);
+            assertTrue(bootstrap.owner() == owner);
         } else {
             assertFalse(bootstrap.bootstrapped());
         }
@@ -1118,8 +1118,8 @@ contract BootstrapTest is Test {
     function generateUID(uint64 nonce) internal view returns (bytes32 uid) {
         uid = GUID.generate(
             nonce,
-            exocoreChainId,
-            address(undeployedExocoreGateway),
+            imuachainChainId,
+            address(undeployedImuachainGateway),
             clientChainId,
             bytes32(bytes20(address(bootstrap)))
         );
@@ -1128,10 +1128,10 @@ contract BootstrapTest is Test {
     function test15_Initialize_OwnerZero() public {
         vm.startPrank(deployer);
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            exocoreChainId: exocoreChainId,
+            imuachainChainId: imuachainChainId,
             beaconOracleAddress: address(0x1),
             vaultBeacon: address(vaultBeacon),
-            exoCapsuleBeacon: address(capsuleBeacon),
+            imuaCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode),
             networkConfig: address(0)
         });
@@ -1165,10 +1165,10 @@ contract BootstrapTest is Test {
     function test15_Initialize_SpawnTimeNotFuture() public {
         vm.startPrank(deployer);
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            exocoreChainId: exocoreChainId,
+            imuachainChainId: imuachainChainId,
             beaconOracleAddress: address(0x1),
             vaultBeacon: address(vaultBeacon),
-            exoCapsuleBeacon: address(capsuleBeacon),
+            imuaCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode),
             networkConfig: address(0)
         });
@@ -1203,10 +1203,10 @@ contract BootstrapTest is Test {
     function test15_Initialize_OffsetDurationZero() public {
         vm.startPrank(deployer);
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            exocoreChainId: exocoreChainId,
+            imuachainChainId: imuachainChainId,
             beaconOracleAddress: address(0x1),
             vaultBeacon: address(vaultBeacon),
-            exoCapsuleBeacon: address(capsuleBeacon),
+            imuaCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode),
             networkConfig: address(0)
         });
@@ -1240,10 +1240,10 @@ contract BootstrapTest is Test {
     function test15_Initialize_SpawnTimeLTOffsetDuration() public {
         vm.startPrank(deployer);
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            exocoreChainId: exocoreChainId,
+            imuachainChainId: imuachainChainId,
             beaconOracleAddress: address(0x1),
             vaultBeacon: address(vaultBeacon),
-            exoCapsuleBeacon: address(capsuleBeacon),
+            imuaCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode),
             networkConfig: address(0)
         });
@@ -1278,10 +1278,10 @@ contract BootstrapTest is Test {
     function test15_Initialize_LockTimeNotFuture() public {
         vm.startPrank(deployer);
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            exocoreChainId: exocoreChainId,
+            imuachainChainId: imuachainChainId,
             beaconOracleAddress: address(0x1),
             vaultBeacon: address(vaultBeacon),
-            exoCapsuleBeacon: address(capsuleBeacon),
+            imuaCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode),
             networkConfig: address(0)
         });
@@ -1316,10 +1316,10 @@ contract BootstrapTest is Test {
     function test15_Initialize_CustomProxyAdminZero() public {
         vm.startPrank(deployer);
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            exocoreChainId: exocoreChainId,
+            imuachainChainId: imuachainChainId,
             beaconOracleAddress: address(0x1),
             vaultBeacon: address(vaultBeacon),
-            exoCapsuleBeacon: address(capsuleBeacon),
+            imuaCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode),
             networkConfig: address(0)
         });
@@ -1353,10 +1353,10 @@ contract BootstrapTest is Test {
     function test15_Initialize_GatewayZero() public {
         vm.startPrank(deployer);
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            exocoreChainId: exocoreChainId,
+            imuachainChainId: imuachainChainId,
             beaconOracleAddress: address(0x1),
             vaultBeacon: address(vaultBeacon),
-            exoCapsuleBeacon: address(capsuleBeacon),
+            imuaCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode),
             networkConfig: address(0)
         });
@@ -1390,10 +1390,10 @@ contract BootstrapTest is Test {
     function test15_Initialize_GatewayLogicZero() public {
         vm.startPrank(deployer);
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            exocoreChainId: exocoreChainId,
+            imuachainChainId: imuachainChainId,
             beaconOracleAddress: address(0x1),
             vaultBeacon: address(vaultBeacon),
-            exoCapsuleBeacon: address(capsuleBeacon),
+            imuaCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode),
             networkConfig: address(0)
         });
@@ -1477,13 +1477,13 @@ contract BootstrapTest is Test {
         bootstrap.setOffsetDuration(offsetDuration + 2);
     }
 
-    function test20_WithdrawRewardFromExocore() public {
+    function test20_WithdrawRewardFromImuachain() public {
         vm.expectRevert(abi.encodeWithSignature("NotYetSupported()"));
-        bootstrap.claimRewardFromExocore(address(0x0), 1);
+        bootstrap.claimRewardFromImuachain(address(0x0), 1);
     }
 
     function test22_WithdrawPrincipal() public {
-        test11_ClaimPrincipalFromExocore();
+        test11_ClaimPrincipalFromImuachain();
         for (uint256 i = 0; i < 6; i++) {
             vm.startPrank(addrs[i]);
             uint256 prevBalance = myToken.balanceOf(addrs[i]);
@@ -1507,7 +1507,7 @@ contract BootstrapTest is Test {
     }
 
     function test22_WithdrawPrincipal_Excess() public {
-        test11_ClaimPrincipalFromExocore();
+        test11_ClaimPrincipalFromImuachain();
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.VaultWithdrawalAmountExceeds.selector);
         bootstrap.withdrawPrincipal(address(myToken), amounts[0] + 5, addrs[0]);
@@ -1521,11 +1521,11 @@ contract BootstrapTest is Test {
         vm.stopPrank();
     }
 
-    function test23_RevertWhen_ClaimPrincipalFromExocore_WithEther() public {
+    function test23_RevertWhen_ClaimPrincipalFromImuachain_WithEther() public {
         vm.startPrank(addrs[0]);
         vm.deal(addrs[0], 1 ether);
         vm.expectRevert(Errors.NonZeroValue.selector);
-        bootstrap.claimPrincipalFromExocore{value: 0.1 ether}(address(myToken), amounts[0]);
+        bootstrap.claimPrincipalFromImuachain{value: 0.1 ether}(address(myToken), amounts[0]);
         vm.stopPrank();
     }
 
@@ -1534,7 +1534,7 @@ contract BootstrapTest is Test {
         vm.deal(addrs[0], 1 ether);
         vm.expectRevert(Errors.NonZeroValue.selector);
         bootstrap.delegateTo{value: 0.1 ether}(
-            "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0]
+            "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0]
         );
         vm.stopPrank();
     }
@@ -1544,7 +1544,7 @@ contract BootstrapTest is Test {
         vm.deal(addrs[0], 1 ether);
         vm.expectRevert(Errors.NonZeroValue.selector);
         bootstrap.undelegateFrom{value: 0.1 ether}(
-            "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0]
+            "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0]
         );
         vm.stopPrank();
     }
@@ -1554,7 +1554,7 @@ contract BootstrapTest is Test {
         vm.deal(addrs[0], 1 ether);
         vm.expectRevert(Errors.NonZeroValue.selector);
         bootstrap.depositThenDelegateTo{value: 0.1 ether}(
-            address(myToken), amounts[0], "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac"
+            address(myToken), amounts[0], "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla"
         );
         vm.stopPrank();
     }
@@ -1577,7 +1577,7 @@ contract BootstrapTest is Test {
         // First stake should create new capsule
         bootstrap.stake{value: 32 ether}(pubkey, signature, depositDataRoot);
 
-        IExoCapsule capsule = bootstrap.ownerToCapsule(addrs[0]);
+        IImuaCapsule capsule = bootstrap.ownerToCapsule(addrs[0]);
         address expectedCapsuleAddress = Create2.computeAddress(
             bytes32(uint256(uint160(addrs[0]))),
             keccak256(abi.encodePacked(BEACON_PROXY_BYTECODE, abi.encode(address(capsuleBeacon), ""))),
@@ -1617,36 +1617,36 @@ contract BootstrapTest is Test {
         vm.stopPrank();
     }
 
-    function test25_CreateExoCapsule() public {
+    function test25_CreateImuaCapsule() public {
         _enableNativeRestaking();
 
         vm.startPrank(addrs[0]);
 
-        address capsuleAddr = bootstrap.createExoCapsule();
+        address capsuleAddr = bootstrap.createImuaCapsule();
         assertTrue(capsuleAddr != address(0), "Capsule address should not be zero");
 
-        IExoCapsule capsule = bootstrap.ownerToCapsule(addrs[0]);
+        IImuaCapsule capsule = bootstrap.ownerToCapsule(addrs[0]);
         assertTrue(address(capsule) == capsuleAddr, "Capsule should be registered");
         vm.stopPrank();
     }
 
-    function test25_CreateExoCapsule_AlreadyExists() public {
+    function test25_CreateImuaCapsule_AlreadyExists() public {
         _enableNativeRestaking();
 
         vm.startPrank(addrs[0]);
 
-        bootstrap.createExoCapsule();
+        bootstrap.createImuaCapsule();
         vm.expectRevert(Errors.NativeRestakingControllerCapsuleAlreadyCreated.selector);
-        bootstrap.createExoCapsule();
+        bootstrap.createImuaCapsule();
         vm.stopPrank();
     }
 
-    function test25_CreateExoCapsule_WhenDisabled() public {
+    function test25_CreateImuaCapsule_WhenDisabled() public {
         _disableNativeRestaking();
 
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.NativeRestakingControllerNotWhitelisted.selector);
-        bootstrap.createExoCapsule();
+        bootstrap.createImuaCapsule();
         vm.stopPrank();
     }
 
@@ -1655,7 +1655,7 @@ contract BootstrapTest is Test {
 
         // First create a capsule
         vm.startPrank(addrs[0]);
-        bootstrap.createExoCapsule();
+        bootstrap.createImuaCapsule();
 
         bytes32[] memory validatorContainer = new bytes32[](3);
         BeaconChainProofs.ValidatorContainerProof memory proof;
@@ -1664,7 +1664,7 @@ contract BootstrapTest is Test {
         uint256 expectedDepositValue = 32 ether;
         vm.mockCall(
             address(bootstrap.ownerToCapsule(addrs[0])),
-            abi.encodeWithSelector(IExoCapsule.verifyDepositProof.selector),
+            abi.encodeWithSelector(IImuaCapsule.verifyDepositProof.selector),
             abi.encode(expectedDepositValue)
         );
 
@@ -1694,7 +1694,7 @@ contract BootstrapTest is Test {
         _enableNativeRestaking();
 
         vm.startPrank(addrs[0]);
-        bootstrap.createExoCapsule();
+        bootstrap.createImuaCapsule();
 
         bytes32[] memory validatorContainer = new bytes32[](3);
         BeaconChainProofs.ValidatorContainerProof memory proof;
@@ -1735,7 +1735,7 @@ contract BootstrapTest is Test {
 
         // First create a capsule
         vm.startPrank(addrs[0]);
-        bootstrap.createExoCapsule();
+        bootstrap.createImuaCapsule();
 
         uint256 withdrawAmount = 1 ether;
         address payable recipient = payable(addrs[1]);
@@ -1743,7 +1743,7 @@ contract BootstrapTest is Test {
         // Mock the capsule withdrawal call
         vm.mockCall(
             address(bootstrap.ownerToCapsule(addrs[0])),
-            abi.encodeWithSelector(IExoCapsule.withdrawNonBeaconChainETHBalance.selector),
+            abi.encodeWithSelector(IImuaCapsule.withdrawNonBeaconChainETHBalance.selector),
             abi.encode()
         );
 

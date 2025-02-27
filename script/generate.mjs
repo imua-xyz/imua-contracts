@@ -11,7 +11,7 @@ const clientChainInfo = {
 };
 // this must be in the same order as whitelistTokens
 const tokenMetaInfos = [
-  'Exocore Holesky ETH',
+  'Imuachain Holesky ETH', // named as exoETH
   'Staked ETH',
 ];
 // this must be in the same order as whitelistTokens
@@ -23,25 +23,25 @@ const tokenNamesForOracle = [
   'ETH', 'nstETH' // not case sensitive
 ]
 const nativeChain = {
-  "name": "Exocore",
-  "meta_info": "The (native) Exocore chain",
+  "name": "Imuachain",
+  "meta_info": "The (native) Imuachain chain",
   "finalization_blocks": 10,
   "layer_zero_chain_id": 0, // virtual chain
   "address_length": 20,
 }
 const nativeAsset = {
   "asset_basic_info": {
-    "name": "Native EXO token",
-    "symbol": "exo",
+    "name": "Native IMUA token",
+    "symbol": "IMUA",
     "address": "0x0000000000000000000000000000000000000000",
     "decimals": "18",
     "layer_zero_chain_id": nativeChain.layer_zero_chain_id,
-    "exocore_chain_index": "1",
-    "meta_info": "EXO native to the Exocore chain",
+    "imua_chain_index": "1",
+    "meta_info": "IMUA native to Imuachain",
   },
   "staking_total_amount": "0"
 };
-const EXOCORE_BECH32_PREFIX = 'exo';
+const IMUACHAIN_BECH32_PREFIX = 'im';
 const VIRTUAL_STAKED_ETH_ADDR = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 
 import dotenv from 'dotenv';
@@ -60,7 +60,7 @@ const isValidBech32 = (address) => {
     if (!prefix || !words.length) {
       return false;
     }
-    return prefix === EXOCORE_BECH32_PREFIX;
+    return prefix === IMUACHAIN_BECH32_PREFIX;
   } catch (error) {
     // If there's any error in decoding, return false
     return false;
@@ -245,7 +245,7 @@ async function updateGenesisFile() {
           address: token.tokenAddress.toLowerCase(),
           decimals: token.decimals.toString(),
           layer_zero_chain_id: clientChainInfo.layer_zero_chain_id,
-          exocore_chain_index: i.toString(), // unused
+          imua_chain_index: i.toString(), // unused
           meta_info: tokenMetaInfos[i],
         },
         staking_total_amount: deposit_amount.toString(),
@@ -423,9 +423,9 @@ async function updateGenesisFile() {
           for(let k = 0; k < validatorStates.length; k++) {
             // we cannot drop validators even though they may be slashed. this is because
             // even after slashing, the validators will retain 16 ETH of total balance.
-            // this must be allowed to be withdrawn after Exocore is launched. since the
-            // withdrawal credentials point to the ExoCapsule, such a withdrawal will
-            // be permitted only via Exocore, which must, correspondingly, have this validator's
+            // this must be allowed to be withdrawn after Imuachain is launched. since the
+            // withdrawal credentials point to the ImuaCapsule, such a withdrawal will
+            // be permitted only via ImuachainGateway, which must, correspondingly, have this validator's
             // state recorded.
             const validator = validatorStates[k];
             const effectiveBalance = new Decimal(web3.utils.toWei(validator.validator.effectiveBalance.toString(), "gwei"));
@@ -524,7 +524,7 @@ async function updateGenesisFile() {
             // (3) lower effective balance means that the Ethereum validator was either downtime
             // penalised or slashed. we follow the logic enshrined in update_native_restaking_balance.go
             // store this value before making any adjustments to calculate the slash proportion accurately.
-            // An example case wherein not all the 32 ETH is staked to an Exocore validator.
+            // An example case wherein not all the 32 ETH is staked to an Imuachain validator.
             // Effective balance = 29 ETH
             // Deposited 32, of which 2 is free and 30 is delegated. So withdrawable is 2.
             // DepositValue = 32
@@ -644,21 +644,21 @@ async function updateGenesisFile() {
     const operator_assets = genesisJSON.app_state.assets.operator_assets;
     for (let i = 0; i < validatorCount; i++) {
       const validatorEthAddress = await myContract.methods.registeredValidators(i).call();
-      const validatorExoAddress = await myContract.methods.ethToExocoreAddress(validatorEthAddress).call();
+      const validatorImAddress = await myContract.methods.ethToImAddress(validatorEthAddress).call();
       const assetsByOperator = [];
       for (let j = 0; j < supportedTokensCount; j++) {
         // do not reuse the older array since it has been sorted.
         const tokenAddress =
           (await myContract.methods.getWhitelistedTokenAtIndex(j).call()).tokenAddress;
         let matchingEntries = slashProportions.filter(
-          (element) => element.token === tokenAddress && element.impacted_validators.includes(validatorExoAddress)
+          (element) => element.token === tokenAddress && element.impacted_validators.includes(validatorImAddress)
         );
         let totalSlashing = ZERO_DECIMAL;
         let selfSlashing = ZERO_DECIMAL;
         for(let k = 0; k < matchingEntries.length; k++) {
           let matchingEntry = matchingEntries[k];
           let delegation = await myContract.methods.delegations(
-            matchingEntry.staker, validatorExoAddress, tokenAddress
+            matchingEntry.staker, validatorImAddress, tokenAddress
           ).call();
           if (delegation > 0) {
             let slashing = new Decimal(delegation.toString()).mul(matchingEntry.proportion);
@@ -669,10 +669,10 @@ async function updateGenesisFile() {
           }
         }
         const delegationValue = new Decimal((await myContract.methods.delegationsByValidator(
-          validatorExoAddress, tokenAddress
+          validatorImAddress, tokenAddress
         ).call()).toString()).minus(totalSlashing).truncated();
         const selfDelegation = new Decimal((await myContract.methods.delegations(
-          validatorEthAddress, validatorExoAddress, tokenAddress
+          validatorEthAddress, validatorImAddress, tokenAddress
         ).call()).toString()).minus(selfSlashing).truncated();
 
         const assetsByOperatorForAsset = {
@@ -699,7 +699,7 @@ async function updateGenesisFile() {
         return 0;
       });
       const assetsByOperatorWrapped = {
-        operator: validatorExoAddress,
+        operator: validatorImAddress,
         assets_state: assetsByOperator
       };
       operator_assets.push(assetsByOperatorWrapped);
@@ -756,16 +756,16 @@ async function updateGenesisFile() {
     for (let i = 0; i < operatorsCount; i++) {
       // operators
       const opAddressHex = await myContract.methods.registeredValidators(i).call();
-      const opAddressExo = await myContract.methods.ethToExocoreAddress(
+      const opAddressIm = await myContract.methods.ethToImAddress(
         opAddressHex
       ).call();
-      if (!isValidBech32(opAddressExo)) {
-        console.log(`Skipping operator with invalid bech32 address: ${opAddressExo}`);
+      if (!isValidBech32(opAddressIm)) {
+        console.log(`Skipping operator with invalid bech32 address: ${opAddressIm}`);
         continue;
       }
-      const operatorInfo = await myContract.methods.validators(opAddressExo).call();
+      const operatorInfo = await myContract.methods.validators(opAddressIm).call();
       const operator_info = {
-        earnings_addr: opAddressExo,
+        earnings_addr: opAddressIm,
         // approve_addr unset
         operator_meta_info: operatorInfo.name,
         client_chain_earnings_addr: {
@@ -792,7 +792,7 @@ async function updateGenesisFile() {
         }
       }
       const operatorCleaned = {
-        operator_address: opAddressExo,
+        operator_address: opAddressIm,
         operator_info: operator_info
       }
       operators.push(operatorCleaned);
@@ -813,17 +813,17 @@ async function updateGenesisFile() {
         const tokenAddress =
           (await myContract.methods.getWhitelistedTokenAtIndex(j).call()).tokenAddress;
         let selfDelegationAmount = new Decimal((await myContract.methods.delegations(
-            opAddressHex, opAddressExo, tokenAddress
+            opAddressHex, opAddressIm, tokenAddress
         ).call()).toString());
         let matchingEntries = slashProportions.filter(
-          (element) => element.token === tokenAddress && element.impacted_validators.includes(opAddressExo)
+          (element) => element.token === tokenAddress && element.impacted_validators.includes(opAddressIm)
         );
         let totalSlashing = ZERO_DECIMAL;
         let selfSlashing = ZERO_DECIMAL;
         for(let k = 0; k < matchingEntries.length; k++) {
           let matchingEntry = matchingEntries[k];
           let delegation = await myContract.methods.delegations(
-            matchingEntry.staker, opAddressExo, tokenAddress
+            matchingEntry.staker, opAddressIm, tokenAddress
           ).call();
           if (delegation > 0) {
             let slashing = new Decimal(delegation.toString()).mul(matchingEntry.proportion);
@@ -840,7 +840,7 @@ async function updateGenesisFile() {
             mul(exchangeRates[j].toFixed())
         );
         const perTokenDelegation = new Decimal((await myContract.methods.delegationsByValidator(
-          opAddressExo, tokenAddress
+          opAddressIm, tokenAddress
         ).call()).toString()).minus(totalSlashing).truncated();
         totalAmount = totalAmount.plus(
           perTokenDelegation.
@@ -863,11 +863,11 @@ async function updateGenesisFile() {
           consensus_key: operatorInfo.consensusPublicKey,
         });
         operator_records.push({
-          operator_address: opAddressExo,
+          operator_address: opAddressIm,
           chains: chains
         });
         // opted info
-        const key = getJoinedStoreKey(opAddressExo, dogfoodAddr);
+        const key = getJoinedStoreKey(opAddressIm, dogfoodAddr);
         const DefaultOptedOutHeight = BigInt("18446744073709551615");
         opt_states.push({
           key: key,
@@ -877,7 +877,7 @@ async function updateGenesisFile() {
           }
         });
         // USD value for the operators
-        const usdValuekey = getJoinedStoreKey(dogfoodAddr, opAddressExo);
+        const usdValuekey = getJoinedStoreKey(dogfoodAddr, opAddressIm);
         operator_usd_values.push({
           key: usdValuekey,
           opted_usd_value: {
@@ -888,12 +888,12 @@ async function updateGenesisFile() {
         });
         dogfoodUSDValue = dogfoodUSDValue.plus(totalAmount);
       } else {
-        console.log(`Skipping operator ${opAddressExo} due to insufficient self delegation.`);
+        console.log(`Skipping operator ${opAddressIm} due to insufficient self delegation.`);
       }
       let stakerId = opAddressHex.toLowerCase() + clientChainSuffix;
       let association = {
         staker_id: stakerId,
-        operator: opAddressExo,
+        operator: opAddressIm,
       };
       associations.push(association);
     }
@@ -1011,7 +1011,7 @@ async function updateGenesisFile() {
 
         for (let k = 0; k < operatorsCount; k++) {
           const operatorEth = await myContract.methods.registeredValidators(k).call();
-          const operator = await myContract.methods.ethToExocoreAddress(operatorEth).call();
+          const operator = await myContract.methods.ethToImAddress(operatorEth).call();
           if (!isValidBech32(operator)) {
             console.log(`Skipping operator with invalid bech32 address: ${operator}`);
             continue;
