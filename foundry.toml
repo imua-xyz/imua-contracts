@@ -42,6 +42,7 @@ contract_new_lines = true
 client = "${CLIENT_CHAIN_RPC}"
 imuachain_localnet = "${IMUACHAIN_LOCALNET_RPC}"
 imuachain_testnet = "${IMUACHAIN_TESTNET_RPC}"
+testnet = "${TESTNET_RPC_URL}"
 
 [etherscan]
 # Similar shortcut as `rpc_endpoints` to verify contracts by name and not URL.

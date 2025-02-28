@@ -13,7 +13,7 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-
+import "forge-std/console.sol";
 /**
  * @title UTXOGateway
  * @dev This contract manages the gateway between Bitcoin like chains and Imua
@@ -118,7 +118,7 @@ contract UTXOGateway is
         uint256 oldRequiredProofs = requiredProofs;
         requiredProofs = newRequiredProofs;
 
-        emit MinProofsUpdated(oldRequiredProofs, newRequiredProofs);
+        emit RequiredProofsUpdated(oldRequiredProofs, newRequiredProofs);
 
         // Check if consensus state changed due to new requirement
         bool isConsensusRequired_ = _isConsensusRequired();
@@ -216,6 +216,7 @@ contract UTXOGateway is
 
         // Check for consensus
         if (txn.proofCount >= requiredProofs) {
+            processedTransactions[messageHash] = true;
             _processStakeMsg(txn.stakeMsg);
             // we delete the transaction after it has been processed to refund some gas, so no need to worry about
             // reentrancy
@@ -317,6 +318,7 @@ contract UTXOGateway is
             revert Errors.AddressNotRegistered();
         }
 
+        console.logBytes(clientAddress);
         (bool success, uint256 updatedBalance) = ASSETS_CONTRACT.withdrawLST(
             uint32(uint8(clientChainId)), VIRTUAL_TOKEN, msg.sender.toImuachainBytes(), amount
         );
@@ -326,6 +328,9 @@ contract UTXOGateway is
 
         uint64 requestId =
             _initiatePegOut(clientChainId, amount, msg.sender, clientAddress, WithdrawType.WITHDRAW_PRINCIPAL);
+
+        console.log("withdrawPrincipal sucess:", requestId);
+        console.log("withdrawPrincipal updatedBalance:", updatedBalance);
         emit WithdrawPrincipalRequested(clientChainId, requestId, msg.sender, clientAddress, amount, updatedBalance);
     }
 
@@ -627,8 +632,10 @@ contract UTXOGateway is
         }
         if (updated) {
             emit ClientChainUpdated(clientChainId);
+            console.log("ClientChainUpdated: ", uint32(uint8(clientChainId)));
         } else {
             emit ClientChainRegistered(clientChainId);
+            console.log("ClientChainRegistered: ", uint32(uint8(clientChainId)));
         }
     }
 
@@ -662,7 +669,7 @@ contract UTXOGateway is
      */
     function _verifySignature(address signer, StakeMsg calldata _msg, bytes memory signature)
         internal
-        pure
+        view
         returns (bytes32 messageHash)
     {
         // StakeMsg, EIP721 is preferred next step.
@@ -675,8 +682,11 @@ contract UTXOGateway is
             _msg.operator,
             _msg.amount
         );
-        messageHash = keccak256(encodeMsg);
 
+        console.logBytes(encodeMsg);
+
+        messageHash = keccak256(encodeMsg);
+        console.logBytes32(messageHash);
         SignatureVerifier.verifyMsgSig(signer, messageHash, signature);
     }
 
@@ -716,13 +726,13 @@ contract UTXOGateway is
     {
         // verify that the stake message fields are valid
         _verifyStakeMsgFields(_msg);
-
+        console.log("finish 1 _verifyStakeMsgFields");
         // Verify nonce
         _verifyInboundNonce(_msg.clientChainId, _msg.nonce);
-
+        console.log("finish 2 _verifyInboundNonce ", _msg.nonce);
         // Verify that the txTag has not been processed
         _verifyClientTxIdNotProcessed(_msg.clientChainId, _msg.clientTxId);
-
+	console.log("finish 3 _verifyClientTxIdNotProcessed ");
         // Verify signature
         messageHash = _verifySignature(witness, _msg, signature);
     }
@@ -786,6 +796,7 @@ contract UTXOGateway is
         }
 
         emit DepositCompleted(clientChainId, clientTxId, depositorImAddr, srcAddress, amount, updatedBalance);
+	console.log("depositTo success");
     }
 
     /**
