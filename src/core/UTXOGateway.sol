@@ -19,6 +19,7 @@ import "forge-std/console.sol";
  * @dev This contract manages the gateway between Bitcoin like chains and Imua
  * It handles deposits, delegations, withdrawals, and peg-out requests for BTC like tokens.
  */
+
 contract UTXOGateway is
     Initializable,
     PausableUpgradeable,
@@ -118,7 +119,7 @@ contract UTXOGateway is
         uint256 oldRequiredProofs = requiredProofs;
         requiredProofs = newRequiredProofs;
 
-        emit RequiredProofsUpdated(oldRequiredProofs, newRequiredProofs);
+        emit MinProofsUpdated(oldRequiredProofs, newRequiredProofs);
 
         // Check if consensus state changed due to new requirement
         bool isConsensusRequired_ = _isConsensusRequired();
@@ -216,7 +217,6 @@ contract UTXOGateway is
 
         // Check for consensus
         if (txn.proofCount >= requiredProofs) {
-            processedTransactions[messageHash] = true;
             _processStakeMsg(txn.stakeMsg);
             // we delete the transaction after it has been processed to refund some gas, so no need to worry about
             // reentrancy
@@ -732,7 +732,7 @@ contract UTXOGateway is
         console.log("finish 2 _verifyInboundNonce ", _msg.nonce);
         // Verify that the txTag has not been processed
         _verifyClientTxIdNotProcessed(_msg.clientChainId, _msg.clientTxId);
-	console.log("finish 3 _verifyClientTxIdNotProcessed ");
+        console.log("finish 3 _verifyClientTxIdNotProcessed ");
         // Verify signature
         messageHash = _verifySignature(witness, _msg, signature);
     }
@@ -796,7 +796,7 @@ contract UTXOGateway is
         }
 
         emit DepositCompleted(clientChainId, clientTxId, depositorImAddr, srcAddress, amount, updatedBalance);
-	console.log("depositTo success");
+        console.log("depositTo success");
     }
 
     /**
