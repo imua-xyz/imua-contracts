@@ -161,6 +161,7 @@ contract AssetsMock is IAssets {
 
     function updateToken(uint32 clientChainId, bytes calldata token, string calldata metaData)
         external
+        view
         returns (bool success)
     {
         if (!isRegisteredChain[clientChainId]) {
@@ -234,7 +235,7 @@ contract AssetsMock is IAssets {
                 0,
                 0,
                 principalBalances[clientChainId][token][stakerAddress]
-            )
+                )
         );
     }
 

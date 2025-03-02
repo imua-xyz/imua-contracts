@@ -669,7 +669,7 @@ contract UTXOGateway is
      */
     function _verifySignature(address signer, StakeMsg calldata _msg, bytes memory signature)
         internal
-        view
+        pure
         returns (bytes32 messageHash)
     {
         // StakeMsg, EIP721 is preferred next step.
