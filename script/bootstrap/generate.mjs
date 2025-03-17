@@ -119,7 +119,7 @@ function getJoinedStoreKey(...keys) {
 async function updateGenesisFile() {
   try {
     // Read and parse the ABI from abi.json
-    const abiPath = './out/Bootstrap.sol/Bootstrap.json';
+    const abiPath = '../../out/Bootstrap.sol/Bootstrap.json';
     const contractABI = JSON.parse(await fs.readFile(abiPath, 'utf8')).abi;
 
     // Set up Web3
