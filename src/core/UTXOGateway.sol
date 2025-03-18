@@ -259,20 +259,23 @@ contract UTXOGateway is
         nonReentrant
         whenNotPaused
         isValidAmount(amount)
-        isRegistered(token, msg.sender)
     {
         if (!isValidOperatorAddress(operator)) {
             revert Errors.InvalidOperator();
         }
 
         ClientChainID clientChainId = ClientChainID(uint8(token));
+        bytes20 clientAccountId = outboundRegistry[clientChainId][msg.sender];
+        if (clientAccountId == bytes20(0)) {
+            revert Errors.AddressNotRegistered();
+        }
 
-        bool success = _delegate(clientChainId, msg.sender, operator, amount);
+        bool success = _delegate(clientChainId, clientAccountId, operator, amount);
         if (!success) {
             revert Errors.DelegationFailed();
         }
 
-        emit DelegationCompleted(clientChainId, msg.sender, operator, amount);
+        emit DelegationCompleted(clientChainId, msg.sender, clientAccountId, operator, amount);
     }
 
     /**
@@ -286,22 +289,24 @@ contract UTXOGateway is
         nonReentrant
         whenNotPaused
         isValidAmount(amount)
-        isRegistered(token, msg.sender)
     {
         if (!isValidOperatorAddress(operator)) {
             revert Errors.InvalidOperator();
         }
 
         ClientChainID clientChainId = ClientChainID(uint8(token));
+        bytes20 clientAccountId = outboundRegistry[clientChainId][msg.sender];
+        if (clientAccountId == bytes20(0)) {
+            revert Errors.AddressNotRegistered();
+        }
 
-        uint64 nonce = ++delegationNonce[clientChainId];
         bool success = DELEGATION_CONTRACT.undelegate(
-            uint32(uint8(clientChainId)), nonce, VIRTUAL_TOKEN, msg.sender.toImuachainBytes(), bytes(operator), amount
+            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, abi.encodePacked(clientAccountId), bytes(operator), amount
         );
         if (!success) {
             revert Errors.UndelegationFailed();
         }
-        emit UndelegationCompleted(clientChainId, msg.sender, operator, amount);
+        emit UndelegationCompleted(clientChainId, msg.sender, clientAccountId, operator, amount);
     }
 
     /**
@@ -312,21 +317,21 @@ contract UTXOGateway is
     function withdrawPrincipal(Token token, uint256 amount) external nonReentrant whenNotPaused isValidAmount(amount) {
         ClientChainID clientChainId = ClientChainID(uint8(token));
 
-        bytes memory clientAddress = outboundRegistry[clientChainId][msg.sender];
-        if (clientAddress.length == 0) {
+        bytes20 clientAccountId = outboundRegistry[clientChainId][msg.sender];
+        if (clientAccountId == bytes20(0)) {
             revert Errors.AddressNotRegistered();
         }
 
         (bool success, uint256 updatedBalance) = ASSETS_CONTRACT.withdrawLST(
-            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, msg.sender.toImuachainBytes(), amount
+            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, abi.encodePacked(clientAccountId), amount
         );
         if (!success) {
             revert Errors.WithdrawPrincipalFailed();
         }
 
         uint64 requestId =
-            _initiatePegOut(clientChainId, amount, msg.sender, clientAddress, WithdrawType.WITHDRAW_PRINCIPAL);
-        emit WithdrawPrincipalRequested(clientChainId, requestId, msg.sender, clientAddress, amount, updatedBalance);
+            _initiatePegOut(clientChainId, amount, msg.sender, clientAccountId, WithdrawType.WITHDRAW_PRINCIPAL);
+        emit WithdrawPrincipalRequested(clientChainId, requestId, msg.sender, clientAccountId, amount, updatedBalance);
     }
 
     /**
@@ -336,21 +341,21 @@ contract UTXOGateway is
      */
     function withdrawReward(Token token, uint256 amount) external nonReentrant whenNotPaused isValidAmount(amount) {
         ClientChainID clientChainId = ClientChainID(uint8(token));
-        bytes memory clientAddress = outboundRegistry[clientChainId][msg.sender];
-        if (clientAddress.length == 0) {
+        bytes20 clientAccountId = outboundRegistry[clientChainId][msg.sender];
+        if (clientAccountId == bytes20(0)) {
             revert Errors.AddressNotRegistered();
         }
 
         (bool success, uint256 updatedBalance) = REWARD_CONTRACT.claimReward(
-            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, msg.sender.toImuachainBytes(), amount
+            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, abi.encodePacked(clientAccountId), amount
         );
         if (!success) {
             revert Errors.WithdrawRewardFailed();
         }
 
         uint64 requestId =
-            _initiatePegOut(clientChainId, amount, msg.sender, clientAddress, WithdrawType.WITHDRAW_REWARD);
-        emit WithdrawRewardRequested(clientChainId, requestId, msg.sender, clientAddress, amount, updatedBalance);
+            _initiatePegOut(clientChainId, amount, msg.sender, clientAccountId, WithdrawType.WITHDRAW_REWARD);
+        emit WithdrawRewardRequested(clientChainId, requestId, msg.sender, clientAccountId, amount, updatedBalance);
     }
 
     /**
@@ -391,7 +396,7 @@ contract UTXOGateway is
             clientChainId,
             nextRequestNonce,
             nextPegOutRequest.requester,
-            nextPegOutRequest.clientAddress,
+            nextPegOutRequest.clientAccountId,
             nextPegOutRequest.amount
         );
     }
@@ -423,31 +428,27 @@ contract UTXOGateway is
     }
 
     /**
-     * @notice Gets the client chain address for a given Imuachain address
+     * @notice Gets the client chain account id for a given Imuachain address
      * @param clientChainId The client chain ID
      * @param imuachainAddress The Imuachain address
-     * @return The client chain address
+     * @return The client chain account id(usually the pubkey hash)
      */
-    function getClientAddress(ClientChainID clientChainId, address imuachainAddress)
-        external
-        view
-        returns (bytes memory)
-    {
+    function getClientAccount(ClientChainID clientChainId, address imuachainAddress) external view returns (bytes20) {
         return outboundRegistry[clientChainId][imuachainAddress];
     }
 
     /**
-     * @notice Gets the Imuachain address for a given client chain address
+     * @notice Gets the Imuachain address for a given client chain account id
      * @param clientChainId The client chain ID
-     * @param clientAddress The client chain address
+     * @param clientAccountId The client chain account id(usually the pubkey hash)
      * @return The Imuachain address
      */
-    function getImuachainAddress(ClientChainID clientChainId, bytes calldata clientAddress)
+    function getImuachainAddress(ClientChainID clientChainId, bytes20 clientAccountId)
         external
         view
         returns (address)
     {
-        return inboundRegistry[clientChainId][clientAddress];
+        return inboundRegistry[clientChainId][clientAccountId];
     }
 
     /**
@@ -670,7 +671,7 @@ contract UTXOGateway is
             _msg.clientChainId,
             _msg.nonce,
             _msg.clientTxId,
-            _msg.clientAddress,
+            _msg.clientAccountId,
             _msg.imuachainAddress,
             _msg.operator,
             _msg.amount
@@ -687,7 +688,7 @@ contract UTXOGateway is
     function _verifyStakeMsgFields(StakeMsg calldata _msg) internal pure {
         if (
             uint8(_msg.clientChainId) == 0 || _msg.nonce == 0 || uint256(_msg.clientTxId) == 0
-                || _msg.clientAddress.length == 0 || _msg.amount == 0
+                || _msg.clientAccountId == bytes20(0) || _msg.amount == 0
         ) {
             revert Errors.InvalidStakeMessage();
         }
@@ -733,7 +734,7 @@ contract UTXOGateway is
      * @param clientChainId The client chain to be pegged out
      * @param _amount The amount of tokens to be pegged out
      * @param withdrawer The Imuachain address associated with the Bitcoin address
-     * @param clientAddress The client chain address
+     * @param clientAccountId The client chain account id(usually the pubkey hash)
      * @param _withdrawType The type of withdrawal (e.g., normal, fast)
      * @return requestId The unique identifier for the peg-out request
      * @custom:throws RequestAlreadyExists if a request with the same parameters already exists
@@ -742,7 +743,7 @@ contract UTXOGateway is
         ClientChainID clientChainId,
         uint256 _amount,
         address withdrawer,
-        bytes memory clientAddress,
+        bytes20 clientAccountId,
         WithdrawType _withdrawType
     ) internal returns (uint64 requestId) {
         // 2. increase the peg-out nonce for the client chain and return as requestId
@@ -758,7 +759,7 @@ contract UTXOGateway is
         request.clientChainId = clientChainId;
         request.nonce = requestId;
         request.requester = withdrawer;
-        request.clientAddress = clientAddress;
+        request.clientAccountId = clientAccountId;
         request.amount = _amount;
         request.withdrawType = _withdrawType;
     }
@@ -773,13 +774,13 @@ contract UTXOGateway is
      */
     function _deposit(
         ClientChainID clientChainId,
-        bytes memory srcAddress,
+        bytes20 srcAddress,
         address depositorImAddr,
         uint256 amount,
         bytes32 clientTxId
     ) internal {
         (bool success, uint256 updatedBalance) = ASSETS_CONTRACT.depositLST(
-            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, depositorImAddr.toImuachainBytes(), amount
+            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, abi.encodePacked(srcAddress), amount
         );
         if (!success) {
             revert Errors.DepositFailed(clientTxId);
@@ -791,19 +792,18 @@ contract UTXOGateway is
     /**
      * @notice Internal function to delegate BTC like token.
      * @param clientChainId The client chain ID.
-     * @param delegator The Imuachain address.
+     * @param delegator The delegator's client address.
      * @param operator The operator's address.
      * @param amount The amount to delegate.
      * @return success True if the delegation was successful, false otherwise.
      * @dev Sometimes we may not want to revert on failure, so we return a boolean.
      */
-    function _delegate(ClientChainID clientChainId, address delegator, string memory operator, uint256 amount)
+    function _delegate(ClientChainID clientChainId, bytes20 delegator, string memory operator, uint256 amount)
         internal
         returns (bool success)
     {
-        uint64 nonce = ++delegationNonce[clientChainId];
         success = DELEGATION_CONTRACT.delegate(
-            uint32(uint8(clientChainId)), nonce, VIRTUAL_TOKEN, delegator.toImuachainBytes(), bytes(operator), amount
+            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, abi.encodePacked(delegator), bytes(operator), amount
         );
     }
 
@@ -815,10 +815,10 @@ contract UTXOGateway is
         }
     }
 
-    function _registerAddress(ClientChainID clientChainId, bytes memory depositor, address imuachainAddress) internal {
-        require(depositor.length > 0 && imuachainAddress != address(0), "Invalid address");
+    function _registerAddress(ClientChainID clientChainId, bytes20 depositor, address imuachainAddress) internal {
+        require(depositor != bytes20(0) && imuachainAddress != address(0), "Invalid address");
         require(inboundRegistry[clientChainId][depositor] == address(0), "Depositor address already registered");
-        require(outboundRegistry[clientChainId][imuachainAddress].length == 0, "Imuachain address already registered");
+        require(outboundRegistry[clientChainId][imuachainAddress] == bytes20(0), "Imuachain address already registered");
 
         inboundRegistry[clientChainId][depositor] = imuachainAddress;
         outboundRegistry[clientChainId][imuachainAddress] = depositor;
@@ -834,31 +834,35 @@ contract UTXOGateway is
 
         // register address if not already registered
         if (
-            inboundRegistry[_msg.clientChainId][_msg.clientAddress] == address(0)
-                && outboundRegistry[_msg.clientChainId][_msg.imuachainAddress].length == 0
+            inboundRegistry[_msg.clientChainId][_msg.clientAccountId] == address(0)
+                && outboundRegistry[_msg.clientChainId][_msg.imuachainAddress] == bytes20(0)
         ) {
             if (_msg.imuachainAddress == address(0)) {
                 revert Errors.ZeroAddress();
             }
-            _registerAddress(_msg.clientChainId, _msg.clientAddress, _msg.imuachainAddress);
+            _registerAddress(_msg.clientChainId, _msg.clientAccountId, _msg.imuachainAddress);
         }
 
-        address stakerImAddr = inboundRegistry[_msg.clientChainId][_msg.clientAddress];
+        address stakerImAddr = inboundRegistry[_msg.clientChainId][_msg.clientAccountId];
         uint256 fee = _msg.amount * bridgeFeeRate / BASIS_POINTS;
         uint256 amountAfterFee = _msg.amount - fee;
 
         // we use registered Imuachain address as the depositor
         // this should always succeed and never revert, otherwise something is wrong.
-        _deposit(_msg.clientChainId, _msg.clientAddress, stakerImAddr, amountAfterFee, _msg.clientTxId);
+        _deposit(_msg.clientChainId, _msg.clientAccountId, stakerImAddr, amountAfterFee, _msg.clientTxId);
 
         // delegate to operator if operator is provided, and do not revert if it fails since we need to count the stake
         // as deposited
         if (bytes(_msg.operator).length > 0) {
-            bool success = _delegate(_msg.clientChainId, stakerImAddr, _msg.operator, amountAfterFee);
+            bool success = _delegate(_msg.clientChainId, _msg.clientAccountId, _msg.operator, amountAfterFee);
             if (!success) {
-                emit DelegationFailedForStake(_msg.clientChainId, stakerImAddr, _msg.operator, amountAfterFee);
+                emit DelegationFailedForStake(
+                    _msg.clientChainId, stakerImAddr, _msg.clientAccountId, _msg.operator, amountAfterFee
+                );
             } else {
-                emit DelegationCompleted(_msg.clientChainId, stakerImAddr, _msg.operator, amountAfterFee);
+                emit DelegationCompleted(
+                    _msg.clientChainId, stakerImAddr, _msg.clientAccountId, _msg.operator, amountAfterFee
+                );
             }
         }
 
