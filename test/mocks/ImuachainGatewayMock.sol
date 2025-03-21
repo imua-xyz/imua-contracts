@@ -473,9 +473,9 @@ contract ImuachainGatewayMock is
         bool isDelegate = act == Action.REQUEST_DELEGATE_TO;
         bool accepted;
         if (isDelegate) {
-            accepted = DELEGATION_CONTRACT.delegate(srcChainId, lzNonce, token, staker, operator, amount);
+            accepted = DELEGATION_CONTRACT.delegate(srcChainId, token, staker, operator, amount);
         } else {
-            accepted = DELEGATION_CONTRACT.undelegate(srcChainId, lzNonce, token, staker, operator, amount);
+            accepted = DELEGATION_CONTRACT.undelegate(srcChainId, token, staker, operator, amount);
         }
         emit DelegationRequest(isDelegate, accepted, bytes32(token), bytes32(staker), string(operator), amount);
     }
@@ -504,7 +504,7 @@ contract ImuachainGatewayMock is
         }
         emit LSTTransfer(true, success, bytes32(token), bytes32(depositor), amount);
 
-        bool accepted = DELEGATION_CONTRACT.delegate(srcChainId, lzNonce, token, depositor, operator, amount);
+        bool accepted = DELEGATION_CONTRACT.delegate(srcChainId, token, depositor, operator, amount);
         emit DelegationRequest(true, accepted, bytes32(token), bytes32(depositor), string(operator), amount);
     }
 

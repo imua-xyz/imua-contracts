@@ -204,11 +204,11 @@ jobs:
           # (2) keys of the output json dict below are case sensitive and must match the
           #     keys `x.deployed.json` defined in `compareLayouts.js` exactly.
           jq -n \
-            --arg bootstrap "$bootstrapLogic" \
-            --arg clientGateway "$clientGatewayLogic" \
-            --arg vault "$vaultImplementation" \
-            --arg rewardVault "$rewardVaultImplementation" \
-            --arg capsule "$capsuleImplementation" \
+            --arg bootstrap "$bootstrap" \
+            --arg clientGateway "$clientGateway" \
+            --arg vault "$vault" \
+            --arg rewardVault "$rewardVault" \
+            --arg capsule "$capsule" \
             '{
               Bootstrap: $bootstrap,
               ClientChainGateway: $clientGateway,

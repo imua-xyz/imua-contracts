@@ -11,25 +11,14 @@ contract DelegationMock is IDelegation {
     mapping(uint32 chainId => bool registered) isRegisteredChain;
 
     event DelegateRequestProcessed(
-        uint32 clientChainLzId,
-        uint64 lzNonce,
-        bytes assetsAddress,
-        bytes stakerAddress,
-        string operatorAddr,
-        uint256 opAmount
+        uint32 clientChainLzId, bytes assetsAddress, bytes stakerAddress, string operatorAddr, uint256 opAmount
     );
     event UndelegateRequestProcessed(
-        uint32 clientChainLzId,
-        uint64 lzNonce,
-        bytes assetsAddress,
-        bytes stakerAddress,
-        string operatorAddr,
-        uint256 opAmount
+        uint32 clientChainLzId, bytes assetsAddress, bytes stakerAddress, string operatorAddr, uint256 opAmount
     );
 
     function delegate(
         uint32 clientChainLzId,
-        uint64 lzNonce,
         bytes calldata assetsAddress,
         bytes calldata stakerAddress,
         bytes calldata operatorAddr,
@@ -42,16 +31,13 @@ contract DelegationMock is IDelegation {
             return false;
         }
         delegateToRecords[stakerAddress][operatorAddr][clientChainLzId][assetsAddress] += opAmount;
-        emit DelegateRequestProcessed(
-            clientChainLzId, lzNonce, assetsAddress, stakerAddress, string(operatorAddr), opAmount
-        );
+        emit DelegateRequestProcessed(clientChainLzId, assetsAddress, stakerAddress, string(operatorAddr), opAmount);
 
         return true;
     }
 
     function undelegate(
         uint32 clientChainLzId,
-        uint64 lzNonce,
         bytes calldata assetsAddress,
         bytes calldata stakerAddress,
         bytes calldata operatorAddr,
@@ -67,9 +53,7 @@ contract DelegationMock is IDelegation {
             return false;
         }
         delegateToRecords[stakerAddress][operatorAddr][clientChainLzId][assetsAddress] -= opAmount;
-        emit UndelegateRequestProcessed(
-            clientChainLzId, lzNonce, assetsAddress, stakerAddress, string(operatorAddr), opAmount
-        );
+        emit UndelegateRequestProcessed(clientChainLzId, assetsAddress, stakerAddress, string(operatorAddr), opAmount);
 
         return true;
     }

@@ -446,10 +446,9 @@ contract ImuachainGateway is
     /// @dev Can only be called from this contract via low-level call.
     /// @dev Returns empty response because the client chain should not expect a response.
     /// @param srcChainId The source chain id.
-    /// @param lzNonce The layer zero nonce.
     /// @param act The action type.
     /// @param payload The request payload.
-    function handleDelegation(uint32 srcChainId, uint64 lzNonce, Action act, bytes calldata payload)
+    function handleDelegation(uint32 srcChainId, uint64, Action act, bytes calldata payload)
         public
         onlyCalledFromThis
         returns (bytes memory response)
@@ -463,9 +462,9 @@ contract ImuachainGateway is
         bool isDelegate = act == Action.REQUEST_DELEGATE_TO;
         bool accepted;
         if (isDelegate) {
-            accepted = DELEGATION_CONTRACT.delegate(srcChainId, lzNonce, token, staker, operator, amount);
+            accepted = DELEGATION_CONTRACT.delegate(srcChainId, token, staker, operator, amount);
         } else {
-            accepted = DELEGATION_CONTRACT.undelegate(srcChainId, lzNonce, token, staker, operator, amount);
+            accepted = DELEGATION_CONTRACT.undelegate(srcChainId, token, staker, operator, amount);
         }
         emit DelegationRequest(isDelegate, accepted, bytes32(token), bytes32(staker), string(operator), amount);
     }
@@ -494,7 +493,7 @@ contract ImuachainGateway is
         }
         emit LSTTransfer(true, success, bytes32(token), bytes32(depositor), amount);
 
-        bool accepted = DELEGATION_CONTRACT.delegate(srcChainId, lzNonce, token, depositor, operator, amount);
+        bool accepted = DELEGATION_CONTRACT.delegate(srcChainId, token, depositor, operator, amount);
         emit DelegationRequest(true, accepted, bytes32(token), bytes32(depositor), string(operator), amount);
     }
 

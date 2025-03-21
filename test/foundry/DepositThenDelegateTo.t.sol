@@ -34,12 +34,7 @@ contract DepositThenDelegateToTest is ImuachainDeployer {
 
     // emitted by the mock delegation contract
     event DelegateRequestProcessed(
-        uint32 clientChainLzId,
-        uint64 lzNonce,
-        bytes assetsAddress,
-        bytes stakerAddress,
-        string operatorAddr,
-        uint256 opAmount
+        uint32 clientChainLzId, bytes assetsAddress, bytes stakerAddress, string operatorAddr, uint256 opAmount
     );
 
     function test_DepositThenDelegateTo() public {
@@ -166,7 +161,6 @@ contract DepositThenDelegateToTest is ImuachainDeployer {
         vm.expectEmit(DELEGATION_PRECOMPILE_ADDRESS);
         emit DelegateRequestProcessed(
             clientChainId,
-            outboundNonces[clientChainId] - 1,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator))),
             operatorAddress,
@@ -220,7 +214,6 @@ contract DepositThenDelegateToTest is ImuachainDeployer {
         bytes memory delegateCalldata = abi.encodeWithSelector(
             IDelegation.delegate.selector,
             clientChainId,
-            outboundNonces[clientChainId] - 1,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator))),
             "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla",

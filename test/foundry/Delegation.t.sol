@@ -32,20 +32,10 @@ contract DelegateTest is ImuachainDeployer {
         uint256 amount
     );
     event DelegateRequestProcessed(
-        uint32 clientChainLzId,
-        uint64 lzNonce,
-        bytes assetsAddress,
-        bytes stakerAddress,
-        string operatorAddr,
-        uint256 opAmount
+        uint32 clientChainLzId, bytes assetsAddress, bytes stakerAddress, string operatorAddr, uint256 opAmount
     );
     event UndelegateRequestProcessed(
-        uint32 clientChainLzId,
-        uint64 lzNonce,
-        bytes assetsAddress,
-        bytes stakerAddress,
-        string operatorAddr,
-        uint256 opAmount
+        uint32 clientChainLzId, bytes assetsAddress, bytes stakerAddress, string operatorAddr, uint256 opAmount
     );
 
     function setUp() public override {
@@ -125,7 +115,6 @@ contract DelegateTest is ImuachainDeployer {
         vm.expectEmit(true, true, true, true, DELEGATION_PRECOMPILE_ADDRESS);
         emit DelegateRequestProcessed(
             clientChainId,
-            outboundNonces[clientChainId] - 1,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator.addr))),
             operatorAddress,
@@ -210,7 +199,6 @@ contract DelegateTest is ImuachainDeployer {
         vm.expectEmit(true, true, true, true, DELEGATION_PRECOMPILE_ADDRESS);
         emit UndelegateRequestProcessed(
             clientChainId,
-            outboundNonces[clientChainId] - 1,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator.addr))),
             operatorAddress,
