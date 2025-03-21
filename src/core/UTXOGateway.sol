@@ -265,8 +265,8 @@ contract UTXOGateway is
         }
 
         ClientChainID clientChainId = ClientChainID(uint8(token));
-        bytes20 clientAccountId = outboundRegistry[clientChainId][msg.sender];
-        if (clientAccountId == bytes20(0)) {
+        bytes32 clientAccountId = outboundRegistry[clientChainId][msg.sender];
+        if (clientAccountId == bytes32(0)) {
             revert Errors.AddressNotRegistered();
         }
 
@@ -295,8 +295,8 @@ contract UTXOGateway is
         }
 
         ClientChainID clientChainId = ClientChainID(uint8(token));
-        bytes20 clientAccountId = outboundRegistry[clientChainId][msg.sender];
-        if (clientAccountId == bytes20(0)) {
+        bytes32 clientAccountId = outboundRegistry[clientChainId][msg.sender];
+        if (clientAccountId == bytes32(0)) {
             revert Errors.AddressNotRegistered();
         }
 
@@ -317,8 +317,8 @@ contract UTXOGateway is
     function withdrawPrincipal(Token token, uint256 amount) external nonReentrant whenNotPaused isValidAmount(amount) {
         ClientChainID clientChainId = ClientChainID(uint8(token));
 
-        bytes20 clientAccountId = outboundRegistry[clientChainId][msg.sender];
-        if (clientAccountId == bytes20(0)) {
+        bytes32 clientAccountId = outboundRegistry[clientChainId][msg.sender];
+        if (clientAccountId == bytes32(0)) {
             revert Errors.AddressNotRegistered();
         }
 
@@ -329,9 +329,12 @@ contract UTXOGateway is
             revert Errors.WithdrawPrincipalFailed();
         }
 
+        uint8 clientAccountType = accountIdToType[clientChainId][clientAccountId];
         uint64 requestId =
             _initiatePegOut(clientChainId, amount, msg.sender, clientAccountId, WithdrawType.WITHDRAW_PRINCIPAL);
-        emit WithdrawPrincipalRequested(clientChainId, requestId, msg.sender, clientAccountId, amount, updatedBalance);
+        emit WithdrawPrincipalRequested(
+            clientChainId, requestId, msg.sender, clientAccountId, clientAccountType, amount, updatedBalance
+        );
     }
 
     /**
@@ -341,8 +344,8 @@ contract UTXOGateway is
      */
     function withdrawReward(Token token, uint256 amount) external nonReentrant whenNotPaused isValidAmount(amount) {
         ClientChainID clientChainId = ClientChainID(uint8(token));
-        bytes20 clientAccountId = outboundRegistry[clientChainId][msg.sender];
-        if (clientAccountId == bytes20(0)) {
+        bytes32 clientAccountId = outboundRegistry[clientChainId][msg.sender];
+        if (clientAccountId == bytes32(0)) {
             revert Errors.AddressNotRegistered();
         }
 
@@ -353,9 +356,12 @@ contract UTXOGateway is
             revert Errors.WithdrawRewardFailed();
         }
 
+        uint8 clientAccountType = accountIdToType[clientChainId][clientAccountId];
         uint64 requestId =
             _initiatePegOut(clientChainId, amount, msg.sender, clientAccountId, WithdrawType.WITHDRAW_REWARD);
-        emit WithdrawRewardRequested(clientChainId, requestId, msg.sender, clientAccountId, amount, updatedBalance);
+        emit WithdrawRewardRequested(
+            clientChainId, requestId, msg.sender, clientAccountId, clientAccountType, amount, updatedBalance
+        );
     }
 
     /**
@@ -397,6 +403,7 @@ contract UTXOGateway is
             nextRequestNonce,
             nextPegOutRequest.requester,
             nextPegOutRequest.clientAccountId,
+            nextPegOutRequest.clientAccountType,
             nextPegOutRequest.amount
         );
     }
@@ -431,19 +438,25 @@ contract UTXOGateway is
      * @notice Gets the client chain account id for a given Imuachain address
      * @param clientChainId The client chain ID
      * @param imuachainAddress The Imuachain address
-     * @return The client chain account id(usually the pubkey hash)
+     * @return accountId The client chain account ID (32-byte hash/key data)
+     * @return accountType The client account type
      */
-    function getClientAccount(ClientChainID clientChainId, address imuachainAddress) external view returns (bytes20) {
-        return outboundRegistry[clientChainId][imuachainAddress];
+    function getClientAccount(ClientChainID clientChainId, address imuachainAddress)
+        external
+        view
+        returns (bytes32 accountId, uint8 accountType)
+    {
+        accountId = outboundRegistry[clientChainId][imuachainAddress];
+        accountType = accountIdToType[clientChainId][accountId];
     }
 
     /**
      * @notice Gets the Imuachain address for a given client chain account id
      * @param clientChainId The client chain ID
-     * @param clientAccountId The client chain account id(usually the pubkey hash)
+     * @param clientAccountId The client chain account ID (32-byte hash/key data)
      * @return The Imuachain address
      */
-    function getImuachainAddress(ClientChainID clientChainId, bytes20 clientAccountId)
+    function getImuachainAddress(ClientChainID clientChainId, bytes32 clientAccountId)
         external
         view
         returns (address)
@@ -672,6 +685,7 @@ contract UTXOGateway is
             _msg.nonce,
             _msg.clientTxId,
             _msg.clientAccountId,
+            _msg.clientAccountType,
             _msg.imuachainAddress,
             _msg.operator,
             _msg.amount
@@ -688,7 +702,7 @@ contract UTXOGateway is
     function _verifyStakeMsgFields(StakeMsg calldata _msg) internal pure {
         if (
             uint8(_msg.clientChainId) == 0 || _msg.nonce == 0 || uint256(_msg.clientTxId) == 0
-                || _msg.clientAccountId == bytes20(0) || _msg.amount == 0
+                || uint256(_msg.clientAccountId) == 0 || _msg.clientAccountType == 0 || _msg.amount == 0
         ) {
             revert Errors.InvalidStakeMessage();
         }
@@ -734,7 +748,7 @@ contract UTXOGateway is
      * @param clientChainId The client chain to be pegged out
      * @param _amount The amount of tokens to be pegged out
      * @param withdrawer The Imuachain address associated with the Bitcoin address
-     * @param clientAccountId The client chain account id(usually the pubkey hash)
+     * @param clientAccountId The client chain account ID (32-byte hash/key data)
      * @param _withdrawType The type of withdrawal (e.g., normal, fast)
      * @return requestId The unique identifier for the peg-out request
      * @custom:throws RequestAlreadyExists if a request with the same parameters already exists
@@ -743,7 +757,7 @@ contract UTXOGateway is
         ClientChainID clientChainId,
         uint256 _amount,
         address withdrawer,
-        bytes20 clientAccountId,
+        bytes32 clientAccountId,
         WithdrawType _withdrawType
     ) internal returns (uint64 requestId) {
         // 2. increase the peg-out nonce for the client chain and return as requestId
@@ -760,6 +774,8 @@ contract UTXOGateway is
         request.nonce = requestId;
         request.requester = withdrawer;
         request.clientAccountId = clientAccountId;
+        // Get the account type from the stored mapping
+        request.clientAccountType = accountIdToType[clientChainId][clientAccountId];
         request.amount = _amount;
         request.withdrawType = _withdrawType;
     }
@@ -774,7 +790,7 @@ contract UTXOGateway is
      */
     function _deposit(
         ClientChainID clientChainId,
-        bytes20 srcAddress,
+        bytes32 srcAddress,
         address depositorImAddr,
         uint256 amount,
         bytes32 clientTxId
@@ -792,13 +808,13 @@ contract UTXOGateway is
     /**
      * @notice Internal function to delegate BTC like token.
      * @param clientChainId The client chain ID.
-     * @param delegator The delegator's client address.
+     * @param delegator The delegator's client account ID.
      * @param operator The operator's address.
      * @param amount The amount to delegate.
      * @return success True if the delegation was successful, false otherwise.
      * @dev Sometimes we may not want to revert on failure, so we return a boolean.
      */
-    function _delegate(ClientChainID clientChainId, bytes20 delegator, string memory operator, uint256 amount)
+    function _delegate(ClientChainID clientChainId, bytes32 delegator, string memory operator, uint256 amount)
         internal
         returns (bool success)
     {
@@ -815,15 +831,21 @@ contract UTXOGateway is
         }
     }
 
-    function _registerAddress(ClientChainID clientChainId, bytes20 depositor, address imuachainAddress) internal {
-        require(depositor != bytes20(0) && imuachainAddress != address(0), "Invalid address");
-        require(inboundRegistry[clientChainId][depositor] == address(0), "Depositor address already registered");
-        require(outboundRegistry[clientChainId][imuachainAddress] == bytes20(0), "Imuachain address already registered");
+    function _registerAddress(
+        ClientChainID clientChainId,
+        bytes32 clientAccountId,
+        uint8 clientAccountType,
+        address imuachainAddress
+    ) internal {
+        require(clientAccountId != bytes32(0) && imuachainAddress != address(0), "Invalid address");
+        require(inboundRegistry[clientChainId][clientAccountId] == address(0), "Client account ID already registered");
+        require(outboundRegistry[clientChainId][imuachainAddress] == bytes32(0), "Imuachain address already registered");
 
-        inboundRegistry[clientChainId][depositor] = imuachainAddress;
-        outboundRegistry[clientChainId][imuachainAddress] = depositor;
+        inboundRegistry[clientChainId][clientAccountId] = imuachainAddress;
+        outboundRegistry[clientChainId][imuachainAddress] = clientAccountId;
+        accountIdToType[clientChainId][clientAccountId] = clientAccountType;
 
-        emit AddressRegistered(clientChainId, depositor, imuachainAddress);
+        emit AddressRegistered(clientChainId, clientAccountId, clientAccountType, imuachainAddress);
     }
 
     function _processStakeMsg(StakeMsg memory _msg) internal {
@@ -835,12 +857,12 @@ contract UTXOGateway is
         // register address if not already registered
         if (
             inboundRegistry[_msg.clientChainId][_msg.clientAccountId] == address(0)
-                && outboundRegistry[_msg.clientChainId][_msg.imuachainAddress] == bytes20(0)
+                && outboundRegistry[_msg.clientChainId][_msg.imuachainAddress] == bytes32(0)
         ) {
             if (_msg.imuachainAddress == address(0)) {
                 revert Errors.ZeroAddress();
             }
-            _registerAddress(_msg.clientChainId, _msg.clientAccountId, _msg.imuachainAddress);
+            _registerAddress(_msg.clientChainId, _msg.clientAccountId, _msg.clientAccountType, _msg.imuachainAddress);
         }
 
         address stakerImAddr = inboundRegistry[_msg.clientChainId][_msg.clientAccountId];

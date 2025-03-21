@@ -53,7 +53,8 @@ contract UTXOGatewayStorage {
      * @param clientChainId The client chain ID
      * @param nonce The nonce
      * @param clientTxId The client chain transaction ID
-     * @param clientAccountId The client chain account ID(usually the pubkey hash)
+     * @param clientAccountId The client chain account ID (32-byte representation of address hash/data)
+     * @param clientAccountType Type identifier for the address format (e.g., 1=P2PKH, 2=P2SH)
      * @param imuachainAddress The Imuachain address
      * @param operator The operator
      * @param amount The amount
@@ -62,7 +63,8 @@ contract UTXOGatewayStorage {
         ClientChainID clientChainId;
         uint64 nonce;
         bytes32 clientTxId;
-        bytes20 clientAccountId;
+        bytes32 clientAccountId;
+        uint8 clientAccountType;
         address imuachainAddress;
         string operator;
         uint256 amount;
@@ -96,7 +98,8 @@ contract UTXOGatewayStorage {
         ClientChainID clientChainId;
         uint64 nonce;
         address requester;
-        bytes20 clientAccountId;
+        bytes32 clientAccountId;
+        uint8 clientAccountType;
         uint256 amount;
         WithdrawType withdrawType;
     }
@@ -114,7 +117,7 @@ contract UTXOGatewayStorage {
     string public constant BITCOIN_NAME = "Bitcoin";
     string public constant BITCOIN_METADATA = "Bitcoin";
     string public constant BITCOIN_SIGNATURE_SCHEME = "ECDSA";
-    uint8 public constant STAKER_ACCOUNT_LENGTH = 20;
+    uint8 public constant STAKER_ACCOUNT_LENGTH = 32;
 
     // virtual token address and token, shared for tokens supported by the gateway
     address public constant VIRTUAL_TOKEN_ADDRESS = 0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB;
@@ -179,18 +182,26 @@ contract UTXOGatewayStorage {
     /**
      * @dev Maps client chain addresses to their registered Imuachain addresses
      * @dev Key1: Client chain ID (Bitcoin, etc.)
-     * @dev Key2: Client chain address in bytes
+     * @dev Key2: Client chain account ID (32-byte hash/key data)
      * @dev Value: Registered Imuachain address
      */
-    mapping(ClientChainID => mapping(bytes20 => address)) public inboundRegistry;
+    mapping(ClientChainID => mapping(bytes32 => address)) public inboundRegistry;
 
     /**
      * @dev Maps Imuachain addresses to their registered client chain addresses
      * @dev Key1: Client chain ID (Bitcoin, etc.)
      * @dev Key2: Imuachain address
-     * @dev Value: Registered client chain address in bytes
+     * @dev Value: Registered client chain account ID (32-byte hash/key data)
      */
-    mapping(ClientChainID => mapping(address => bytes20)) public outboundRegistry;
+    mapping(ClientChainID => mapping(address => bytes32)) public outboundRegistry;
+
+    /**
+     * @dev Maps client chain account ID to their account type
+     * @dev Key1: Client chain ID (Bitcoin, etc.)
+     * @dev Key2: client account ID (32-byte hash/key data)
+     * @dev Value: client account type
+     */
+    mapping(ClientChainID => mapping(bytes32 => uint8)) public accountIdToType;
 
     /**
      * @dev Mapping to store inbound nonce for each chain
@@ -243,7 +254,7 @@ contract UTXOGatewayStorage {
      * @param clientChainId The client chain ID
      * @param clientTxId The client chain transaction ID
      * @param depositorImAddr The depositor's Imuachain
-     * @param clientAccountId The depositor's client account id(usually the pubkey hash)
+     * @param clientAccountId The depositor's client account ID (32-byte hash/key data)
      * @param amount The amount deposited
      * @param updatedBalance The updated balance after deposit
      */
@@ -251,7 +262,7 @@ contract UTXOGatewayStorage {
         ClientChainID indexed clientChainId,
         bytes32 clientTxId,
         address indexed depositorImAddr,
-        bytes20 indexed clientAccountId,
+        bytes32 indexed clientAccountId,
         uint256 amount,
         uint256 updatedBalance
     );
@@ -261,7 +272,8 @@ contract UTXOGatewayStorage {
      * @param requestId The unique identifier for the withdrawal request
      * @param clientChainId The client chain ID
      * @param withdrawerImAddr The withdrawer's Imuachain
-     * @param clientAccountId The withdrawer's client chain account ID(usually the pubkey hash)
+     * @param clientAccountId The withdrawer's client chain account ID (32-byte hash/key data)
+     * @param clientAccountType The address format type
      * @param amount The amount to withdraw
      * @param updatedBalance The updated balance after withdrawal request
      */
@@ -269,7 +281,8 @@ contract UTXOGatewayStorage {
         ClientChainID indexed clientChainId,
         uint64 requestId,
         address indexed withdrawerImAddr,
-        bytes20 indexed clientAccountId,
+        bytes32 indexed clientAccountId,
+        uint8 clientAccountType,
         uint256 amount,
         uint256 updatedBalance
     );
@@ -279,7 +292,8 @@ contract UTXOGatewayStorage {
      * @param requestId The unique identifier for the withdrawal request
      * @param clientChainId The client chain ID
      * @param withdrawerImAddr The withdrawer's Imuachain
-     * @param clientAccountId The withdrawer's client chain account ID(usually the pubkey hash)
+     * @param clientAccountId The withdrawer's client chain account ID (32-byte hash/key data)
+     * @param clientAccountType The address format type
      * @param amount The amount to withdraw
      * @param updatedBalance The updated balance after withdrawal request
      */
@@ -287,7 +301,8 @@ contract UTXOGatewayStorage {
         ClientChainID indexed clientChainId,
         uint64 requestId,
         address indexed withdrawerImAddr,
-        bytes20 indexed clientAccountId,
+        bytes32 indexed clientAccountId,
+        uint8 clientAccountType,
         uint256 amount,
         uint256 updatedBalance
     );
@@ -296,14 +311,14 @@ contract UTXOGatewayStorage {
      * @dev Emitted when a delegation is completed
      * @param clientChainId The chain ID of the client chain, should not violate the layerzero chain id
      * @param imDelegator The delegator's Imuachain address
-     * @param clientAccountId The delegator's client chain account ID(usually the pubkey hash)
+     * @param clientAccountId The delegator's client chain account ID (32-byte hash/key data)
      * @param operator The operator's address
      * @param amount The amount delegated
      */
     event DelegationCompleted(
         ClientChainID indexed clientChainId,
         address indexed imDelegator,
-        bytes20 indexed clientAccountId,
+        bytes32 indexed clientAccountId,
         string operator,
         uint256 amount
     );
@@ -312,14 +327,14 @@ contract UTXOGatewayStorage {
      * @dev Emitted when a delegation fails for a stake message
      * @param clientChainId The chain ID of the client chain, should not violate the layerzero chain id
      * @param imDelegator The delegator's Imuachain address
-     * @param clientAccountId The delegator's client chain account ID(usually the pubkey hash)
+     * @param clientAccountId The delegator's client chain account ID (32-byte hash/key data)
      * @param operator The operator's address
      * @param amount The amount delegated
      */
     event DelegationFailedForStake(
         ClientChainID indexed clientChainId,
         address indexed imDelegator,
-        bytes20 indexed clientAccountId,
+        bytes32 indexed clientAccountId,
         string operator,
         uint256 amount
     );
@@ -328,14 +343,14 @@ contract UTXOGatewayStorage {
      * @dev Emitted when an undelegation is completed
      * @param clientChainId The chain ID of the client chain, should not violate the layerzero chain id
      * @param imDelegator The delegator's Imuachain address
-     * @param clientAccountId The delegator's client chain account ID(usually the pubkey hash)
+     * @param clientAccountId The delegator's client chain account ID (32-byte hash/key data)
      * @param operator The operator's address
      * @param amount The amount undelegated
      */
     event UndelegationCompleted(
         ClientChainID indexed clientChainId,
         address indexed imDelegator,
-        bytes20 indexed clientAccountId,
+        bytes32 indexed clientAccountId,
         string operator,
         uint256 amount
     );
@@ -343,11 +358,15 @@ contract UTXOGatewayStorage {
     /**
      * @dev Emitted when an address is registered
      * @param clientChainId The client chain ID
-     * @param clientAccountId The client chain depositor's account ID(usually the pubkey hash)
+     * @param clientAccountId The client chain depositor's account ID (32-byte hash/key data)
+     * @param clientAccountType The address format type
      * @param imAddress The corresponding Imuachain address
      */
     event AddressRegistered(
-        ClientChainID indexed clientChainId, bytes20 indexed clientAccountId, address indexed imAddress
+        ClientChainID indexed clientChainId,
+        bytes32 indexed clientAccountId,
+        uint8 clientAccountType,
+        address indexed imAddress
     );
 
     /**
@@ -407,7 +426,8 @@ contract UTXOGatewayStorage {
      * @param clientChainId The client chain ID
      * @param requestNonce The nonce of the peg-out request
      * @param requester The requester's address
-     * @param clientAccountId The client chain account ID(usually the pubkey hash)
+     * @param clientAccountId The client chain account ID (32-byte hash/key data)
+     * @param clientAccountType The address format type
      * @param amount The amount to withdraw
      */
     event PegOutRequestProcessing(
@@ -415,7 +435,8 @@ contract UTXOGatewayStorage {
         ClientChainID indexed clientChainId,
         uint64 requestNonce,
         address indexed requester,
-        bytes20 indexed clientAccountId,
+        bytes32 indexed clientAccountId,
+        uint8 clientAccountType,
         uint256 amount
     );
 
