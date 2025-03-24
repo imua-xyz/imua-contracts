@@ -15,7 +15,8 @@ contract UTXOGatewayStorage {
      */
     enum Token {
         NONE, // 0: Invalid/uninitialized token
-        BTC // 1: Bitcoin token, matches with ClientChainID.Bitcoin
+        BTC, // 1: Bitcoin token, matches with ClientChainID.Bitcoin
+        XRP // 2: XRPL token, matches with ClientChainID.XRPL
 
     }
 
@@ -25,7 +26,8 @@ contract UTXOGatewayStorage {
      */
     enum ClientChainID {
         NONE, // 0: Invalid/uninitialized chain
-        BITCOIN // 1: Bitcoin chain, matches with Token.BTC
+        BITCOIN, // 1: Bitcoin chain, matches with Token.BTC
+        XRPL // 2: XRPL chain, matches with Token.XRP
 
     }
 
@@ -110,20 +112,31 @@ contract UTXOGatewayStorage {
     /// @notice the human readable prefix for Imuachain bech32 encoded account address.
     bytes public constant IMUA_ADDRESS_PREFIX = bytes("im1");
 
-    // the virtual chain id for Bitcoin, compatible with other chain ids(endpoint ids) maintained by layerzero
+    // virtual token address and token, shared for tokens supported by the gateway
+    address public constant VIRTUAL_TOKEN_ADDRESS = 0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB;
+    bytes public constant VIRTUAL_TOKEN = abi.encodePacked(bytes32(bytes20(VIRTUAL_TOKEN_ADDRESS)));
+
+    /* -------------------- Bitcoin Chain and Token Meta Data ------------------- */
     string public constant BITCOIN_NAME = "Bitcoin";
     string public constant BITCOIN_METADATA = "Bitcoin";
     string public constant BITCOIN_SIGNATURE_SCHEME = "ECDSA";
     uint8 public constant STAKER_ACCOUNT_LENGTH = 20;
 
-    // virtual token address and token, shared for tokens supported by the gateway
-    address public constant VIRTUAL_TOKEN_ADDRESS = 0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB;
-    bytes public constant VIRTUAL_TOKEN = abi.encodePacked(bytes32(bytes20(VIRTUAL_TOKEN_ADDRESS)));
-
     uint8 public constant BTC_DECIMALS = 8;
     string public constant BTC_NAME = "BTC";
     string public constant BTC_METADATA = "BTC";
     string public constant BTC_ORACLE_INFO = "BTC,BITCOIN,8";
+
+    /* ---------------------- XRP Chain and Token Meta Data --------------------- */
+    string public constant XRPL_NAME = "XRPL";
+    string public constant XRPL_METADATA = "XRP LEDGER";
+    string public constant XRPL_SIGNATURE_SCHEME = "ECDSA";
+    uint8 public constant XRPL_ACCOUNT_LENGTH = 20;
+
+    uint8 public constant XRP_DECIMALS = 6;
+    string public constant XRP_NAME = "XRP";
+    string public constant XRP_METADATA = "XRP TOKEN";
+    string public constant XRP_ORACLE_INFO = "XRP,XRPL,6";
 
     uint256 public constant PROOF_TIMEOUT = 1 days;
     uint256 public bridgeFeeRate; // e.g., 100 (basis points) means 1%

@@ -97,6 +97,11 @@ contract UTXOGateway is
                 clientChainId, STAKER_ACCOUNT_LENGTH, BITCOIN_NAME, BITCOIN_METADATA, BITCOIN_SIGNATURE_SCHEME
             );
             _registerOrUpdateToken(clientChainId, VIRTUAL_TOKEN, BTC_DECIMALS, BTC_NAME, BTC_METADATA, BTC_ORACLE_INFO);
+        } else if (clientChainId == ClientChainID.XRPL) {
+            _registerOrUpdateClientChain(
+                clientChainId, XRPL_ACCOUNT_LENGTH, XRPL_NAME, XRPL_METADATA, XRPL_SIGNATURE_SCHEME
+            );
+            _registerOrUpdateToken(clientChainId, VIRTUAL_TOKEN, XRP_DECIMALS, XRP_NAME, XRP_METADATA, XRP_ORACLE_INFO);
         } else {
             revert Errors.InvalidClientChain();
         }
