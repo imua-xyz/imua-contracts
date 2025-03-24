@@ -294,9 +294,8 @@ contract UTXOGateway is
 
         ClientChainID clientChainId = ClientChainID(uint8(token));
 
-        uint64 nonce = ++delegationNonce[clientChainId];
         bool success = DELEGATION_CONTRACT.undelegate(
-            uint32(uint8(clientChainId)), nonce, VIRTUAL_TOKEN, msg.sender.toImuachainBytes(), bytes(operator), amount
+            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, msg.sender.toImuachainBytes(), bytes(operator), amount
         );
         if (!success) {
             revert Errors.UndelegationFailed();
@@ -801,9 +800,8 @@ contract UTXOGateway is
         internal
         returns (bool success)
     {
-        uint64 nonce = ++delegationNonce[clientChainId];
         success = DELEGATION_CONTRACT.delegate(
-            uint32(uint8(clientChainId)), nonce, VIRTUAL_TOKEN, delegator.toImuachainBytes(), bytes(operator), amount
+            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, delegator.toImuachainBytes(), bytes(operator), amount
         );
     }
 

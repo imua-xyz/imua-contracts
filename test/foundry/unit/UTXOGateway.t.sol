@@ -1272,9 +1272,6 @@ contract UTXOGatewayTest is Test {
         emit DelegationCompleted(UTXOGatewayStorage.ClientChainID.BITCOIN, user, operator, 1 ether);
 
         gateway.delegateTo(UTXOGatewayStorage.Token.BTC, operator, 1 ether);
-
-        // Verify nonce increment
-        assertEq(gateway.delegationNonce(UTXOGatewayStorage.ClientChainID.BITCOIN), 1);
     }
 
     function test_DelegateTo_RevertZeroAmount() public {
@@ -1341,9 +1338,6 @@ contract UTXOGatewayTest is Test {
         emit UndelegationCompleted(UTXOGatewayStorage.ClientChainID.BITCOIN, user, operator, 1 ether);
 
         gateway.undelegateFrom(UTXOGatewayStorage.Token.BTC, operator, 1 ether);
-
-        // Verify nonce increment
-        assertEq(gateway.delegationNonce(UTXOGatewayStorage.ClientChainID.BITCOIN), 1);
     }
 
     function test_UndelegateFrom_RevertZeroAmount() public {

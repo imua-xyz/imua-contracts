@@ -207,13 +207,6 @@ contract UTXOGatewayStorage {
      */
     mapping(ClientChainID => uint64) public pegOutNonce;
 
-    /**
-     * @notice Mapping to store delegation nonce for each chain
-     * @dev The nonce is incremented for each delegate/undelegate operation
-     * @dev The nonce is provided to the precompile as operation id
-     */
-    mapping(ClientChainID => uint64) public delegationNonce;
-
     // Mapping from chain ID and request ID to client chain transaction ID
     mapping(ClientChainID => mapping(uint64 => bytes32)) public pegOutTxIds;
 
