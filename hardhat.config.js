@@ -29,6 +29,15 @@ module.exports = {
         process.env.TEST_ACCOUNT_FIVE_PRIVATE_KEY,
         process.env.TEST_ACCOUNT_SIX_PRIVATE_KEY,
       ]
+    },
+    imuachain_testnet: {
+      url: "https://api-eth.exocore-restaking.com",
+      chainId: 233,
+      accounts: [
+        process.env.TEST_ACCOUNT_THREE_PRIVATE_KEY,
+        process.env.TEST_ACCOUNT_ONE_PRIVATE_KEY,
+        process.env.TEST_ACCOUNT_TWO_PRIVATE_KEY,
+      ]
     }
   }
 };

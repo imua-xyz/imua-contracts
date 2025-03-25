@@ -32,11 +32,11 @@ async function main() {
   const [deployer, owner, witness1] = await ethers.getSigners();
   console.log("Deploying contracts with account:", deployer.address);
 
-  // transfer 1 ether gas tokens to all accounts
+  // transfer 0.1 ether gas tokens to all accounts
   for (const account of [deployer, owner, witness1]) {
       const tx = await deployer.sendTransaction({
           to: account.address,
-          value: ethers.parseEther("1"),
+          value: ethers.parseEther("0.1"),
       });
       await tx.wait();
       assert(await ethers.provider.getBalance(account.address) > 0, "no enough balance for account")
@@ -139,19 +139,25 @@ async function main() {
     const authTx = await assetsPrecompile.connect(deployer).updateAuthorizedGateways([await utxoGateway.getAddress()]);
     await authTx.wait();
 
-    // 5. Activate staking for Bitcoin
+    // 5. Activate staking for Bitcoin and XRP
     console.log("\nActivating staking for Bitcoin...");
-    const activateTx = await utxoGateway.connect(owner).activateStakingForClientChain(1); // 1 for Bitcoin
-    await activateTx.wait();
+    const activateBtcTx = await utxoGateway.connect(owner).activateStakingForClientChain(1); // 1 for Bitcoin
+    await activateBtcTx.wait();
 
-    // 6. Verify setup with assertions
+    console.log("\nActivating staking for XRP...");
+    const activateXrpTx = await utxoGateway.connect(owner).activateStakingForClientChain(2); // 2 for XRP
+    await activateXrpTx.wait();
+
+    // 6. Verify Bitcoin and XRP setup with assertions
     console.log("\nVerifying setup...");
     const [authSuccess, isAuthorized] = await assetsPrecompile.isAuthorizedGateway(await utxoGateway.getAddress());
-    const [chainSuccess, isChainRegistered] = await assetsPrecompile.isRegisteredClientChain(1);
+    const [bitcoinChainSuccess, isBitcoinChainRegistered] = await assetsPrecompile.isRegisteredClientChain(1);
+    const [XRPChainSuccess, isXRPChainRegistered] = await assetsPrecompile.isRegisteredClientChain(2);
 
     // Assert the setup is correct
     assert(authSuccess && isAuthorized, "UTXOGateway is not properly authorized");
-    assert(chainSuccess && isChainRegistered, "Bitcoin chain is not properly registered");
+    assert(bitcoinChainSuccess && isBitcoinChainRegistered, "Bitcoin chain is not properly registered");
+    assert(XRPChainSuccess && isXRPChainRegistered, "XRPL chain is not properly registered");
 
     const actualRequiredProofs = await utxoGateway.requiredProofs();
     assert(actualRequiredProofs == REQUIRED_PROOFS, "Required proofs mismatch");
@@ -170,7 +176,8 @@ async function main() {
       witnesses: [witness1.address],
       requiredProofs: 3,
       isAuthorized,
-      isChainRegistered,
+      isBitcoinChainRegistered,
+      isXRPChainRegistered,
       timestamp: new Date().toISOString()
     };
 
