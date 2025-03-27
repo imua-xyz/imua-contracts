@@ -21,7 +21,7 @@ async function main() {
   }
 
   // Check if contracts are already deployed
-  if (deployedContracts.imuachain.utxoGateway) {
+  if (deployedContracts.imuachain?.utxoGateway) {
     const utxoGatewayCode = await ethers.provider.getCode(deployedContracts.imuachain.utxoGateway);
     if (utxoGatewayCode !== "0x") {
       console.log("Using existing UTXOGateway deployment:", deployedContracts.imuachain.utxoGateway);
@@ -136,7 +136,20 @@ async function main() {
     // 4. Set UTXOGateway as authorized in Assets precompile
     console.log("\nAuthorizing UTXOGateway in Assets precompile...");
     const assetsPrecompile = await ethers.getContractAt("IAssets", ASSETS_PRECOMPILE_ADDRESS);
-    const authTx = await assetsPrecompile.connect(deployer).updateAuthorizedGateways([await utxoGateway.getAddress()]);
+    
+    // Check for existing authorized gateways first
+    const imuachainGateway = deployedContracts.imuachain?.imuachainGateway;
+    const authorizedGateways = [await utxoGateway.getAddress()];
+
+    // Add the imuachainGateway to the list if it exists
+    if (imuachainGateway) {
+      console.log("Found existing imuachainGateway:", imuachainGateway);
+      console.log("Adding it to the authorized gateways list to maintain its authorization");
+      authorizedGateways.push(imuachainGateway);
+    }
+
+    console.log("Setting authorized gateways:", authorizedGateways);
+    const authTx = await assetsPrecompile.connect(deployer).updateAuthorizedGateways(authorizedGateways);
     await authTx.wait();
 
     // 5. Activate staking for Bitcoin and XRP
@@ -150,12 +163,22 @@ async function main() {
 
     // 6. Verify Bitcoin and XRP setup with assertions
     console.log("\nVerifying setup...");
-    const [authSuccess, isAuthorized] = await assetsPrecompile.isAuthorizedGateway(await utxoGateway.getAddress());
+    const [utxoAuthSuccess, isUtxoAuthorized] = await assetsPrecompile.isAuthorizedGateway(await utxoGateway.getAddress());
+    
+    // Assert the setup is correct
+    assert(utxoAuthSuccess && isUtxoAuthorized, "UTXOGateway is not properly authorized");
+    
+    // Also verify imuachainGateway authorization if it exists
+    if (imuachainGateway) {
+      const [imuaAuthSuccess, isImuaAuthorized] = await assetsPrecompile.isAuthorizedGateway(imuachainGateway);
+      assert(imuaAuthSuccess && isImuaAuthorized, "IMUAChain Gateway is not properly authorized");
+      console.log("✅ Both UTXOGateway and IMUAChain Gateway are authorized");
+    }
+    
+    // Verify chain registrations
     const [bitcoinChainSuccess, isBitcoinChainRegistered] = await assetsPrecompile.isRegisteredClientChain(1);
     const [XRPChainSuccess, isXRPChainRegistered] = await assetsPrecompile.isRegisteredClientChain(2);
 
-    // Assert the setup is correct
-    assert(authSuccess && isAuthorized, "UTXOGateway is not properly authorized");
     assert(bitcoinChainSuccess && isBitcoinChainRegistered, "Bitcoin chain is not properly registered");
     assert(XRPChainSuccess && isXRPChainRegistered, "XRPL chain is not properly registered");
 
@@ -175,7 +198,7 @@ async function main() {
       owner: owner.address,
       witnesses: [witness1.address],
       requiredProofs: 3,
-      isAuthorized,
+      isAuthorized: isUtxoAuthorized,
       isBitcoinChainRegistered,
       isXRPChainRegistered,
       timestamp: new Date().toISOString()
