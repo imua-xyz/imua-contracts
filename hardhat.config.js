@@ -39,5 +39,19 @@ module.exports = {
         process.env.TEST_ACCOUNT_TWO_PRIVATE_KEY,
       ]
     }
-  }
+  },
+  etherscan: {
+    // not needed for imuachain_testnet
+    apiKey: "https://exoscan.org/api",
+    customChains: [
+      {
+        network: "imuachain_testnet",
+        chainId: 233,
+        urls: {
+          apiURL: "https://exoscan.org/api  ",
+          browserURL: "https://exoscan.org"
+        }
+      }
+    ]
+  },
 };
