@@ -136,7 +136,7 @@ contract UTXOGatewayStorage {
     uint8 public constant XRP_DECIMALS = 6;
     string public constant XRP_NAME = "XRP";
     string public constant XRP_METADATA = "XRP TOKEN";
-    string public constant XRP_ORACLE_INFO = "XRP,XRPL,6";
+    string public constant XRP_ORACLE_INFO = "XRP,XRPL,8";
 
     uint256 public constant PROOF_TIMEOUT = 1 days;
     uint256 public bridgeFeeRate; // e.g., 100 (basis points) means 1%
