@@ -197,8 +197,8 @@ contract BootstrapDepositNSTTest is Test {
 
         // Calculate expected deposit value
         uint256 expectedDepositValue = uint256(_getEffectiveBalance(validatorContainer)) * GWEI_TO_WEI;
-        if (expectedDepositValue > 32 ether) {
-            expectedDepositValue = 32 ether;
+        if (expectedDepositValue > 2048 ether) {
+            expectedDepositValue = 2048 ether;
         }
 
         // Record initial states

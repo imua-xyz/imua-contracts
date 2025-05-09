@@ -53,8 +53,8 @@ contract ImuaCapsuleStorage {
     /// @notice Conversion factor from gwei to wei.
     uint256 public constant GWEI_TO_WEI = 1e9;
 
-    /// @notice The maximum amount of balance that a validator can restake, in gwei.
-    uint64 public constant MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 32e9;
+    /// @notice The maximum amount of effective balance that a validator can restake, in gwei.
+    uint64 public constant AFTER_PECTRA_MAX_EFFECTIVE_BALANCE_GWEI_PER_VALIDATOR = 2048e9;
 
     /// @notice The address of the NetworkConfig contract.
     /// @dev If it is set to the 0 address, the NetworkConstants library is used instead.
