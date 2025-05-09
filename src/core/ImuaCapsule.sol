@@ -188,8 +188,8 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         validator.status = VALIDATOR_STATUS.REGISTERED;
         validator.validatorIndex = proof.validatorIndex;
         uint64 depositAmountGwei = validatorContainer.getEffectiveBalance();
-        if (depositAmountGwei > MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) {
-            depositAmount = MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR * GWEI_TO_WEI;
+        if (depositAmountGwei > AFTER_PECTRA_MAX_EFFECTIVE_BALANCE_GWEI_PER_VALIDATOR) {
+            depositAmount = AFTER_PECTRA_MAX_EFFECTIVE_BALANCE_GWEI_PER_VALIDATOR * GWEI_TO_WEI;
         } else {
             depositAmount = depositAmountGwei * GWEI_TO_WEI;
         }
@@ -240,12 +240,14 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         } else {
             // Full withdrawal
             validator.status = VALIDATOR_STATUS.WITHDRAWN;
-            // If over MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 32 * 1e9, then send remaining amount immediately
+            // If over AFTER_PECTRA_MAX_EFFECTIVE_BALANCE_GWEI_PER_VALIDATOR = 2048 * 1e9, then send remaining amount
+            // immediately
             emit FullWithdrawalRedeemed(validatorPubkeyHash, withdrawalEpoch, capsuleOwner, withdrawalAmountGwei);
-            if (withdrawalAmountGwei > MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) {
-                uint256 amountToSend = (withdrawalAmountGwei - MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) * GWEI_TO_WEI;
+            if (withdrawalAmountGwei > AFTER_PECTRA_MAX_EFFECTIVE_BALANCE_GWEI_PER_VALIDATOR) {
+                uint256 amountToSend =
+                    (withdrawalAmountGwei - AFTER_PECTRA_MAX_EFFECTIVE_BALANCE_GWEI_PER_VALIDATOR) * GWEI_TO_WEI;
                 _sendETH(capsuleOwner, amountToSend);
-                withdrawalAmount = MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR * GWEI_TO_WEI;
+                withdrawalAmount = AFTER_PECTRA_MAX_EFFECTIVE_BALANCE_GWEI_PER_VALIDATOR * GWEI_TO_WEI;
             } else {
                 withdrawalAmount = withdrawalAmountGwei * GWEI_TO_WEI;
             }
