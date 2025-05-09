@@ -34,7 +34,7 @@ contract DepositWithdrawPrincipalTest is ImuachainDeployer {
     event PrincipalWithdrawn(address indexed src, address indexed dst, uint256 amount);
 
     uint256 constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200_000;
-    uint64 public constant MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 32e9;
+    uint64 public constant MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 2048e9;
 
     function test_LSTDepositWithdrawByLayerZero() public {
         Player memory depositor = players[0];
@@ -246,9 +246,9 @@ contract DepositWithdrawPrincipalTest is ImuachainDeployer {
         uint256 lastlyUpdatedPrincipalBalance;
 
         uint256 depositAmount = uint256(_getEffectiveBalance(validatorContainer)) * GWEI_TO_WEI;
-        // Cap to 32 ether
-        if (depositAmount >= 32 ether) {
-            depositAmount = 32 ether;
+        // Cap to 2048 ether
+        if (depositAmount >= 2048 ether) {
+            depositAmount = 2048 ether;
         }
 
         // transfer some ETH to depositor for staking and paying for gas fee
@@ -303,9 +303,9 @@ contract DepositWithdrawPrincipalTest is ImuachainDeployer {
 
         /// client chain layerzero endpoint should emit the message packet including deposit payload.
         uint256 depositAmount = uint256(_getEffectiveBalance(validatorContainer)) * GWEI_TO_WEI;
-        // Cap to 32 ether
-        if (depositAmount >= 32 ether) {
-            depositAmount = 32 ether;
+        // Cap to 2048 ether
+        if (depositAmount >= 2048 ether) {
+            depositAmount = 2048 ether;
         }
 
         bytes memory depositRequestPayload = abi.encodePacked(
