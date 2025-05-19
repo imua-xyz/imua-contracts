@@ -5,9 +5,9 @@ const axios = require('axios');
 const { expect } = require("chai");
 const fs = require('fs');
 const path = require('path');
-require("dotenv").config();
+const BitcoinClient = require("../utils/bitcoin-utils");
 
-const ECPair = ECPairFactory(ecc);
+require("dotenv").config();
 
 const ASSETS_PRECOMPILE_ADDRESS = "0x0000000000000000000000000000000000000804";
 const VIRTUAL_BTC_ADDR = "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB";
@@ -24,233 +24,12 @@ if (!BITCOIN_ESPLORA_API_URL || !BITCOIN_FAUCET_PRIVATE_KEY || !BITCOIN_VAULT_AD
     throw new Error('BITCOIN_ESPLORA_API_URL or TEST_ACCOUNT_THREE_PRIVATE_KEY or BITCOIN_VAULT_ADDRESS is not set');
 }
 
-async function waitForBitcoinConfirmation(txid, confirmations = 1) {
-    console.log(`Waiting for ${confirmations} confirmation(s) for tx: ${txid}`);
-    
-    while (true) {
-        try {
-            const response = await axios.get(`${BITCOIN_ESPLORA_API_URL}/api/tx/${txid}`);
-            const tx = response.data;
-            
-            if (tx.status && tx.status.confirmed) {
-                const blockInfoResponse = await axios.get(`${BITCOIN_ESPLORA_API_URL}/api/blocks/tip/height`);
-                const currentHeight = parseInt(blockInfoResponse.data);
-                const txHeight = tx.status.block_height;
-                const currentConfirmations = currentHeight - txHeight + 1;
-
-                console.log(`Transaction confirmations: ${currentConfirmations}`);
-                
-                if (currentConfirmations >= confirmations) {
-                    console.log('Required confirmations reached');
-                    return currentConfirmations;
-                }
-            } else {
-                console.log('Transaction not yet confirmed...');
-            }
-        } catch (error) {
-            console.log('Error checking transaction status:', error.message);
-        }
-        await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-}
-
-async function fundBitcoinAddress(recipientAddress, amountSats) {
-    if (!recipientAddress) {
-        throw new Error('Recipient address is not set');
-    }
-
-    const faucetKeyPair = ECPair.fromPrivateKey(
-        Buffer.from(BITCOIN_FAUCET_PRIVATE_KEY.replace('0x', ''), 'hex'),
-        { network: bitcoin.networks.regtest, compressed: true }
-    );
-
-    const faucetPayment = bitcoin.payments.p2wpkh({
-        pubkey: faucetKeyPair.publicKey,
-        network: bitcoin.networks.regtest
-    });
-
-    console.log('Funding from:', faucetPayment.address);
-    console.log('Funding to:', recipientAddress);
-    console.log('Amount:', amountSats, 'sats');
-
-    try {
-        const response = await axios.get(`${BITCOIN_ESPLORA_API_URL}/api/address/${faucetPayment.address}/utxo`);
-        const utxos = response.data;
-
-        if (utxos.length === 0) {
-            throw new Error('No UTXOs found in faucet');
-        }
-
-        const psbt = new bitcoin.Psbt({ network: bitcoin.networks.regtest });
-        const requiredSats = amountSats + BITCOIN_TX_FEE;
-
-        // Add inputs until we have enough for amount + fee
-        let totalInputSats = 0n;
-        for (const utxo of utxos) {
-            psbt.addInput({
-                hash: utxo.txid,
-                index: utxo.vout,
-                witnessUtxo: {
-                    script: faucetPayment.output,
-                    value: utxo.value
-                }
-            });
-            
-            totalInputSats += BigInt(utxo.value);
-            if (totalInputSats >= requiredSats) break;
-        }
-
-        if (totalInputSats < requiredSats) {
-            throw new Error(`Insufficient funds in faucet. Need ${requiredSats} sats (${amountSats} + ${BITCOIN_TX_FEE} fee), have ${totalInputSats} sats`);
-        }
-
-        // Add recipient output
-        psbt.addOutput({
-            address: recipientAddress,
-            value: Number(amountSats)
-        });
-
-        // Add change output if above dust
-        const changeSats = totalInputSats - amountSats - BITCOIN_TX_FEE;
-        if (changeSats > DUST_THRESHOLD) {
-            psbt.addOutput({
-                address: faucetPayment.address,
-                value: Number(changeSats)
-            });
-        }
-
-        // Sign and broadcast
-        psbt.signAllInputs(faucetKeyPair);
-        psbt.finalizeAllInputs();
-        const tx = psbt.extractTransaction();
-
-        const broadcastResponse = await axios.post(
-            `${BITCOIN_ESPLORA_API_URL}/api/tx`,
-            tx.toHex(),
-            { headers: { 'Content-Type': 'text/plain' } }
-        );
-
-        const txid = broadcastResponse.data;
-        console.log('Funding transaction broadcasted:', txid);
-
-        // Wait for confirmation
-        await waitForBitcoinConfirmation(txid);
-        console.log('Funding transaction confirmed');
-
-        return txid;
-    } catch (error) {
-        console.error('Funding error:', error.message);
-        throw error;
-    }
-}
-
-async function createStakingTransaction(stakerPrivateKey, vaultAddress, depositAmountSats) {
-    if (!stakerPrivateKey || !vaultAddress) {
-        throw new Error('Required parameters are not set');
-    }
-
-    try {
-        const keyPair = ECPair.fromPrivateKey(
-            Buffer.from(stakerPrivateKey.replace('0x', ''), 'hex'),
-            { network: bitcoin.networks.regtest, compressed: true }
-        );
-
-        const payment = bitcoin.payments.p2wpkh({
-            pubkey: keyPair.publicKey,
-            network: bitcoin.networks.regtest
-        });
-
-        const sourceAddress = payment.address;
-        console.log('Staking from:', sourceAddress);
-        console.log('Staking to vault:', vaultAddress);
-        console.log('Amount:', depositAmountSats.toString(), 'sats');
-
-        // Derive EVM address
-        const wallet = new ethers.Wallet(stakerPrivateKey);
-        const evmAddress = wallet.address.slice(2);
-        console.log('EVM address:', '0x' + evmAddress);
-
-        // Check balance and fund if needed
-        const response = await axios.get(`${BITCOIN_ESPLORA_API_URL}/api/address/${sourceAddress}/utxo`);
-        let utxos = response.data;
-        let currentBalanceSats = utxos.reduce((sum, utxo) => sum + BigInt(utxo.value), 0n);
-        const requiredSats = depositAmountSats + BITCOIN_TX_FEE;
-
-        if (currentBalanceSats < requiredSats) {
-            console.log(`Current balance: ${currentBalanceSats} sats`);
-            console.log(`Required: ${requiredSats} sats (${depositAmountSats} + ${BITCOIN_TX_FEE} fee)`);
-            const fundingAmountSats = requiredSats - currentBalanceSats;
-            
-            // Wait for funding transaction confirmation
-            await fundBitcoinAddress(sourceAddress, fundingAmountSats);
-
-            // Fetch updated UTXOs after funding is confirmed
-            const updatedResponse = await axios.get(`${BITCOIN_ESPLORA_API_URL}/api/address/${sourceAddress}/utxo`);
-            utxos = updatedResponse.data;
-        }
-
-        // Create staking transaction
-        const psbt = new bitcoin.Psbt({ network: bitcoin.networks.regtest });
-
-        // Add inputs until we have enough for deposit + fee
-        let totalInputSats = 0n;
-        for (const utxo of utxos) {
-            psbt.addInput({
-                hash: utxo.txid,
-                index: utxo.vout,
-                witnessUtxo: {
-                    script: payment.output,
-                    value: utxo.value
-                }
-            });
-            
-            totalInputSats += BigInt(utxo.value);
-            if (totalInputSats >= requiredSats) break;
-        }
-
-        if (totalInputSats < requiredSats) {
-            throw new Error(`Insufficient funds. Need ${requiredSats} sats (${depositAmountSats} + ${BITCOIN_TX_FEE} fee), have ${totalInputSats} sats`);
-        }
-
-        // Add outputs
-        psbt.addOutput({
-            script: bitcoin.script.compile([
-                bitcoin.opcodes.OP_RETURN,
-                Buffer.from(evmAddress, 'hex')
-            ]),
-            value: 0
-        });
-
-        psbt.addOutput({
-            address: vaultAddress,
-            value: Number(depositAmountSats)
-        });
-
-        const changeSats = totalInputSats - depositAmountSats - BITCOIN_TX_FEE;
-        if (changeSats > DUST_THRESHOLD) {
-            psbt.addOutput({
-                address: sourceAddress,
-                value: Number(changeSats)
-            });
-        }
-
-        // Sign and broadcast
-        psbt.signAllInputs(keyPair);
-        psbt.finalizeAllInputs();
-        const tx = psbt.extractTransaction();
-
-        const broadcastResponse = await axios.post(
-            `${BITCOIN_ESPLORA_API_URL}/api/tx`,
-            tx.toHex(),
-            { headers: { 'Content-Type': 'text/plain' } }
-        );
-
-        return broadcastResponse.data; // Return txid immediately after broadcast
-    } catch (error) {
-        console.error('Staking error:', error.message);
-        throw error;
-    }
-}
+const bitcoinClient = new BitcoinClient({
+    esploraApiUrl: BITCOIN_ESPLORA_API_URL,
+    faucetPrivateKey: BITCOIN_FAUCET_PRIVATE_KEY,
+    txFee: Number(BITCOIN_TX_FEE),
+    dustThreshold: Number(DUST_THRESHOLD)
+});
 
 describe("Bitcoin Staking E2E Test", function() {
     let utxoGateway;
@@ -309,7 +88,7 @@ describe("Bitcoin Staking E2E Test", function() {
         }
 
         // Create and broadcast the Bitcoin transaction
-        const txid = await createStakingTransaction(
+        const txid = await bitcoinClient.createStakingTransaction(
             BITCOIN_STAKER_PRIVATE_KEY,
             BITCOIN_VAULT_ADDRESS,
             depositAmountSats
@@ -318,7 +97,7 @@ describe("Bitcoin Staking E2E Test", function() {
 
         // Wait for Bitcoin confirmation
         console.log('Waiting for Bitcoin confirmation...');
-        const confirmations = await waitForBitcoinConfirmation(txid);
+        const confirmations = await bitcoinClient.waitForConfirmation(txid);
         console.log('Transaction confirmed with', confirmations, 'confirmations');
 
         // Wait for deposit to be processed
