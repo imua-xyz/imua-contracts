@@ -97,7 +97,7 @@ async function main() {
     console.log("\nDeploying UTXOGateway Proxy via CREATE3...");
 
     // Generate deterministic salt for UTXOGateway
-    const PROXY_SALT = ethers.id("UTXOGateway_v1");
+    const PROXY_SALT = ethers.id("UTXOGateway_v2");
 
     // Prepare proxy creation code with constructor args
     const ProxyFactory = await ethers.getContractFactory("TransparentUpgradeableProxy");
