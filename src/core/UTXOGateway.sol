@@ -97,6 +97,11 @@ contract UTXOGateway is
                 clientChainId, STAKER_ACCOUNT_LENGTH, BITCOIN_NAME, BITCOIN_METADATA, BITCOIN_SIGNATURE_SCHEME
             );
             _registerOrUpdateToken(clientChainId, VIRTUAL_TOKEN, BTC_DECIMALS, BTC_NAME, BTC_METADATA, BTC_ORACLE_INFO);
+        } else if (clientChainId == ClientChainID.XRPL) {
+            _registerOrUpdateClientChain(
+                clientChainId, XRPL_ACCOUNT_LENGTH, XRPL_NAME, XRPL_METADATA, XRPL_SIGNATURE_SCHEME
+            );
+            _registerOrUpdateToken(clientChainId, VIRTUAL_TOKEN, XRP_DECIMALS, XRP_NAME, XRP_METADATA, XRP_ORACLE_INFO);
         } else {
             revert Errors.InvalidClientChain();
         }
@@ -301,7 +306,7 @@ contract UTXOGateway is
         }
 
         bool success = DELEGATION_CONTRACT.undelegate(
-            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, abi.encodePacked(clientAccountId), bytes(operator), amount
+            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, msg.sender.toImuachainBytes(), bytes(operator), amount
         );
         if (!success) {
             revert Errors.UndelegationFailed();
@@ -819,7 +824,7 @@ contract UTXOGateway is
         returns (bool success)
     {
         success = DELEGATION_CONTRACT.delegate(
-            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, abi.encodePacked(delegator), bytes(operator), amount
+            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, delegator.toImuachainBytes(), bytes(operator), amount
         );
     }
 
