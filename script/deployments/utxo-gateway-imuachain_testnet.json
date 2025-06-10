@@ -1,0 +1,15 @@
+{
+  "network": "imuachain_testnet",
+  "utxoGatewayProxy": "0x7c61a871071F91933a11567C14e056982aca93b4",
+  "utxoGatewayLogic": "0x71e4fcC8E9F754db33f553633F1392Dc6cd79c7D",
+  "proxyAdmin": "0x8464135c8F25Da09e49BC8782676a84730C318bC",
+  "owner": "0x481E020DB4709e6EdDbf8134D41b866c6Fc8555e",
+  "witnesses": [
+    "0xA1dfab3234f49e02e04E6C56a021F1a497CD0f82"
+  ],
+  "requiredProofs": 3,
+  "isAuthorized": true,
+  "isBitcoinChainRegistered": true,
+  "isXRPChainRegistered": true,
+  "timestamp": "2025-05-22T09:03:02.889Z"
+}
