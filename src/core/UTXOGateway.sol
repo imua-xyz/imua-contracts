@@ -286,7 +286,7 @@ contract UTXOGateway is
      * @param operator The operator's Imuachain address.
      * @param amount The amount to undelegate.
      */
-    function undelegateFrom(Token token, string calldata operator, uint256 amount)
+    function undelegateFrom(Token token, string calldata operator, uint256 amount, bool instantUnbond)
         external
         nonReentrant
         whenNotPaused
@@ -300,7 +300,12 @@ contract UTXOGateway is
         ClientChainID clientChainId = ClientChainID(uint8(token));
 
         bool success = DELEGATION_CONTRACT.undelegate(
-            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, msg.sender.toImuachainBytes(), bytes(operator), amount
+            uint32(uint8(clientChainId)),
+            VIRTUAL_TOKEN,
+            msg.sender.toImuachainBytes(),
+            bytes(operator),
+            amount,
+            instantUnbond
         );
         if (!success) {
             revert Errors.UndelegationFailed();
