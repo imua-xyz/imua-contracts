@@ -24,17 +24,28 @@ contract DepositThenDelegateToTest is ImuachainDeployer {
         bool isDeposit, bool indexed success, bytes32 indexed token, bytes32 indexed depositor, uint256 amount
     );
     event DelegationRequest(
-        bool isDelegate,
+        bool indexed accepted, bytes32 indexed token, bytes32 indexed delegator, string operator, uint256 amount
+    );
+    event UndelegationRequest(
         bool indexed accepted,
         bytes32 indexed token,
         bytes32 indexed delegator,
         string operator,
-        uint256 amount
+        uint256 amount,
+        bool instantUnbond
     );
 
     // emitted by the mock delegation contract
     event DelegateRequestProcessed(
         uint32 clientChainLzId, bytes assetsAddress, bytes stakerAddress, string operatorAddr, uint256 opAmount
+    );
+    event UndelegationRequestProcessed(
+        uint32 clientChainLzId,
+        bytes assetsAddress,
+        bytes stakerAddress,
+        string operatorAddr,
+        uint256 opAmount,
+        bool instantUnbond
     );
 
     function test_DepositThenDelegateTo() public {
@@ -169,12 +180,7 @@ contract DepositThenDelegateToTest is ImuachainDeployer {
 
         vm.expectEmit(address(imuachainGateway));
         emit DelegationRequest(
-            true,
-            true,
-            bytes32(bytes20(address(restakeToken))),
-            bytes32(bytes20(delegator)),
-            operatorAddress,
-            delegateAmount
+            true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(delegator)), operatorAddress, delegateAmount
         );
 
         vm.expectEmit(address(imuachainGateway));
@@ -230,7 +236,6 @@ contract DepositThenDelegateToTest is ImuachainDeployer {
         // Expect DelegationRequest event with 'accepted' as false
         vm.expectEmit(address(imuachainGateway));
         emit DelegationRequest(
-            true,
             false,
             bytes32(bytes20(address(restakeToken))),
             bytes32(bytes20(delegator)),

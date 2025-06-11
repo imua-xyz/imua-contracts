@@ -96,20 +96,31 @@ contract ImuachainGatewayStorage is GatewayStorage {
     );
 
     /// @notice Emitted upon receiving a delegation request.
-    /// @param isDelegate Whether the delegation request is a delegate request or an undelegate request.
     /// @param accepted Whether the delegation request was accepted, true if it is accepted and being queued, false if
     /// rejected.
     /// @param token The address of the token.
     /// @param delegator The address of the delegator.
     /// @param operator The im-prefix account address of the operator.
-    /// @param amount The amount of the token delegated/undelegated.
+    /// @param amount The amount of the token delegated.
     event DelegationRequest(
-        bool isDelegate,
+        bool indexed accepted, bytes32 indexed token, bytes32 indexed delegator, string operator, uint256 amount
+    );
+
+    /// @notice Emitted upon receiving an undelegation request.
+    /// @param accepted Whether the undelegation request was accepted, true if it is accepted and being queued, false if
+    /// rejected.
+    /// @param token The address of the token.
+    /// @param delegator The address of the delegator.
+    /// @param operator The im-prefix account address of the operator.
+    /// @param amount The amount of the token undelegated.
+    /// @param instantUnbond Whether the undelegation request is an instant unbonding request.
+    event UndelegationRequest(
         bool indexed accepted,
         bytes32 indexed token,
         bytes32 indexed delegator,
         string operator,
-        uint256 amount
+        uint256 amount,
+        bool instantUnbond
     );
 
     /// @notice Emitted upon handling associating operator request

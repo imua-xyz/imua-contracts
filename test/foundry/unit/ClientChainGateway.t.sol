@@ -218,7 +218,7 @@ contract Pausable is SetUp {
         clientGateway.claimPrincipalFromImuachain(address(restakeToken), uint256(1));
 
         vm.expectRevert("Pausable: paused");
-        clientGateway.undelegateFrom(operatorAddress, address(restakeToken), uint256(1));
+        clientGateway.undelegateFrom(operatorAddress, address(restakeToken), uint256(1), true);
     }
 
 }

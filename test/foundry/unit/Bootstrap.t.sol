@@ -867,7 +867,7 @@ contract BootstrapTest is Test {
             uint256 prevDelegation = bootstrap.delegations(addrs[i], im, address(myToken));
             uint256 prevDelegationByValidator = bootstrap.delegationsByValidator(im, address(myToken));
             uint256 prevWithdrawableAmount = bootstrap.withdrawableAmounts(addrs[i], address(myToken));
-            bootstrap.undelegateFrom(im, address(myToken), amounts[i]);
+            bootstrap.undelegateFrom(im, address(myToken), amounts[i], true);
             uint256 postDelegation = bootstrap.delegations(addrs[i], im, address(myToken));
             uint256 postDelegationByValidator = bootstrap.delegationsByValidator(im, address(myToken));
             uint256 postWithdrawableAmount = bootstrap.withdrawableAmounts(addrs[i], address(myToken));
@@ -888,7 +888,7 @@ contract BootstrapTest is Test {
                     uint256 prevDelegation = bootstrap.delegations(delegator, im, address(myToken));
                     uint256 prevDelegationByValidator = bootstrap.delegationsByValidator(im, address(myToken));
                     uint256 prevWithdrawableAmount = bootstrap.withdrawableAmounts(delegator, address(myToken));
-                    bootstrap.undelegateFrom(im, address(myToken), uint256(amount));
+                    bootstrap.undelegateFrom(im, address(myToken), uint256(amount), true);
                     uint256 postDelegation = bootstrap.delegations(delegator, im, address(myToken));
                     uint256 postDelegationByValidator = bootstrap.delegationsByValidator(im, address(myToken));
                     uint256 postWithdrawableAmount = bootstrap.withdrawableAmounts(delegator, address(myToken));
@@ -905,14 +905,14 @@ contract BootstrapTest is Test {
         test09_DelegateTo();
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapValidatorNotExist.selector);
-        bootstrap.undelegateFrom("im1awm72f4sc5yhedurdunx9afcshfq6ymqury93s", address(myToken), amounts[0]);
+        bootstrap.undelegateFrom("im1awm72f4sc5yhedurdunx9afcshfq6ymqury93s", address(myToken), amounts[0], true);
     }
 
     function test10_UndelegateFrom_TokenNotWhitelisted() public {
         test03_RegisterValidator();
         vm.startPrank(addrs[0]);
         vm.expectRevert("BootstrapStorage: token is not whitelisted");
-        bootstrap.undelegateFrom("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(0xa), amounts[0]);
+        bootstrap.undelegateFrom("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(0xa), amounts[0], true);
     }
 
     function test10_UndelegateFrom_NotEnoughBalance() public {
@@ -920,7 +920,7 @@ contract BootstrapTest is Test {
         MyToken myToken = test01_AddWhitelistToken();
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapInsufficientDelegatedBalance.selector);
-        bootstrap.undelegateFrom("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0]);
+        bootstrap.undelegateFrom("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0], true);
     }
 
     function test10_UndelegateFrom_ZeroAmount() public {
@@ -928,21 +928,21 @@ contract BootstrapTest is Test {
         test02_Deposit();
         vm.startPrank(addrs[0]);
         vm.expectRevert("BootstrapStorage: amount should be greater than zero");
-        bootstrap.undelegateFrom("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), 0);
+        bootstrap.undelegateFrom("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), 0, true);
     }
 
     function test10_UndelegateFromValidator_Excess() public {
         test09_DelegateTo();
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapInsufficientDelegatedBalance.selector);
-        bootstrap.undelegateFrom("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0] + 1);
+        bootstrap.undelegateFrom("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0] + 1, true);
     }
 
     function test10_UndelegateFrom_NoDelegation() public {
         test03_RegisterValidator();
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapInsufficientDelegatedBalance.selector);
-        bootstrap.undelegateFrom("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0]);
+        bootstrap.undelegateFrom("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0], true);
     }
 
     function test11_ClaimPrincipalFromImuachain() public {
@@ -1544,7 +1544,7 @@ contract BootstrapTest is Test {
         vm.deal(addrs[0], 1 ether);
         vm.expectRevert(Errors.NonZeroValue.selector);
         bootstrap.undelegateFrom{value: 0.1 ether}(
-            "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0]
+            "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0], true
         );
         vm.stopPrank();
     }

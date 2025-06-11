@@ -68,7 +68,7 @@ abstract contract BaseRestakingController is
     }
 
     /// @inheritdoc IBaseRestakingController
-    function undelegateFrom(string calldata operator, address token, uint256 amount)
+    function undelegateFrom(string calldata operator, address token, uint256 amount, bool instantUnbond)
         external
         payable
         isTokenWhitelisted(token)
@@ -77,8 +77,9 @@ abstract contract BaseRestakingController is
         whenNotPaused
         nonReentrant
     {
-        bytes memory actionArgs =
-            abi.encodePacked(bytes32(bytes20(msg.sender)), amount, bytes32(bytes20(token)), bytes(operator));
+        bytes memory actionArgs = abi.encodePacked(
+            bytes32(bytes20(msg.sender)), amount, bytes32(bytes20(token)), bytes(operator), instantUnbond
+        );
         _processRequest(Action.REQUEST_UNDELEGATE_FROM, actionArgs, bytes(""));
     }
 
