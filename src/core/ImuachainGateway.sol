@@ -457,7 +457,7 @@ contract ImuachainGateway is
         bytes memory staker = payload[:32];
         uint256 amount = uint256(bytes32(payload[32:64]));
         bytes memory token = payload[64:96];
-        bytes memory operator = payload[96:138];
+        bytes memory operator = payload[96:137];
 
         bool isDelegate = act == Action.REQUEST_DELEGATE_TO;
         bool accepted;
@@ -465,7 +465,7 @@ contract ImuachainGateway is
             accepted = DELEGATION_CONTRACT.delegate(srcChainId, token, staker, operator, amount);
             emit DelegationRequest(accepted, bytes32(token), bytes32(staker), string(operator), amount);
         } else {
-            bool instantUnbond = payload[138] == bytes1(0x01);
+            bool instantUnbond = payload[137] == bytes1(0x01);
             accepted = DELEGATION_CONTRACT.undelegate(srcChainId, token, staker, operator, amount, instantUnbond);
             emit UndelegationRequest(accepted, bytes32(token), bytes32(staker), string(operator), amount, instantUnbond);
         }

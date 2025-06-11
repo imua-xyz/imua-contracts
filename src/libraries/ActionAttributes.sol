@@ -8,6 +8,7 @@ library ActionAttributes {
     // Message length constants
     uint256 internal constant ASSET_OPERATION_LENGTH = 97;
     uint256 internal constant DELEGATION_OPERATION_LENGTH = 138;
+    // 1 + 32 + 32 + 32 + 41 + 1 = 139
     uint256 internal constant UNDELEGATION_OPERATION_LENGTH = 139;
     uint256 internal constant ASSOCIATE_OPERATOR_LENGTH = 74;
     uint256 internal constant DISSOCIATE_OPERATOR_LENGTH = 33;
