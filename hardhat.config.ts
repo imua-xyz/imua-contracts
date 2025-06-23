@@ -29,7 +29,7 @@ module.exports = {
         process.env.TEST_ACCOUNT_FOUR_PRIVATE_KEY,
         process.env.TEST_ACCOUNT_FIVE_PRIVATE_KEY,
         process.env.TEST_ACCOUNT_SIX_PRIVATE_KEY,
-      ]
+      ].filter(key => key !== undefined)
     },
     imuachain_testnet: {
       url: "https://api-eth.exocore-restaking.com",
@@ -38,7 +38,7 @@ module.exports = {
         process.env.TEST_ACCOUNT_THREE_PRIVATE_KEY,
         process.env.TEST_ACCOUNT_ONE_PRIVATE_KEY,
         process.env.TEST_ACCOUNT_TWO_PRIVATE_KEY,
-      ]
+      ].filter(key => key !== undefined)
     }
   },
   etherscan: {

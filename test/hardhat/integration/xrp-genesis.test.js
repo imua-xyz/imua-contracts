@@ -93,12 +93,12 @@ describe('XRP Bootstrap Genesis Generation', function() {
       expect(() => {
         new XRPGenesisGenerator(
           TEST_CONFIG.XRP_VAULT_ADDRESS,
-          '', // Invalid empty RPC URL
+          'invalid-url', // Invalid RPC URL
           bootstrapContract,
           TEST_CONFIG.MIN_CONFIRMATIONS,
           TEST_CONFIG.MIN_AMOUNT
         );
-      }).to.throw('XRP RPC URL is required');
+      }).to.throw('server URI must start with `wss://`, `ws://`, `wss+unix://`, or `ws+unix://`');
     });
 
     it('should throw error with invalid minimum confirmations', function() {

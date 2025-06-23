@@ -66,14 +66,14 @@ const config: Config = {
   btcPriceUsd: parseFloat(process.env.BTC_PRICE_USD || '50000'),
   // XRP configuration
   xrpVaultAddress: process.env.XRP_VAULT_ADDRESS || '',
-  xrpRpcUrl: process.env.XRP_RPC_URL || 'https://s1.ripple.com:51234/',
+  xrpRpcUrl: process.env.XRP_RPC_URL || 'wss://s.altnet.rippletest.net:51233/',
   xrpMinConfirmations: parseInt(process.env.XRP_MIN_CONFIRMATIONS || '6'),
   xrpMinAmount: parseInt(process.env.XRP_MIN_AMOUNT || '50000000'), // 50 XRP in drops
   xrpGenesisOutputPath: process.env.XRP_GENESIS_OUTPUT_PATH || path.join(__dirname, '../../../genesis/xrp_bootstrap_stakes.json'),
   xrpPriceUsd: parseFloat(process.env.XRP_PRICE_USD || '1.00'),
 };
 
-if (!config.btcVaultAddress) throw new Error('BTC_VAULT_ADDRESS not set');
-if (!config.btcEsploraBaseUrl) throw new Error('BTC_ESPLORA_BASE_URL not set');
+if (!config.btcVaultAddress) throw new Error('BITCOIN_VAULT_ADDRESS not set');
+if (!config.btcEsploraBaseUrl) throw new Error('BITCOIN_ESPLORA_API_URL not set');
 
 export default config;
