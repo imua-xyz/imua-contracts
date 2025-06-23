@@ -1,21 +1,15 @@
-import axios from 'axios';
+import { Client } from 'xrpl';
+import { decodeAccountID } from 'ripple-address-codec';
 import fs from 'fs';
 import { ethers } from 'ethers';
-import { fromBech32, fromHex, toBech32 } from '@cosmjs/encoding';
-import { encode, decode, isValidAddress } from 'ripple-address-codec';
+import { fromBech32 } from '@cosmjs/encoding';
 import config from './config';
 import bootstrapAbi from '../../out/Bootstrap.sol/Bootstrap.json';
-import { XRP_CONFIG, CHAIN_CONFIG } from './config';
+import { XRP_CONFIG, XRP_CHAIN_CONFIG } from './config';
 import {
   GenesisState, AppState, AssetsState, DelegationState,
   DogfoodState, Validator, OracleState, ClientChain, Token
 } from './types';
-import { toVersionAndHash } from './utils';
-
-// Maximum retry attempts for network requests
-const MAX_RETRIES = 3;
-// Delay between retries (in milliseconds)
-const RETRY_DELAY = 1000;
 
 interface BootstrapStake {
   hash: string;              // XRP transaction hash
@@ -60,42 +54,13 @@ interface XRPTransaction {
   validated: boolean;
 }
 
-interface XRPLedger {
-  ledger_index: number;
-  ledger_hash: string;
-  parent_hash: string;
-  total_coins: string;
-  close_time_resolution: number;
-  close_time: number;
-  close_time_human: string;
-}
-
 /**
- * Utility function to implement retry logic for async operations
+ * XRP Genesis Generator Class
+ * Uses XRPL client to fetch transaction data from XRP network and generate genesis state
  */
-async function withRetry<T>(
-  operation: () => Promise<T>,
-  retries: number = MAX_RETRIES,
-  delay: number = RETRY_DELAY
-): Promise<T> {
-  let lastError: Error | null = null;
-  for (let i = 0; i < retries; i++) {
-    try {
-      return await operation();
-    } catch (error) {
-      lastError = error as Error;
-      if (i < retries - 1) {
-        console.warn(`Operation failed, retrying in ${delay}ms...`, error);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  }
-  throw lastError;
-}
-
 export class XRPGenesisGenerator {
   private readonly vaultAddress: string;
-  private readonly baseUrl: string;
+  private readonly client: Client;
   private readonly minConfirmations: number;
   private readonly minAmount: number; // in drops (1 XRP = 1,000,000 drops)
   private readonly bootstrapContract: ethers.Contract;
@@ -103,13 +68,13 @@ export class XRPGenesisGenerator {
 
   constructor(
     vaultAddress: string,
-    baseUrl: string,
+    rpcUrl: string,
     bootstrapContract: ethers.Contract,
     minConfirmations: number = 6,
-    minAmount: number = 1000000 // 1 XRP minimum
+    minAmount: number = 50000000 // 50 XRP minimum
   ) {
     this.vaultAddress = vaultAddress;
-    this.baseUrl = baseUrl;
+    this.client = new Client(rpcUrl);
     this.bootstrapContract = bootstrapContract;
     this.minConfirmations = minConfirmations;
     this.minAmount = minAmount;
@@ -118,7 +83,7 @@ export class XRPGenesisGenerator {
     if (!this.vaultAddress) {
       throw new Error('Vault address is required');
     }
-    if (!this.baseUrl) {
+    if (!rpcUrl) {
       throw new Error('XRP RPC URL is required');
     }
     if (this.minConfirmations < 1) {
@@ -127,97 +92,158 @@ export class XRPGenesisGenerator {
   }
 
   /**
-   * Get current ledger index from XRPL with retry mechanism
+   * Get current ledger index from XRPL
    */
   private async getCurrentLedgerIndex(): Promise<number> {
-    return withRetry(async () => {
-      const response = await axios.post(`${this.baseUrl}`, {
-        method: 'ledger',
-        params: [{
-          ledger_index: 'current',
-          accounts: false,
-          transactions: false,
-          expand: false
-        }]
-      });
-
-      if (!response.data?.result?.ledger_index) {
-        throw new Error('Invalid response format for ledger index');
+    try {
+      if (!this.client.isConnected()) {
+        await this.client.connect();
       }
 
-      return response.data.result.ledger_index;
-    });
+      const ledgerResponse = await this.client.request({
+        command: "ledger",
+        ledger_index: "validated",
+        binary: false,
+        api_version: 2,
+      });
+
+      if (!ledgerResponse?.result?.ledger?.ledger_index) {
+        throw new Error("Invalid response format from WebSocket");
+      }
+
+      const ledgerIndex = ledgerResponse.result.ledger.ledger_index;
+      return typeof ledgerIndex === "number"
+        ? ledgerIndex
+        : parseInt(ledgerIndex, 10);
+    } catch (error: any) {
+      throw new Error(`Failed to retrieve XRP ledger index: ${error.message}`);
+    }
   }
 
   /**
-   * Get transaction details by hash with retry mechanism
+   * Get transaction details by hash
    */
   private async getTransactionDetails(hash: string): Promise<XRPTransaction | null> {
-    return withRetry(async () => {
-      const response = await axios.post(`${this.baseUrl}`, {
-        method: 'tx',
-        params: [{
-          transaction: hash,
-          binary: false
-        }]
+    try {
+      if (!this.client.isConnected()) {
+        await this.client.connect();
+      }
+
+      const response = await this.client.request({
+        command: "tx",
+        transaction: hash,
+        binary: false,
+        api_version: 2,
       });
 
-      if (response.data.result && response.data.result.validated) {
-        return response.data.result as XRPTransaction;
+      if (response?.result && response.result.validated) {
+        const result = response.result as any;
+        return {
+          hash: result.hash || '',
+          ledger_index: result.ledger_index || 0,
+          date: result.date || -1,
+          tx: {
+            TransactionType: result.TransactionType,
+            Account: result.Account,
+            Destination: result.Destination,
+            Amount: result.Amount,
+            Fee: result.Fee,
+            Sequence: result.Sequence,
+            Memos: result.Memos,
+            DestinationTag: result.DestinationTag,
+          },
+          meta: {
+            TransactionResult: result.meta?.TransactionResult || 'tesSUCCESS',
+            TransactionIndex: result.meta?.TransactionIndex || 0,
+            delivered_amount: result.meta?.delivered_amount,
+          },
+          validated: result.validated || false
+        };
       }
       return null;
-    });
+    } catch (error: any) {
+      console.error(`Error getting transaction details for ${hash}:`, error);
+      return null;
+    }
   }
 
   /**
-   * Get all transactions for the vault address with retry mechanism
+   * Get all transactions for the vault address
    */
   private async getVaultTransactions(): Promise<XRPTransaction[]> {
     const allTxs: XRPTransaction[] = [];
     let marker: any = undefined;
 
-    while (true) {
-      try {
+    try {
+      if (!this.client.isConnected()) {
+        await this.client.connect();
+      }
+
+      while (true) {
         const requestParams: any = {
-          method: 'account_tx',
-          params: [{
-            account: this.vaultAddress,
-            ledger_index_min: -1,
-            ledger_index_max: -1,
-            binary: false,
-            limit: 200,
-            forward: false
-          }]
+          command: "account_tx",
+          account: this.vaultAddress,
+          ledger_index_min: -1,
+          ledger_index_max: -1,
+          binary: false,
+          limit: 200,
+          api_version: 2,
         };
 
         if (marker) {
-          requestParams.params[0].marker = marker;
+          requestParams.marker = marker;
         }
 
-        const response = await withRetry(() => axios.post(`${this.baseUrl}`, requestParams));
-        const result = response.data.result;
+        const response = await this.client.request(requestParams);
+        const result = response?.result as any;
 
         if (!result || !result.transactions) {
           break;
         }
 
-        // Filter for validated transactions only
-        const validatedTxs = result.transactions
-          .filter((tx: any) => tx.validated)
-          .map((tx: any) => tx as XRPTransaction);
+        // Process transactions to match our interface
+        for (const txData of result.transactions) {
+          const tx_json = txData.tx_json || txData.tx;
+          if (!tx_json || !txData.validated) {
+            continue;
+          }
 
-        allTxs.push(...validatedTxs);
+          const tx: XRPTransaction = {
+            hash: txData.hash,
+            ledger_index: txData.ledger_index,
+            date: tx_json.date || -1,
+            tx: {
+              TransactionType: tx_json.TransactionType,
+              Account: tx_json.Account,
+              Destination: tx_json.Destination,
+              Amount: tx_json.DeliverMax || tx_json.Amount,
+              Fee: tx_json.Fee,
+              Sequence: tx_json.Sequence,
+              Memos: tx_json.Memos,
+              DestinationTag: tx_json.DestinationTag,
+            },
+            meta: {
+              TransactionResult: txData.meta?.TransactionResult || 'tesSUCCESS',
+              TransactionIndex: txData.meta?.TransactionIndex || 0,
+              delivered_amount: txData.meta?.delivered_amount,
+            },
+            validated: txData.validated,
+          };
+
+          if (tx.tx.TransactionType === 'Payment') {
+            allTxs.push(tx);
+          }
+        }
 
         // Check if there are more transactions
         if (!result.marker) {
           break;
         }
         marker = result.marker;
-
-      } catch (error) {
-        console.error('Error fetching vault transactions:', error);
-        throw error;
       }
+    } catch (error) {
+      console.error('Error fetching vault transactions:', error);
+      throw error;
     }
 
     return allTxs;
@@ -253,8 +279,8 @@ export class XRPGenesisGenerator {
    */
   private xrpAddressToHex(xrpAddress: string): string {
     try {
-      const decoded = decode(xrpAddress);
-      return '0x' + Buffer.from(decoded).toString('hex');
+      const accountId = decodeAccountID(xrpAddress);
+      return '0x' + Buffer.from(accountId).toString('hex');
     } catch (error) {
       console.error(`Error converting XRP address ${xrpAddress} to hex:`, error);
       throw error;
@@ -360,7 +386,7 @@ export class XRPGenesisGenerator {
       return false;
     }
 
-    // Check minimum amount
+    // Check the minimum amount
     const amount = parseInt(tx.tx.Amount);
     if (amount < this.minAmount) {
       console.log(`Amount ${amount} below minimum ${this.minAmount} in tx ${tx.hash}`);
@@ -380,7 +406,7 @@ export class XRPGenesisGenerator {
       return false;
     }
 
-    // Check if validator is registered
+    // Check if the validator is registered
     const isRegistered = await this.isValidatorRegistered(memoData.validatorAddress);
     if (!isRegistered) {
       console.log(`Validator ${memoData.validatorAddress} not registered in tx ${tx.hash}`);
@@ -460,6 +486,11 @@ export class XRPGenesisGenerator {
       });
     }
 
+    // Disconnect client when done
+    if (this.client.isConnected()) {
+      await this.client.disconnect();
+    }
+
     return stakes;
   }
 }
@@ -476,7 +507,7 @@ export async function generateXRPGenesisState(stakes: BootstrapStake[]): Promise
 
   // Asset ID for XRP
   const xrpAssetId = XRP_CONFIG.VIRTUAL_ADDRESS.toLowerCase() + '_0x' +
-                    CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID.toString(16);
+                    XRP_CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID.toString(16);
 
   // Group stakes by validator
   const validatorStakes = new Map<string, BootstrapStake[]>();
@@ -489,11 +520,11 @@ export async function generateXRPGenesisState(stakes: BootstrapStake[]): Promise
 
   // Create XRP client chain
   const xrpChain: ClientChain = {
-    name: CHAIN_CONFIG.NAME,
-    meta_info: CHAIN_CONFIG.META_INFO,
-    finalization_blocks: CHAIN_CONFIG.FINALIZATION_BLOCKS,
-    layer_zero_chain_id: CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID,
-    address_length: CHAIN_CONFIG.ADDRESS_LENGTH
+    name: XRP_CHAIN_CONFIG.NAME,
+    meta_info: XRP_CHAIN_CONFIG.META_INFO,
+    finalization_blocks: XRP_CHAIN_CONFIG.FINALIZATION_BLOCKS,
+    layer_zero_chain_id: XRP_CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID,
+    address_length: XRP_CHAIN_CONFIG.ADDRESS_LENGTH
   };
 
   // Create XRP token
@@ -503,7 +534,7 @@ export async function generateXRPGenesisState(stakes: BootstrapStake[]): Promise
       symbol: XRP_CONFIG.SYMBOL,
       address: XRP_CONFIG.VIRTUAL_ADDRESS,
       decimals: XRP_CONFIG.DECIMALS.toString(),
-      layer_zero_chain_id: CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID,
+      layer_zero_chain_id: XRP_CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID,
       imua_chain_index: "0",
       meta_info: XRP_CONFIG.META_INFO
     },
@@ -514,7 +545,7 @@ export async function generateXRPGenesisState(stakes: BootstrapStake[]): Promise
   const depositsByStaker = new Map<string, Map<string, number>>();
 
   for (const stake of stakes) {
-    const stakerId = stake.xrpAddress + '_0x' + CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID.toString(16);
+    const stakerId = stake.xrpAddress + '_0x' + XRP_CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID.toString(16);
 
     if (!depositsByStaker.has(stakerId)) {
       depositsByStaker.set(stakerId, new Map<string, number>());
@@ -580,7 +611,7 @@ export async function generateXRPGenesisState(stakes: BootstrapStake[]): Promise
   const stakersByOperator = new Map<string, Set<string>>();
 
   for (const stake of stakes) {
-    const stakerId = stake.xrpAddress + '_0x' + CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID.toString(16);
+    const stakerId = stake.xrpAddress + '_0x' + XRP_CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID.toString(16);
 
     // Add delegation state
     const key = `${stakerId}/${xrpAssetId}/${stake.validatorAddress}`;
