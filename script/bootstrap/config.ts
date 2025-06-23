@@ -12,11 +12,11 @@ export const BTC_CONFIG = {
 
 // Constants for XRP virtual token
 export const XRP_CONFIG = {
-  VIRTUAL_ADDRESS: '0x0000000000000000000000000000000000000002',
+  VIRTUAL_ADDRESS: '0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB',
   NAME: 'XRP',
   SYMBOL: 'XRP',
   DECIMALS: 6, // XRP uses 6 decimal places (drops)
-  CHAIN_ID: 0, // XRP Ledger chain ID
+  CHAIN_ID: 2, // XRP Ledger chain ID
   META_INFO: 'XRP Ledger native token',
 };
 export const CHAIN_CONFIG = {
