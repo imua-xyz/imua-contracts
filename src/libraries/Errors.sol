@@ -286,6 +286,12 @@ library Errors {
     /// @dev NativeRestakingController: message sender has already created the capsule
     error NativeRestakingControllerCapsuleAlreadyCreated();
 
+    /// @dev ImuaCapsule: claim already in progress
+    error ClaimAlreadyInProgress();
+
+    /// @dev ImuaCapsule: too early before last claim
+    error TooEarlySinceLastClaim();
+
     ////////////////////
     //  Vault Errors  //
     ////////////////////

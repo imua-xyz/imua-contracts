@@ -406,14 +406,19 @@ contract ImuachainGatewayMock is
     {
         bytes calldata staker = payload[:32];
         uint256 amount = uint256(bytes32(payload[32:64]));
-        bytes calldata validatorID = payload[64:];
 
         bool isDeposit = act == Action.REQUEST_DEPOSIT_NST;
         bool success;
+        bytes memory validatorID;
         if (isDeposit) {
+            // the length of the validatorID is not known. it depends on the chain.
+            // for Ethereum, it is the validatorIndex uint256 as bytes so it becomes 32. its value may be 0.
+            // for Solana, the pubkey is 32 bytes long but for Sui it is 96 bytes long.
+            // these chains do not have the concept of validatorIndex, so the raw key must be used.
+            validatorID = payload[64:];
             (success,) = ASSETS_CONTRACT.depositNST(srcChainId, validatorID, staker, amount);
         } else {
-            (success,) = ASSETS_CONTRACT.withdrawNST(srcChainId, validatorID, staker, amount);
+            (success,) = ASSETS_CONTRACT.withdrawNST(srcChainId, staker, amount);
         }
         if (isDeposit && !success) {
             revert Errors.DepositRequestShouldNotFail(srcChainId, lzNonce); // we should not let this happen

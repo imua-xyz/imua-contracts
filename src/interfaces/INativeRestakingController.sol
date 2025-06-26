@@ -38,29 +38,12 @@ interface INativeRestakingController is IBaseRestakingController {
         BeaconChainProofs.ValidatorContainerProof calldata proof
     ) external payable;
 
-    /// @notice Processes a partial withdrawal from the beacon chain to an ImuaCapsule contract.
-    /// @dev This function is called with `validatorContainer`, `withdrawalContainer`, and corresponding proofs to prove
-    /// the partial withdrawal.
-    /// The withdrawn ETH will be unlocked and claimable for the ImuaCapsule owner.
-    /// @param validatorContainer The data structure included in the `BeaconState` of `BeaconBlock` that contains beacon
-    /// chain validator information.
-    /// @param validatorProof The merkle proof needed to verify that `validatorContainer` is included in a beacon block
-    /// root.
-    /// @param withdrawalContainer The data structure included in the `ExecutionPayload` of `BeaconBlockBody` that
-    /// contains withdrawals from the beacon chain to the execution layer.
-    /// @param withdrawalProof The merkle proof needed to verify that `withdrawalContainer` is included in a beacon
-    /// block root.
-    function processBeaconChainWithdrawal(
-        bytes32[] calldata validatorContainer,
-        BeaconChainProofs.ValidatorContainerProof calldata validatorProof,
-        bytes32[] calldata withdrawalContainer,
-        BeaconChainProofs.WithdrawalProof calldata withdrawalProof
-    ) external payable;
-
-    /// @notice Withdraws the nonBeaconChainETHBalance from the ImuaCapsule contract.
-    /// @dev @param amountToWithdraw can not be greater than the available nonBeaconChainETHBalance.
-    /// @param recipient The payable destination address to which the ETH are sent.
-    /// @param amountToWithdraw The amount to withdraw.
-    function withdrawNonBeaconChainETHFromCapsule(address payable recipient, uint256 amountToWithdraw) external;
+    /// @notice Send request to Imuachain to claim the NST principal.
+    /// @notice This would not result in ETH transfer even if result is successful because it only unlocks the NST.
+    /// @dev This function requests claim approval from Imuachain. If approved, the assets are
+    /// unlocked and can be withdrawn by the user. Otherwise, they remain locked.
+    /// @param claimAmount The amount of NST the user intends to claim, cannot be greater than the
+    /// staker's capsule's balance and staker's staking position's withdrawable balance.
+    function claimNSTFromImuachain(uint256 claimAmount) external payable;
 
 }

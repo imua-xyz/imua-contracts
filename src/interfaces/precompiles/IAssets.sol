@@ -100,18 +100,16 @@ interface IAssets {
 
     /// @dev withdraw NST To the staker, that will change the state in assets module
     /// Note that this address cannot be a module account.
+    /// Note withdrawNST does not require a validatorID, since validator's lifecycle should be automatically handled by
+    /// oracle after first deposit
     /// @param clientChainID is the layerZero chainID if it is supported.
     //  It might be allocated by Imuachain when the client chain isn't supported
     //  by layerZero
-    /// @param validatorID The validator's identifier: index (uint256 as bytes32) or pubkey.
     /// @param withdrawAddress The withdraw address
     /// @param opAmount The withdraw amount
-    function withdrawNST(
-        uint32 clientChainID,
-        bytes calldata validatorID,
-        bytes calldata withdrawAddress,
-        uint256 opAmount
-    ) external returns (bool success, uint256 latestAssetState);
+    function withdrawNST(uint32 clientChainID, bytes calldata withdrawAddress, uint256 opAmount)
+        external
+        returns (bool success, uint256 latestAssetState);
 
     /// @dev registers or updates a client chain to allow deposits / staking, etc.
     /// from that chain.

@@ -93,10 +93,6 @@ contract ImuachainDeployer is Test {
     bytes32 beaconBlockRoot; // latest beacon block root
     BeaconChainProofs.ValidatorContainerProof validatorProof;
 
-    bytes32[] withdrawalContainer;
-    BeaconChainProofs.WithdrawalProof withdrawalProof;
-    bytes32 withdrawBeaconBlockRoot; // block root for withdrawal proof
-
     uint256 mockProofTimestamp;
     uint256 mockCurrentBlockTimestamp;
     uint256 activationTimestamp;
@@ -292,36 +288,6 @@ contract ImuachainDeployer is Test {
 
         beaconBlockRoot = stdJson.readBytes32(validatorInfo, ".latestBlockHeaderRoot");
         require(beaconBlockRoot != bytes32(0), "beacon block root should not be empty");
-    }
-
-    function _loadWithdrawalContainer(string memory withdrawalInfo) internal {
-        withdrawalContainer = stdJson.readBytes32Array(withdrawalInfo, ".WithdrawalFields");
-        require(withdrawalContainer.length > 0, "validator container should not be empty");
-
-        // bytes32 array proof data
-        withdrawalProof.withdrawalContainerRootProof = stdJson.readBytes32Array(withdrawalInfo, ".WithdrawalProof");
-        withdrawalProof.slotProof = stdJson.readBytes32Array(withdrawalInfo, ".SlotProof");
-        withdrawalProof.executionPayloadRootProof = stdJson.readBytes32Array(withdrawalInfo, ".ExecutionPayloadProof");
-        withdrawalProof.timestampProof = stdJson.readBytes32Array(withdrawalInfo, ".TimestampProof");
-        withdrawalProof.historicalSummaryBlockRootProof =
-            stdJson.readBytes32Array(withdrawalInfo, ".HistoricalSummaryProof");
-
-        // Index data
-        withdrawalProof.blockRootIndex = stdJson.readUint(withdrawalInfo, ".blockHeaderRootIndex");
-        require(withdrawalProof.blockRootIndex != 0, "block header root index should not be 0");
-
-        withdrawalProof.historicalSummaryIndex = stdJson.readUint(withdrawalInfo, ".historicalSummaryIndex");
-        require(withdrawalProof.historicalSummaryIndex != 0, "historical summary index should not be 0");
-
-        withdrawalProof.withdrawalIndex = stdJson.readUint(withdrawalInfo, ".withdrawalIndex");
-
-        // Root data
-        withdrawalProof.blockRoot = stdJson.readBytes32(withdrawalInfo, ".blockHeaderRoot");
-        withdrawalProof.slotRoot = stdJson.readBytes32(withdrawalInfo, ".slotRoot");
-        withdrawalProof.timestampRoot = stdJson.readBytes32(withdrawalInfo, ".timestampRoot");
-        withdrawalProof.executionPayloadRoot = stdJson.readBytes32(withdrawalInfo, ".executionPayloadRoot");
-        withdrawalProof.stateRoot = stdJson.readBytes32(withdrawalInfo, ".beaconStateRoot");
-        require(withdrawalProof.stateRoot != bytes32(0), "state root should not be empty");
     }
 
     function _deploy() internal {

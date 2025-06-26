@@ -101,43 +101,26 @@ abstract contract NativeRestakingController is
         _processRequest(Action.REQUEST_DEPOSIT_NST, actionArgs, bytes(""));
     }
 
-    /// @notice Verifies a withdrawal proof from the beacon chain and forwards the information to Imuachain.
-    /// @param validatorContainer The validator container which made the withdrawal.
-    /// @param validatorProof The proof of the validator container.
-    /// @param withdrawalContainer The withdrawal container.
-    /// @param withdrawalProof The proof of the withdrawal.
-    function processBeaconChainWithdrawal(
-        bytes32[] calldata validatorContainer,
-        BeaconChainProofs.ValidatorContainerProof calldata validatorProof,
-        bytes32[] calldata withdrawalContainer,
-        BeaconChainProofs.WithdrawalProof calldata withdrawalProof
-    ) external payable whenNotPaused nonReentrant nativeRestakingEnabled {
-        IImuaCapsule capsule = _getCapsule(msg.sender);
-        (bool partialWithdrawal, uint256 withdrawalAmount) =
-            capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
-        if (!partialWithdrawal) {
-            // request full withdraw
-            bytes memory actionArgs =
-                abi.encodePacked(bytes32(bytes20(msg.sender)), withdrawalAmount, validatorProof.validatorIndex);
-            bytes memory encodedRequest = abi.encode(VIRTUAL_NST_ADDRESS, msg.sender, withdrawalAmount);
-
-            // a full withdrawal needs response from Imuachain, so we don't pass empty bytes
-            _processRequest(Action.REQUEST_WITHDRAW_NST, actionArgs, encodedRequest);
-        }
-    }
-
-    /// @notice Withdraws the nonBeaconChainETHBalance from the ImuaCapsule contract.
-    /// @dev @param amountToWithdraw can not be greater than the available nonBeaconChainETHBalance.
-    /// @param recipient The payable destination address to which the ETH are sent.
-    /// @param amountToWithdraw The amount to withdraw.
-    function withdrawNonBeaconChainETHFromCapsule(address payable recipient, uint256 amountToWithdraw)
+    /// @notice Send request to Imuachain to claim the NST principal.
+    /// @notice This would not result in ETH transfer even if result is successful because it only unlocks the NST.
+    /// @dev This function requests claim approval from Imuachain. If approved, the assets are
+    /// unlocked and can be withdrawn by the user. Otherwise, they remain locked.
+    /// @param claimAmount The amount of NST the user intends to claim, cannot be greater than the
+    /// staker's capsule's balance and staker's staking position's withdrawable balance.
+    function claimNSTFromImuachain(uint256 claimAmount)
         external
+        payable
         whenNotPaused
         nonReentrant
         nativeRestakingEnabled
     {
         IImuaCapsule capsule = _getCapsule(msg.sender);
-        capsule.withdrawNonBeaconChainETHBalance(recipient, amountToWithdraw);
+        capsule.startClaimNST(claimAmount);
+        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(msg.sender)), claimAmount);
+        bytes memory encodedRequest = abi.encode(VIRTUAL_NST_ADDRESS, msg.sender, claimAmount);
+
+        // any claim might succeed or fail, so we need to cache the request to handle response
+        _processRequest(Action.REQUEST_WITHDRAW_NST, actionArgs, encodedRequest);
     }
 
 }
