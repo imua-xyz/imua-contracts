@@ -78,9 +78,8 @@ contract ImuaCapsuleStorage {
     /// Chain but not from Imuachain)
     uint256 public withdrawableBalance;
 
-    /// @notice DEPRECATED: The amount of non-beacon chain ETH balance.
-    /// @dev This variable tracks any ETH deposited into this contract via the `receive` fallback function
-    uint256 internal _deprecatedNonBeaconChainETHBalance;
+    /// @notice DEPRECATED: NOT USED ANYWHERE
+    uint256 internal nonBeaconChainETHBalance;
 
     /// @notice The owner of the ImuaCapsule.
     address payable public capsuleOwner;
@@ -97,10 +96,8 @@ contract ImuaCapsuleStorage {
     /// @dev Mapping of validator index to their corresponding pubkey hash.
     mapping(uint256 index => bytes32 pubkeyHash) internal _capsuleValidatorsByIndex;
 
-    /// @notice DEPRECATED: This is a mapping of validatorPubkeyHash to withdrawal index to whether or not they have
-    /// proven a
-    /// withdrawal
-    mapping(bytes32 => mapping(uint256 => bool)) internal _deprecatedProvenWithdrawal;
+    /// @notice DEPRECATED: NOT USED ANYWHERE
+    mapping(bytes32 => mapping(uint256 => bool)) public provenWithdrawal;
 
     /// @notice This is flag indicating if a NST claim is in progress.
     /// @dev A NST cliam request sent by claimNSTFromImuachain would set this flag to true, and each response received
