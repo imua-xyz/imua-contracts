@@ -92,12 +92,10 @@ contract AssetsMock is IAssets {
         return (true, principalBalances[clientChainLzId][assetsAddress][withdrawer]);
     }
 
-    function withdrawNST(
-        uint32 clientChainLzId,
-        bytes calldata validatorID,
-        bytes calldata withdrawer,
-        uint256 opAmount
-    ) external returns (bool success, uint256 latestAssetState) {
+    function withdrawNST(uint32 clientChainLzId, bytes calldata withdrawer, uint256 opAmount)
+        external
+        returns (bool success, uint256 latestAssetState)
+    {
         require(withdrawer.length == 32, "invalid staker address");
 
         bytes memory nstAddress = abi.encodePacked(bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)));
@@ -105,7 +103,6 @@ contract AssetsMock is IAssets {
             return (false, 0);
         }
         principalBalances[clientChainLzId][nstAddress][withdrawer] -= opAmount;
-        inValidatorSet[withdrawer][validatorID] = false;
         return (true, principalBalances[clientChainLzId][nstAddress][withdrawer]);
     }
 

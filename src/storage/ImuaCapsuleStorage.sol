@@ -36,7 +36,10 @@ contract ImuaCapsuleStorage {
         VALIDATOR_STATUS status;
     }
 
-    // constant state variables
+    /* -------------------------------------------------------------------------- */
+    /*                                  Constants                                 */
+    /* -------------------------------------------------------------------------- */
+
     /// @notice The maximum time after the deposit proof timestamp that a deposit can be proven.
     /// @dev It is measured from the proof generation timestamp and not the deposit timestamp. If the proof becomes too
     /// old, it can be regenerated and then submitted, as long as the beacon block root for the proof timestamp is
@@ -56,17 +59,27 @@ contract ImuaCapsuleStorage {
     /// @notice The maximum amount of balance that a validator can restake, in gwei.
     uint64 public constant MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 32e9;
 
+    /// @notice The minimum interval between successful NST claims.
+    uint256 public constant MIN_CLAIM_INTERVAL = 10 minutes;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 Immutables                                 */
+    /* -------------------------------------------------------------------------- */
+
     /// @notice The address of the NetworkConfig contract.
     /// @dev If it is set to the 0 address, the NetworkConstants library is used instead.
     address public immutable NETWORK_CONFIG;
+
+    /* -------------------------------------------------------------------------- */
+    /*                               Variable States                              */
+    /* -------------------------------------------------------------------------- */
 
     /// @notice the amount of execution layer ETH in this contract that is staked in(i.e. withdrawn from the Beacon
     /// Chain but not from Imuachain)
     uint256 public withdrawableBalance;
 
-    /// @notice The amount of non-beacon chain ETH balance.
-    /// @dev This variable tracks any ETH deposited into this contract via the `receive` fallback function
-    uint256 public nonBeaconChainETHBalance;
+    /// @notice DEPRECATED: NOT USED ANYWHERE
+    uint256 internal nonBeaconChainETHBalance;
 
     /// @notice The owner of the ImuaCapsule.
     address payable public capsuleOwner;
@@ -83,12 +96,19 @@ contract ImuaCapsuleStorage {
     /// @dev Mapping of validator index to their corresponding pubkey hash.
     mapping(uint256 index => bytes32 pubkeyHash) internal _capsuleValidatorsByIndex;
 
-    /// @notice This is a mapping of validatorPubkeyHash to withdrawal index to whether or not they have proven a
-    /// withdrawal
+    /// @notice DEPRECATED: NOT USED ANYWHERE
     mapping(bytes32 => mapping(uint256 => bool)) public provenWithdrawal;
 
+    /// @notice This is flag indicating if a NST claim is in progress.
+    /// @dev A NST cliam request sent by claimNSTFromImuachain would set this flag to true, and each response received
+    /// from Imuachain would set this flag to false. No additional claims can be made if this flag is true.
+    bool public inClaimProgress;
+
+    /// @notice The timestamp of the last successful NST claim.
+    uint256 public lastClaimTimestamp;
+
     /// @dev Storage gap to allow for future upgrades.
-    uint256[40] private __gap;
+    uint256[38] private __gap;
 
     /// @notice Sets the network configuration contract address for the ImuaCapsule contract.
     /// @param networkConfig_ The address of the NetworkConfig contract.

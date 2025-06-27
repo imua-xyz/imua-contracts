@@ -298,49 +298,6 @@ contract WithdrawNonBeaconChainETHFromCapsule is SetUp {
         capsuleAddress = payable(clientGateway.createImuaCapsule());
     }
 
-    function test_success_withdrawNonBeaconChainETH() public {
-        // 2. User directly transfers some ETH to created capsule
-        vm.prank(user);
-        (bool success,) = capsuleAddress.call{value: depositAmount}("");
-        require(success, "ETH transfer failed");
-
-        uint256 userBalanceBefore = user.balance;
-        uint256 capsuleBalanceBefore = capsuleAddress.balance;
-
-        // 3. User withdraws ETH by calling withdrawNonBeaconChainETHFromCapsule
-        vm.prank(user);
-        clientGateway.withdrawNonBeaconChainETHFromCapsule(user, withdrawAmount);
-
-        // Assert balance changes
-        assertEq(user.balance, userBalanceBefore + withdrawAmount, "User balance didn't increase correctly");
-        assertEq(
-            capsuleAddress.balance, capsuleBalanceBefore - withdrawAmount, "Capsule balance didn't decrease correctly"
-        );
-    }
-
-    function test_revert_capsuleNotFound() public {
-        address payable userWithoutCapsule = payable(address(0x123));
-
-        vm.prank(userWithoutCapsule);
-        vm.expectRevert(Errors.CapsuleDoesNotExist.selector);
-        clientGateway.withdrawNonBeaconChainETHFromCapsule(userWithoutCapsule, withdrawAmount);
-    }
-
-    function test_revert_insufficientBalance() public {
-        // User directly transfers some ETH to created capsule
-        vm.prank(user);
-        (bool success,) = capsuleAddress.call{value: depositAmount}("");
-        require(success, "ETH transfer failed");
-
-        uint256 excessiveWithdrawAmount = 2 ether;
-
-        vm.prank(user);
-        vm.expectRevert(
-            "ImuaCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"
-        );
-        clientGateway.withdrawNonBeaconChainETHFromCapsule(user, excessiveWithdrawAmount);
-    }
-
 }
 
 contract WithdrawalPrincipalFromImuachain is SetUp {
