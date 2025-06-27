@@ -148,7 +148,7 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
     }
 
     /// @inheritdoc IImuaCapsule
-    function startClaimNST(uint256 amount) external {
+    function startClaimNST(uint256 amount) external onlyGateway {
         if (inClaimProgress) {
             revert Errors.ClaimAlreadyInProgress();
         }
@@ -164,7 +164,7 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
     }
 
     /// @inheritdoc IImuaCapsule
-    function endClaimNST() external {
+    function endClaimNST() external onlyGateway {
         inClaimProgress = false;
 
         emit NSTClaimEnded();
