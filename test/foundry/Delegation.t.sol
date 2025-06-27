@@ -24,18 +24,26 @@ contract DelegateTest is ImuachainDeployer {
     string operatorAddress;
 
     event DelegationRequest(
-        bool isDelegate,
+        bool indexed accepted, bytes32 indexed token, bytes32 indexed delegator, string operator, uint256 amount
+    );
+    event UndelegationRequest(
         bool indexed accepted,
         bytes32 indexed token,
         bytes32 indexed delegator,
         string operator,
-        uint256 amount
+        uint256 amount,
+        bool instantUnbond
     );
     event DelegateRequestProcessed(
         uint32 clientChainLzId, bytes assetsAddress, bytes stakerAddress, string operatorAddr, uint256 opAmount
     );
     event UndelegateRequestProcessed(
-        uint32 clientChainLzId, bytes assetsAddress, bytes stakerAddress, string operatorAddr, uint256 opAmount
+        uint32 clientChainLzId,
+        bytes assetsAddress,
+        bytes stakerAddress,
+        string operatorAddr,
+        uint256 opAmount,
+        bool instantUnbond
     );
 
     function setUp() public override {
@@ -125,7 +133,6 @@ contract DelegateTest is ImuachainDeployer {
         vm.expectEmit(true, true, true, true, address(imuachainGateway));
         emit DelegationRequest(
             true,
-            true,
             bytes32(bytes20(address(restakeToken))),
             bytes32(bytes20(delegator.addr)),
             operatorAddress,
@@ -163,12 +170,14 @@ contract DelegateTest is ImuachainDeployer {
         // 1. first user call client chain gateway to undelegate
 
         /// estimate the messaging fee that would be charged from user
+        bool instantUnbond = true;
         bytes memory undelegateRequestPayload = abi.encodePacked(
             Action.REQUEST_UNDELEGATE_FROM,
             abi.encodePacked(bytes32(bytes20(delegator.addr))),
             undelegateAmount,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
-            bytes(operatorAddress)
+            bytes(operatorAddress),
+            instantUnbond
         );
         uint256 requestNativeFee = clientGateway.quote(undelegateRequestPayload);
         bytes32 requestId = generateUID(outboundNonces[clientChainId], true);
@@ -189,7 +198,9 @@ contract DelegateTest is ImuachainDeployer {
 
         /// delegator call clientGateway to send undelegation request
         vm.startPrank(delegator.addr);
-        clientGateway.undelegateFrom{value: requestNativeFee}(operatorAddress, address(restakeToken), undelegateAmount);
+        clientGateway.undelegateFrom{value: requestNativeFee}(
+            operatorAddress, address(restakeToken), undelegateAmount, true
+        );
         vm.stopPrank();
 
         // 2. second layerzero relayers should watch the request message packet and relay the message to destination
@@ -202,18 +213,19 @@ contract DelegateTest is ImuachainDeployer {
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator.addr))),
             operatorAddress,
-            undelegateAmount
+            undelegateAmount,
+            instantUnbond
         );
 
         /// imuachainGateway contract should emit UndelegateResult event
         vm.expectEmit(true, true, true, true, address(imuachainGateway));
-        emit DelegationRequest(
-            false,
+        emit UndelegationRequest(
             true,
             bytes32(bytes20(address(restakeToken))),
             bytes32(bytes20(delegator.addr)),
             operatorAddress,
-            undelegateAmount
+            undelegateAmount,
+            instantUnbond
         );
 
         vm.expectEmit(address(imuachainGateway));

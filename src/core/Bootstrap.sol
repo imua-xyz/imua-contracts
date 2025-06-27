@@ -526,7 +526,7 @@ contract Bootstrap is
     }
 
     /// @inheritdoc IBaseRestakingController
-    function undelegateFrom(string calldata validator, address token, uint256 amount)
+    function undelegateFrom(string calldata validator, address token, uint256 amount, bool instantUnbond)
         external
         payable
         beforeLocked
@@ -538,6 +538,10 @@ contract Bootstrap is
     {
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
+        }
+        if (!instantUnbond) {
+            // all unbondings on bootstrap are instant unbondings
+            revert Errors.NotYetSupported();
         }
         _undelegateFrom(msg.sender, validator, token, amount);
     }
