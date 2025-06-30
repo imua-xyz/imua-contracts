@@ -144,7 +144,7 @@ contract CorrectBootstrapErrors is BaseScript {
             vm.serializeAddress(clientChainContracts, "beaconOracle", address(beaconOracle));
 
         string memory deployedContracts = "deployedContracts";
-        string memory finalJson = vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
+        string memory finalJson = vm.serializeString(deployedContracts, clientChainName, clientChainContractsOutput);
 
         vm.writeJson(finalJson, "script/deployments/correctBootstrapErrors.json");
     }
