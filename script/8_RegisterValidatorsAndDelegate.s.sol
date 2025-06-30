@@ -31,6 +31,7 @@ contract RegisterValidatorsAndDelegate is Script {
         [0 * 1e18, 0 * 1e18, 2500 * 1e18, 500 * 1e18],
         [1000 * 1e18, 0 * 1e18, 0 * 1e18, 2000 * 1e18]
     ];
+    string constant clientChainName = "sepolia";
 
     function setUp() public {
         primaryKey = vm.envUint("TEST_ACCOUNT_THREE_PRIVATE_KEY");
@@ -49,9 +50,9 @@ contract RegisterValidatorsAndDelegate is Script {
         );
 
         string memory deployedContracts = vm.readFile("script/deployments/deployedBootstrapOnly.json");
-        bootstrapAddr = stdJson.readAddress(deployedContracts, ".clientChain.bootstrap");
+        bootstrapAddr = stdJson.readAddress(deployedContracts, string.concat(".", clientChainName, ".bootstrap"));
         require(bootstrapAddr != address(0), "Bootstrap address should not be empty");
-        tokenAddr = stdJson.readAddress(deployedContracts, ".clientChain.erc20Token");
+        tokenAddr = stdJson.readAddress(deployedContracts, string.concat(".", clientChainName, ".erc20Token"));
         require(tokenAddr != address(0), "Token address should not be empty");
     }
 

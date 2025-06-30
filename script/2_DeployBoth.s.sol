@@ -27,10 +27,13 @@ contract DeployScript is BaseScript {
 
         string memory prerequisites = vm.readFile("script/deployments/prerequisiteContracts.json");
 
-        clientChainLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(prerequisites, ".clientChain.lzEndpoint"));
+        clientChainLzEndpoint =
+            ILayerZeroEndpointV2(stdJson.readAddress(prerequisites, string.concat(".", clientChainName, ".lzEndpoint")));
         require(address(clientChainLzEndpoint) != address(0), "client chain l0 endpoint should not be empty");
 
-        restakeToken = ERC20PresetFixedSupply(stdJson.readAddress(prerequisites, ".clientChain.erc20Token"));
+        restakeToken = ERC20PresetFixedSupply(
+            stdJson.readAddress(prerequisites, string.concat(".", clientChainName, ".erc20Token"))
+        );
         require(address(restakeToken) != address(0), "restake token address should not be empty");
 
         imuachainLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(prerequisites, ".imuachain.lzEndpoint"));
@@ -47,9 +50,6 @@ contract DeployScript is BaseScript {
             require(rewardMock != address(0), "rewardMock should not be empty");
         }
 
-        clientChain = vm.createSelectFork(clientChainRPCURL);
-
-        imuachain = vm.createSelectFork(imuachainRPCURL);
         _topUpPlayer(imuachain, address(0), imuachainGenesis, deployer.addr, 1 ether);
     }
 
@@ -75,7 +75,7 @@ contract DeployScript is BaseScript {
 
         // Create ImmutableConfig struct
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            imuachainChainId: imuachainChainId,
+            imuachainChainId: imuachainEndpointId,
             beaconOracleAddress: address(beaconOracle),
             vaultBeacon: address(vaultBeacon),
             imuaCapsuleBeacon: address(capsuleBeacon),
@@ -175,7 +175,7 @@ contract DeployScript is BaseScript {
         string memory imuachainContractsOutput =
             vm.serializeAddress(imuachainContracts, "proxyAdmin", address(imuachainProxyAdmin));
 
-        vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
+        vm.serializeString(deployedContracts, clientChainName, clientChainContractsOutput);
         string memory finalJson = vm.serializeString(deployedContracts, "imuachain", imuachainContractsOutput);
 
         vm.writeJson(finalJson, "script/deployments/deployedContracts.json");

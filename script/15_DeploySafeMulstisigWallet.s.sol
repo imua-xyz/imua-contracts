@@ -15,7 +15,6 @@ contract CreateMultisigScript is BaseScript {
     function setUp() public override {
         super.setUp();
 
-        imuachain = vm.createSelectFork(imuachainRPCURL);
         _topUpPlayer(imuachain, address(0), imuachainGenesis, deployer.addr, 2 ether);
     }
 

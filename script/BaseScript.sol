@@ -41,7 +41,14 @@ contract BaseScript is Script, StdCheats {
     string sepoliaRPCURL;
     string holeskyRPCURL;
     string clientChainRPCURL;
+    string clientChainName;
+    uint16 clientChainEndpointId;
+    address clientChainEndpointV2;
     string imuachainRPCURL;
+
+    mapping(uint256 chainId => string chainName) chainIdToName;
+    mapping(uint256 chainId => uint16 endpointId) chainIdToEndpointId;
+    mapping(uint256 chainId => address endpointV2Address) chainIdToEndpointV2Address;
 
     address[] whitelistTokens;
     uint256[] tvlLimits;
@@ -70,10 +77,7 @@ contract BaseScript is Script, StdCheats {
     uint256 clientChain;
     uint256 imuachain;
 
-    uint16 constant imuachainChainId = 40_259;
-    uint16 constant clientChainId = 40_161;
-
-    address constant sepoliaEndpointV2 = 0x6EDCE65403992e310A62460808c4b910D972f10f;
+    uint16 constant imuachainEndpointId = 40_259;
     address constant imuachainEndpointV2 = 0x6EDCE65403992e310A62460808c4b910D972f10f;
     address erc20TokenAddress = 0x83E6850591425e3C1E263c054f4466838B9Bd9e4;
 
@@ -106,8 +110,29 @@ contract BaseScript is Script, StdCheats {
         useImuachainPrecompileMock = vm.envBool("USE_IMUACHAIN_PRECOMPILE_MOCK");
         console.log("NOTICE: using imuachain precompiles mock", useImuachainPrecompileMock);
 
+        chainIdToName[233] = "imuachain";
+        chainIdToName[11_155_111] = "sepolia";
+        chainIdToName[17_000] = "holesky";
+
+        chainIdToEndpointId[233] = imuachainEndpointId;
+        chainIdToEndpointId[11_155_111] = 40_161;
+        chainIdToEndpointId[17_000] = 40_217;
+
+        chainIdToEndpointV2Address[233] = imuachainEndpointV2;
+        chainIdToEndpointV2Address[11_155_111] = 0x6EDCE65403992e310A62460808c4b910D972f10f;
+        chainIdToEndpointV2Address[17_000] = 0x6EDCE65403992e310A62460808c4b910D972f10f;
+
         clientChainRPCURL = vm.envString("CLIENT_CHAIN_RPC");
+        clientChain = vm.createSelectFork(clientChainRPCURL);
+        clientChainName = chainIdToName[block.chainid];
+        clientChainEndpointId = chainIdToEndpointId[block.chainid];
+        clientChainEndpointV2 = chainIdToEndpointV2Address[block.chainid];
+        require(bytes(clientChainName).length > 0, "not supported chain");
+        require(clientChainEndpointId != 0, "not supported chain");
+        require(clientChainEndpointV2 != address(0), "not supported chain");
+
         imuachainRPCURL = vm.envString("IMUACHAIN_TESTNET_RPC");
+        imuachain = vm.createSelectFork(imuachainRPCURL);
     }
 
     function _bindPrecompileMocks() internal {
@@ -122,7 +147,7 @@ contract BaseScript is Script, StdCheats {
         // even with --skip-simulation, some transactions fail. this helps work around that limitation
         // but it isn't perfect. if you face too much trouble, try calling the function(s) directly
         // with cast or remix.
-        deployCodeTo("AssetsMock.sol", abi.encode(clientChainId), ASSETS_PRECOMPILE_ADDRESS);
+        deployCodeTo("AssetsMock.sol", abi.encode(clientChainEndpointId), ASSETS_PRECOMPILE_ADDRESS);
         deployCodeTo("DelegationMock.sol", DELEGATION_PRECOMPILE_ADDRESS);
         deployCodeTo("RewardMock.sol", REWARD_PRECOMPILE_ADDRESS);
         // go to the original fork, if one was selected

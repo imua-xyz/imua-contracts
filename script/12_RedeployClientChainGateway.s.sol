@@ -32,26 +32,37 @@ contract RedeployClientChainGateway is BaseScript {
         super.setUp();
         // load contracts
         string memory prerequisiteContracts = vm.readFile("script/deployments/deployedBootstrapOnly.json");
-        clientChainLzEndpoint =
-            ILayerZeroEndpointV2(stdJson.readAddress(prerequisiteContracts, ".clientChain.lzEndpoint"));
+        clientChainLzEndpoint = ILayerZeroEndpointV2(
+            stdJson.readAddress(prerequisiteContracts, string.concat(".", clientChainName, ".lzEndpoint"))
+        );
         require(address(clientChainLzEndpoint) != address(0), "client chain l0 endpoint should not be empty");
-        beaconOracle = EigenLayerBeaconOracle(stdJson.readAddress(prerequisiteContracts, ".clientChain.beaconOracle"));
+        beaconOracle = EigenLayerBeaconOracle(
+            stdJson.readAddress(prerequisiteContracts, string.concat(".", clientChainName, ".beaconOracle"))
+        );
         require(address(beaconOracle) != address(0), "beacon oracle should not be empty");
-        vaultBeacon = UpgradeableBeacon(stdJson.readAddress(prerequisiteContracts, ".clientChain.vaultBeacon"));
+        vaultBeacon = UpgradeableBeacon(
+            stdJson.readAddress(prerequisiteContracts, string.concat(".", clientChainName, ".vaultBeacon"))
+        );
         require(address(vaultBeacon) != address(0), "vault beacon should not be empty");
-        rewardVaultBeacon =
-            UpgradeableBeacon(stdJson.readAddress(prerequisiteContracts, ".clientChain.rewardVaultBeacon"));
+        rewardVaultBeacon = UpgradeableBeacon(
+            stdJson.readAddress(prerequisiteContracts, string.concat(".", clientChainName, ".rewardVaultBeacon"))
+        );
         require(address(rewardVaultBeacon) != address(0), "reward vault beacon should not be empty");
-        capsuleBeacon = UpgradeableBeacon(stdJson.readAddress(prerequisiteContracts, ".clientChain.capsuleBeacon"));
+        capsuleBeacon = UpgradeableBeacon(
+            stdJson.readAddress(prerequisiteContracts, string.concat(".", clientChainName, ".capsuleBeacon"))
+        );
         require(address(capsuleBeacon) != address(0), "capsule beacon should not be empty");
-        beaconProxyBytecode =
-            BeaconProxyBytecode(stdJson.readAddress(prerequisiteContracts, ".clientChain.beaconProxyBytecode"));
+        beaconProxyBytecode = BeaconProxyBytecode(
+            stdJson.readAddress(prerequisiteContracts, string.concat(".", clientChainName, ".beaconProxyBytecode"))
+        );
         require(address(beaconProxyBytecode) != address(0), "beacon proxy bytecode should not be empty");
-        bootstrap = Bootstrap(stdJson.readAddress(prerequisiteContracts, ".clientChain.bootstrap"));
+        bootstrap =
+            Bootstrap(stdJson.readAddress(prerequisiteContracts, string.concat(".", clientChainName, ".bootstrap")));
         require(address(bootstrap) != address(0), "bootstrap should not be empty");
-        clientChainProxyAdmin = CustomProxyAdmin(stdJson.readAddress(prerequisiteContracts, ".clientChain.proxyAdmin"));
+        clientChainProxyAdmin = CustomProxyAdmin(
+            stdJson.readAddress(prerequisiteContracts, string.concat(".", clientChainName, ".proxyAdmin"))
+        );
         require(address(clientChainProxyAdmin) != address(0), "client chain proxy admin should not be empty");
-        clientChain = vm.createSelectFork(clientChainRPCURL);
     }
 
     function run() public {
@@ -60,7 +71,7 @@ contract RedeployClientChainGateway is BaseScript {
 
         // Create ImmutableConfig struct
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            imuachainChainId: imuachainChainId,
+            imuachainChainId: imuachainEndpointId,
             beaconOracleAddress: address(beaconOracle),
             vaultBeacon: address(vaultBeacon),
             imuaCapsuleBeacon: address(capsuleBeacon),
@@ -82,7 +93,7 @@ contract RedeployClientChainGateway is BaseScript {
             vm.serializeAddress(clientChainContracts, "clientGatewayLogic", address(clientGatewayLogic));
 
         string memory deployedContracts = "deployedContracts";
-        string memory finalJson = vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
+        string memory finalJson = vm.serializeString(deployedContracts, clientChainName, clientChainContractsOutput);
 
         vm.writeJson(finalJson, "script/deployments/redeployClientChainGateway.json");
     }
