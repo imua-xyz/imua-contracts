@@ -1,5 +1,5 @@
 {
-  "clientChain": {
+  "sepolia": {
     "clientGatewayLogic": "0x7B06d8032021a828F0DaD25808bf4F3177cC67cB"
   }
 }

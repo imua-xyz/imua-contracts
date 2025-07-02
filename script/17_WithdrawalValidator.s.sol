@@ -44,11 +44,14 @@ contract WithdrawalValidatorScript is BaseScript {
 
         string memory deployedContracts = vm.readFile("script/deployments/deployedContracts.json");
 
-        clientGateway =
-            IClientChainGateway(payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway")));
+        clientGateway = IClientChainGateway(
+            payable(stdJson.readAddress(deployedContracts, string.concat(".", clientChainName, ".clientChainGateway")))
+        );
         require(address(clientGateway) != address(0), "clientGateway address should not be empty");
 
-        beaconOracle = EigenLayerBeaconOracle(stdJson.readAddress(deployedContracts, ".clientChain.beaconOracle"));
+        beaconOracle = EigenLayerBeaconOracle(
+            stdJson.readAddress(deployedContracts, string.concat(".", clientChainName, ".beaconOracle"))
+        );
         require(address(beaconOracle) != address(0), "beacon oracle address should not be empty");
 
         // load beacon chain validator container and proof from json file
@@ -63,10 +66,8 @@ contract WithdrawalValidatorScript is BaseScript {
         }
 
         // transfer some gas fee to depositor, relayer and imuachain gateway
-        clientChain = vm.createSelectFork(clientChainRPCURL);
         _topUpPlayer(clientChain, address(0), deployer, depositor.addr, 0.2 ether);
 
-        imuachain = vm.createSelectFork(imuachainRPCURL);
         _topUpPlayer(imuachain, address(0), imuachainGenesis, address(imuachainGateway), 1 ether);
     }
 

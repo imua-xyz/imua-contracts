@@ -18,11 +18,8 @@ contract DeployScript is BaseScript {
 
         string memory prerequisites = vm.readFile("script/deployments/prerequisiteContracts.json");
 
-        tokenAddr = stdJson.readAddress(prerequisites, ".clientChain.erc20Token");
+        tokenAddr = stdJson.readAddress(prerequisites, string.concat(".", clientChainName, ".erc20Token"));
         require(tokenAddr != address(0), "token address should not be empty");
-
-        clientChain = vm.createSelectFork(clientChainRPCURL);
-        imuachain = vm.createSelectFork(imuachainRPCURL);
 
         // boolean to decide which item is being deployed on which chain
         // true => client chain, imETH faucet

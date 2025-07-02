@@ -23,14 +23,19 @@ contract SetupScript is BaseScript {
 
         string memory deployedContracts = vm.readFile("script/deployments/deployedContracts.json");
 
-        clientGateway =
-            IClientChainGateway(payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway")));
+        clientGateway = IClientChainGateway(
+            payable(stdJson.readAddress(deployedContracts, string.concat(".", clientChainName, ".clientChainGateway")))
+        );
         require(address(clientGateway) != address(0), "clientGateway address should not be empty");
 
-        clientChainLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(deployedContracts, ".clientChain.lzEndpoint"));
+        clientChainLzEndpoint = ILayerZeroEndpointV2(
+            stdJson.readAddress(deployedContracts, string.concat(".", clientChainName, ".lzEndpoint"))
+        );
         require(address(clientChainLzEndpoint) != address(0), "clientChainLzEndpoint address should not be empty");
 
-        restakeToken = ERC20PresetFixedSupply(stdJson.readAddress(deployedContracts, ".clientChain.erc20Token"));
+        restakeToken = ERC20PresetFixedSupply(
+            stdJson.readAddress(deployedContracts, string.concat(".", clientChainName, ".erc20Token"))
+        );
         require(address(restakeToken) != address(0), "restakeToken address should not be empty");
 
         imuachainGateway =
@@ -41,10 +46,8 @@ contract SetupScript is BaseScript {
         require(address(imuachainLzEndpoint) != address(0), "imuachainLzEndpoint address should not be empty");
 
         // transfer some gas fee to contract owner
-        clientChain = vm.createSelectFork(clientChainRPCURL);
         _topUpPlayer(clientChain, address(0), deployer, owner.addr, 0.2 ether);
 
-        imuachain = vm.createSelectFork(imuachainRPCURL);
         _topUpPlayer(imuachain, address(0), imuachainGenesis, owner.addr, 0.2 ether);
 
         if (!useImuachainPrecompileMock) {
@@ -67,7 +70,7 @@ contract SetupScript is BaseScript {
 
         // as LzReceivers, client chain gateway should set imuachainGateway as trusted remote to receive messages from
         // it
-        clientGateway.setPeer(imuachainChainId, address(imuachainGateway).toBytes32());
+        clientGateway.setPeer(imuachainEndpointId, address(imuachainGateway).toBytes32());
         vm.stopBroadcast();
 
         // 2. setup imuachain contracts to make them ready for sending and receiving messages from client chain
@@ -85,7 +88,12 @@ contract SetupScript is BaseScript {
         // register clientChainId to imuachain native module and set peer for client chain gateway to be ready for
         // messaging
         imuachainGateway.registerOrUpdateClientChain(
-            clientChainId, address(clientGateway).toBytes32(), 20, "ClientChain", "EVM compatible network", "secp256k1"
+            clientChainEndpointId,
+            address(clientGateway).toBytes32(),
+            20,
+            "ClientChain",
+            "EVM compatible network",
+            "secp256k1"
         );
         vm.stopBroadcast();
 
@@ -123,13 +131,13 @@ contract SetupScript is BaseScript {
         uint256 nativeFee;
         for (uint256 i = 0; i < whitelistTokensBytes32.length; i++) {
             nativeFee = imuachainGateway.quote(
-                clientChainId,
+                clientChainEndpointId,
                 abi.encodePacked(
                     Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokensBytes32[i], tvlLimits[i])
                 )
             );
             imuachainGateway.addWhitelistToken{value: nativeFee}(
-                clientChainId,
+                clientChainEndpointId,
                 whitelistTokensBytes32[i],
                 decimals[i],
                 names[i],

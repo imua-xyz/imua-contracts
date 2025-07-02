@@ -38,45 +38,55 @@ contract CorrectBootstrapErrors is BaseScript {
         super.setUp();
         // load contracts
         string memory prerequisiteContracts = vm.readFile("script/deployments/prerequisiteContracts.json");
-        clientChainLzEndpoint =
-            ILayerZeroEndpointV2(stdJson.readAddress(prerequisiteContracts, ".clientChain.lzEndpoint"));
+        clientChainLzEndpoint = ILayerZeroEndpointV2(
+            stdJson.readAddress(prerequisiteContracts, string.concat(".", clientChainName, ".lzEndpoint"))
+        );
         require(address(clientChainLzEndpoint) != address(0), "Client chain endpoint not found");
-        restakeToken = ERC20PresetFixedSupply(stdJson.readAddress(prerequisiteContracts, ".clientChain.erc20Token"));
+        restakeToken = ERC20PresetFixedSupply(
+            stdJson.readAddress(prerequisiteContracts, string.concat(".", clientChainName, ".erc20Token"))
+        );
         require(address(restakeToken) != address(0), "Restake token not found");
         clientChain = vm.createSelectFork(clientChainRPCURL);
         // we should use the pre-requisite to save gas instead of deploying our own
-        beaconOracle = EigenLayerBeaconOracle(stdJson.readAddress(prerequisiteContracts, ".clientChain.beaconOracle"));
+        beaconOracle = EigenLayerBeaconOracle(
+            stdJson.readAddress(prerequisiteContracts, string.concat(".", clientChainName, ".beaconOracle"))
+        );
         require(address(beaconOracle) != address(0), "Beacon oracle not found");
         // same for BeaconProxyBytecode
-        beaconProxyBytecode =
-            BeaconProxyBytecode(stdJson.readAddress(prerequisiteContracts, ".clientChain.beaconProxyBytecode"));
+        beaconProxyBytecode = BeaconProxyBytecode(
+            stdJson.readAddress(prerequisiteContracts, string.concat(".", clientChainName, ".beaconProxyBytecode"))
+        );
         require(address(beaconProxyBytecode) != address(0), "Beacon proxy bytecode not found");
         // wstETH on Sepolia
         // https://docs.lido.fi/deployed-contracts/sepolia/
-        wstETH = stdJson.readAddress(prerequisiteContracts, ".clientChain.wstETH");
+        wstETH = stdJson.readAddress(prerequisiteContracts, string.concat(".", clientChainName, ".wstETH"));
         require(wstETH != address(0), "wstETH not found");
 
         string memory deployed = vm.readFile("script/deployments/deployedBootstrapOnly.json");
 
-        proxyAddress = stdJson.readAddress(deployed, ".clientChain.bootstrap");
+        proxyAddress = stdJson.readAddress(deployed, string.concat(".", clientChainName, ".bootstrap"));
         require(address(proxyAddress) != address(0), "bootstrap address should not be empty");
 
-        proxyAdmin = stdJson.readAddress(deployed, ".clientChain.proxyAdmin");
+        proxyAdmin = stdJson.readAddress(deployed, string.concat(".", clientChainName, ".proxyAdmin"));
         require(address(proxyAdmin) != address(0), "proxy admin address should not be empty");
 
-        vaultImplementation = Vault(stdJson.readAddress(deployed, ".clientChain.vaultImplementation"));
+        vaultImplementation =
+            Vault(stdJson.readAddress(deployed, string.concat(".", clientChainName, ".vaultImplementation")));
         require(address(vaultImplementation) != address(0), "vault implementation should not be empty");
 
-        vaultBeacon = UpgradeableBeacon(stdJson.readAddress(deployed, ".clientChain.vaultBeacon"));
+        vaultBeacon =
+            UpgradeableBeacon(stdJson.readAddress(deployed, string.concat(".", clientChainName, ".vaultBeacon")));
         require(address(vaultBeacon) != address(0), "vault beacon should not be empty");
 
-        clientGatewayLogic = stdJson.readAddress(deployed, ".clientChain.clientGatewayLogic");
+        clientGatewayLogic = stdJson.readAddress(deployed, string.concat(".", clientChainName, ".clientGatewayLogic"));
         require(clientGatewayLogic != address(0), "client gateway should not be empty");
 
-        beaconOracle = EigenLayerBeaconOracle(stdJson.readAddress(deployed, ".clientChain.beaconOracle"));
+        beaconOracle =
+            EigenLayerBeaconOracle(stdJson.readAddress(deployed, string.concat(".", clientChainName, ".beaconOracle")));
         require(address(beaconOracle) != address(0), "beacon oracle should not be empty");
 
-        capsuleBeacon = UpgradeableBeacon(stdJson.readAddress(deployed, ".clientChain.capsuleBeacon"));
+        capsuleBeacon =
+            UpgradeableBeacon(stdJson.readAddress(deployed, string.concat(".", clientChainName, ".capsuleBeacon")));
         require(address(capsuleBeacon) != address(0), "imuacapsule beacon should not be empty");
 
         initialization = abi.encodeCall(ClientChainGateway.initialize, (payable(owner.addr)));
@@ -92,7 +102,7 @@ contract CorrectBootstrapErrors is BaseScript {
 
         // Create ImmutableConfig struct
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            imuachainChainId: imuachainChainId,
+            imuachainChainId: imuachainEndpointId,
             beaconOracleAddress: address(beaconOracle),
             vaultBeacon: address(vaultBeacon),
             imuaCapsuleBeacon: address(capsuleBeacon),
@@ -134,7 +144,7 @@ contract CorrectBootstrapErrors is BaseScript {
             vm.serializeAddress(clientChainContracts, "beaconOracle", address(beaconOracle));
 
         string memory deployedContracts = "deployedContracts";
-        string memory finalJson = vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
+        string memory finalJson = vm.serializeString(deployedContracts, clientChainName, clientChainContractsOutput);
 
         vm.writeJson(finalJson, "script/deployments/correctBootstrapErrors.json");
     }

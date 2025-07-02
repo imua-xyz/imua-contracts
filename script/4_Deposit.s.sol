@@ -22,17 +22,22 @@ contract DepositScript is BaseScript {
 
         string memory deployedContracts = vm.readFile("script/deployments/deployedContracts.json");
 
-        clientGateway =
-            IClientChainGateway(payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway")));
+        clientGateway = IClientChainGateway(
+            payable(stdJson.readAddress(deployedContracts, string.concat(".", clientChainName, ".clientChainGateway")))
+        );
         require(address(clientGateway) != address(0), "clientGateway address should not be empty");
 
-        clientChainLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(deployedContracts, ".clientChain.lzEndpoint"));
+        clientChainLzEndpoint = ILayerZeroEndpointV2(
+            stdJson.readAddress(deployedContracts, string.concat(".", clientChainName, ".lzEndpoint"))
+        );
         require(address(clientChainLzEndpoint) != address(0), "clientChainLzEndpoint address should not be empty");
 
-        restakeToken = ERC20PresetFixedSupply(stdJson.readAddress(deployedContracts, ".clientChain.erc20Token"));
+        restakeToken = ERC20PresetFixedSupply(
+            stdJson.readAddress(deployedContracts, string.concat(".", clientChainName, ".erc20Token"))
+        );
         require(address(restakeToken) != address(0), "restakeToken address should not be empty");
 
-        vault = IVault(stdJson.readAddress(deployedContracts, ".clientChain.resVault"));
+        vault = IVault(stdJson.readAddress(deployedContracts, string.concat(".", clientChainName, ".resVault")));
         require(address(vault) != address(0), "vault address should not be empty");
 
         imuachainGateway =
@@ -47,11 +52,9 @@ contract DepositScript is BaseScript {
         }
 
         // transfer some gas fee to depositor, relayer and imuachain gateway
-        clientChain = vm.createSelectFork(clientChainRPCURL);
         _topUpPlayer(clientChain, address(0), deployer, depositor.addr, 0.2 ether);
         _topUpPlayer(clientChain, address(restakeToken), owner, depositor.addr, 2 * DEPOSIT_AMOUNT);
 
-        imuachain = vm.createSelectFork(imuachainRPCURL);
         _topUpPlayer(imuachain, address(0), imuachainGenesis, relayer.addr, 0.2 ether);
         _topUpPlayer(imuachain, address(0), imuachainGenesis, address(imuachainGateway), 2 ether);
     }
@@ -79,15 +82,15 @@ contract DepositScript is BaseScript {
         if (useEndpointMock) {
             vm.selectFork(imuachain);
             vm.startBroadcast(relayer.privateKey);
-            uint64 nonce = imuachainGateway.nextNonce(clientChainId, address(clientGateway).toBytes32());
+            uint64 nonce = imuachainGateway.nextNonce(clientChainEndpointId, address(clientGateway).toBytes32());
             imuachainLzEndpoint.lzReceive{gas: 500_000}(
-                Origin(clientChainId, address(clientGateway).toBytes32(), nonce),
+                Origin(clientChainEndpointId, address(clientGateway).toBytes32(), nonce),
                 address(imuachainGateway),
                 GUID.generate(
                     nonce,
-                    clientChainId,
+                    clientChainEndpointId,
                     address(clientGateway),
-                    imuachainChainId,
+                    imuachainEndpointId,
                     address(imuachainGateway).toBytes32()
                 ),
                 msg_,

@@ -1,5 +1,5 @@
 {
-  "clientChain": {
+  "sepolia": {
     "beaconOracle": "0xd3D285cd1516038dAED61B8BF7Ae2daD63662492",
     "beaconProxyBytecode": "0xA15Ce26ba8E50ac21ecDa1791BAa3bf22a95b575",
     "bootstrap": "0x53f39D2ECd900Fb018180dB692A9fc29c8efD38E",
