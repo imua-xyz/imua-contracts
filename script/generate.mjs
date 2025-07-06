@@ -256,8 +256,7 @@ async function updateGenesisFile() {
       assetIds.push(token.tokenAddress.toLowerCase() + clientChainSuffix);
       let oracleToken;
       const oracleTokenFeeder = {
-        token_id: oracleTokenFeeders.length.toString(),
-        rule_id: "1",
+        token_id: oracleTokens.length.toString(),
         start_round_id: "1",
         start_base_block: (height + 20).toString(),
         interval: "30",
@@ -275,6 +274,7 @@ async function updateGenesisFile() {
           asset_id: "NST" + clientChainSuffix,
           decimal: 0,
         };
+		oracleTokenFeeder.rule_id = "3";
       } else {
         if (token.tokenAddress == VIRTUAL_STAKED_ETH_ADDR) {
           throw new Error('Oracle name refers to LST token but this is NST');
@@ -287,6 +287,7 @@ async function updateGenesisFile() {
           asset_id: token.tokenAddress.toLowerCase() + clientChainSuffix,
           decimal: 8,
         };
+		oracleTokenFeeder.rule_id = "2";
       }
       // check that the same token name exists already. if so, append to it.
       let found = false;
@@ -344,15 +345,6 @@ async function updateGenesisFile() {
         end_block: "0",
       });
     }
-    genesisJSON.app_state.oracle.params.token_feeders = oracleTokenFeeders.map((feeder) => {
-      if (feeder.token_id == "0") {
-        // first position is reserved
-        return feeder;
-      }
-      // update the height for the past ones too
-      feeder.start_base_block = (height + 20).toString();
-      return feeder;
-    });
     supportedTokens.sort((a, b) => {
       if (a.asset_basic_info.symbol < b.asset_basic_info.symbol) {
         return -1;
