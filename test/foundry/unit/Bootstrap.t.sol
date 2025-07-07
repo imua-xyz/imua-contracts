@@ -1730,78 +1730,23 @@ contract BootstrapTest is Test {
         vm.stopPrank();
     }
 
-    function test27_WithdrawNonBeaconChainETHFromCapsule() public {
-        _enableNativeRestaking();
-
-        // First create a capsule
-        vm.startPrank(addrs[0]);
-        bootstrap.createImuaCapsule();
-
-        uint256 withdrawAmount = 1 ether;
-        address payable recipient = payable(addrs[1]);
-
-        // Mock the capsule withdrawal call
-        vm.mockCall(
-            address(bootstrap.ownerToCapsule(addrs[0])),
-            abi.encodeWithSelector(IImuaCapsule.withdrawNonBeaconChainETHBalance.selector),
-            abi.encode()
-        );
-
-        bootstrap.withdrawNonBeaconChainETHFromCapsule(recipient, withdrawAmount);
-        vm.stopPrank();
-    }
-
-    function test27_WithdrawNonBeaconChainETHFromCapsule_NoCapsule() public {
+    function test28_ClaimNSTFromImuachain() public {
         _enableNativeRestaking();
 
         vm.startPrank(addrs[0]);
-
-        uint256 withdrawAmount = 1 ether;
-        address payable recipient = payable(addrs[1]);
-
-        vm.expectRevert(Errors.CapsuleDoesNotExist.selector);
-        bootstrap.withdrawNonBeaconChainETHFromCapsule(recipient, withdrawAmount);
-        vm.stopPrank();
-    }
-
-    function test27_WithdrawNonBeaconChainETHFromCapsule_WhenDisabled() public {
-        _disableNativeRestaking();
-
-        vm.startPrank(addrs[0]);
-        uint256 withdrawAmount = 1 ether;
-        address payable recipient = payable(addrs[1]);
-
-        vm.expectRevert(Errors.NativeRestakingControllerNotWhitelisted.selector);
-        bootstrap.withdrawNonBeaconChainETHFromCapsule(recipient, withdrawAmount);
-        vm.stopPrank();
-    }
-
-    function test28_ProcessBeaconChainWithdrawal() public {
-        _enableNativeRestaking();
-
-        vm.startPrank(addrs[0]);
-
-        bytes32[] memory validatorContainer = new bytes32[](3);
-        BeaconChainProofs.ValidatorContainerProof memory validatorProof;
-        bytes32[] memory withdrawalContainer = new bytes32[](3);
-        BeaconChainProofs.WithdrawalProof memory withdrawalProof;
 
         vm.expectRevert(Errors.NotYetSupported.selector);
-        bootstrap.processBeaconChainWithdrawal(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
+        bootstrap.claimNSTFromImuachain(0);
         vm.stopPrank();
     }
 
-    function test28_ProcessBeaconChainWithdrawal_WhenDisabled() public {
+    function test28_ClaimNSTFromImuachain_WhenDisabled() public {
         _disableNativeRestaking();
 
         vm.startPrank(addrs[0]);
-        bytes32[] memory validatorContainer = new bytes32[](3);
-        BeaconChainProofs.ValidatorContainerProof memory validatorProof;
-        bytes32[] memory withdrawalContainer = new bytes32[](3);
-        BeaconChainProofs.WithdrawalProof memory withdrawalProof;
 
         vm.expectRevert(Errors.NativeRestakingControllerNotWhitelisted.selector);
-        bootstrap.processBeaconChainWithdrawal(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
+        bootstrap.claimNSTFromImuachain(0);
         vm.stopPrank();
     }
 

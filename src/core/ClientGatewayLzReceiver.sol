@@ -76,21 +76,32 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     // slither-disable-next-line reentrancy-no-eth
     function _handleResponse(bytes calldata response) internal {
         (uint64 requestId, Action requestAct, bytes memory cachedRequest) = _getCachedRequestForResponse(response);
+        bool requestSuccess = _isSuccess(response);
 
         if (!requestAct.isWithdrawal()) {
             revert Errors.UnsupportedResponse(requestAct);
         }
 
-        bool requestSuccess = _isSuccess(response);
-        if (requestSuccess) {
-            (address token, address staker, uint256 amount) = _decodeCachedRequest(cachedRequest);
-
-            if (requestAct.isPrincipal()) {
-                _unlockPrincipal(token, staker, amount);
-            } else if (requestAct.isReward()) {
+        if (requestAct.isPrincipal()) {
+            if (requestAct.isNST()) {
+                (, address staker, uint256 amount) = _decodeCachedRequest(cachedRequest);
+                IImuaCapsule capsule = _getCapsule(staker);
+                capsule.endClaimNST(); // we should end the claim progress to set the inClaimProgress flag to false no
+                    // matter the success or failure of the request
+                if (requestSuccess) {
+                    capsule.unlockETHPrincipal(amount);
+                }
+            } else if (requestAct.isLST()) {
+                if (requestSuccess) {
+                    (address token, address staker, uint256 amount) = _decodeCachedRequest(cachedRequest);
+                    IVault vault = _getVault(token);
+                    vault.unlockPrincipal(staker, amount);
+                }
+            }
+        } else if (requestAct.isReward()) {
+            if (requestSuccess) {
+                (address token, address staker, uint256 amount) = _decodeCachedRequest(cachedRequest);
                 _unlockReward(token, staker, amount);
-            } else {
-                revert Errors.UnsupportedResponse(requestAct);
             }
         }
 
@@ -141,22 +152,6 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         success = (uint8(bytes1(response[9])) == 1);
 
         return success;
-    }
-
-    /**
-     * @dev Unlocks the principal by increasing the withdrawable balance of the principal.
-     * @param token The address of the token.
-     * @param staker The address of the staker.
-     * @param amount The amount of the operation.
-     */
-    function _unlockPrincipal(address token, address staker, uint256 amount) internal {
-        if (token == VIRTUAL_NST_ADDRESS) {
-            IImuaCapsule capsule = _getCapsule(staker);
-            capsule.unlockETHPrincipal(amount);
-        } else {
-            IVault vault = _getVault(token);
-            vault.unlockPrincipal(staker, amount);
-        }
     }
 
     /**

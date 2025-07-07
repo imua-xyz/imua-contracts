@@ -7,21 +7,20 @@ import {INativeRestakingController} from "../interfaces/INativeRestakingControll
 import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 import {Endian} from "../libraries/Endian.sol";
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
-import {WithdrawalContainer} from "../libraries/WithdrawalContainer.sol";
 import {ImuaCapsuleStorage} from "../storage/ImuaCapsuleStorage.sol";
 
+import {Errors} from "../libraries/Errors.sol";
 import {IBeaconChainOracle} from "@beacon-oracle/contracts/src/IBeaconChainOracle.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-
 /// @title ImuaCapsule
 /// @author imua-xyz
 /// @notice The ImuaCapsule contract is used to stake, deposit and withdraw from the Imuachain beacon chain.
+
 contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCapsule {
 
     using BeaconChainProofs for bytes32;
     using Endian for bytes32;
     using ValidatorContainer for bytes32[];
-    using WithdrawalContainer for bytes32[];
 
     /// @notice Emitted when the ETH principal balance is unlocked.
     /// @param owner The address of the capsule owner.
@@ -34,44 +33,19 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
     /// @param amount The amount withdrawn.
     event WithdrawalSuccess(address owner, address recipient, uint256 amount);
 
-    /// @notice Emitted when a partial withdrawal claim is successfully redeemed
-    /// @param pubkeyHash The validator's BLS12-381 public key hash.
-    /// @param withdrawalEpoch The epoch at which the withdrawal was made.
-    /// @param recipient The address of the recipient of the withdrawal.
-    /// @param partialWithdrawalAmountGwei The amount of the partial withdrawal in Gwei.
-    event PartialWithdrawalRedeemed(
-        bytes32 pubkeyHash, uint256 withdrawalEpoch, address indexed recipient, uint64 partialWithdrawalAmountGwei
-    );
+    /// @notice Emitted when a NST claim is started.
+    event NSTClaimStarted();
 
-    /// @notice Emitted when an ETH validator is prove to have fully withdrawn from the beacon chain
-    /// @param pubkeyHash The validator's BLS12-381 public key hash.
-    /// @param withdrawalEpoch The epoch at which the withdrawal was made.
-    /// @param recipient The address of the recipient of the withdrawal.
-    /// @param withdrawalAmountGwei The amount of the withdrawal in Gwei.
-    event FullWithdrawalRedeemed(
-        bytes32 pubkeyHash, uint64 withdrawalEpoch, address indexed recipient, uint64 withdrawalAmountGwei
-    );
+    /// @notice Emitted when a NST claim is ended.
+    event NSTClaimEnded();
 
     /// @notice Emitted when capsuleOwner enables restaking
     /// @param capsuleOwner The address of the capsule owner.
     event RestakingActivated(address indexed capsuleOwner);
 
-    /// @notice Emitted when ETH is received via the `receive` fallback
-    /// @param amountReceived The amount of ETH received
-    event NonBeaconChainETHReceived(uint256 amountReceived);
-
-    /// @notice Emitted when ETH that was previously received via the `receive` fallback is withdrawn
-    /// @param recipient The address of the recipient of the withdrawal
-    /// @param amountWithdrawn The amount of ETH withdrawn
-    event NonBeaconChainETHWithdrawn(address indexed recipient, uint256 amountWithdrawn);
-
     /// @dev Thrown when the validator container is invalid.
     /// @param pubkeyHash The validator's BLS12-381 public key hash.
     error InvalidValidatorContainer(bytes32 pubkeyHash);
-
-    /// @dev Thrown when the withdrawal container is invalid.
-    /// @param validatorIndex The validator index.
-    error InvalidWithdrawalContainer(uint64 validatorIndex);
 
     /// @dev Thrown when a validator is double deposited.
     /// @param pubkeyHash The validator's BLS12-381 public key hash.
@@ -82,23 +56,9 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
     /// @param timestamp The timestamp of the validator proof.
     error StaleValidatorContainer(bytes32 pubkeyHash, uint256 timestamp);
 
-    /// @dev Thrown when a withdrawal has already been proven.
-    /// @param pubkeyHash The validator's BLS12-381 public key hash.
-    /// @param withdrawalIndex The index of the withdrawal.
-    error WithdrawalAlreadyProven(bytes32 pubkeyHash, uint256 withdrawalIndex);
-
     /// @dev Thrown when a validator container is unregistered.
     /// @param pubkeyHash The validator's BLS12-381 public key hash.
     error UnregisteredValidator(bytes32 pubkeyHash);
-
-    /// @dev Thrown when a validator container is unregistered or withdrawn.
-    /// @param pubkeyHash The validator's BLS12-381 public key hash.
-    error UnregisteredOrWithdrawnValidatorContainer(bytes32 pubkeyHash);
-
-    /// @dev Thrown when the validator and withdrawal state roots do not match.
-    /// @param validatorStateRoot The state root of the validator container.
-    /// @param withdrawalStateRoot The state root of the withdrawal container.
-    error UnmatchedValidatorAndWithdrawal(bytes32 validatorStateRoot, bytes32 withdrawalStateRoot);
 
     /// @dev Thrown when the beacon chain oracle does not have the root at the given timestamp.
     /// @param oracle The address of the beacon chain oracle.
@@ -113,10 +73,6 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
 
     /// @dev Thrown when the validator's withdrawal credentials differ from the expected credentials.
     error WithdrawalCredentialsNotMatch();
-
-    /// @dev Thrown when the validator container is inactive.
-    /// @param pubkeyHash The validator's BLS12-381 public key hash.
-    error InactiveValidatorContainer(bytes32 pubkeyHash);
 
     /// @dev Thrown when the caller of a message is not the gateway
     /// @param gateway The address of the gateway.
@@ -135,12 +91,6 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
     /// @param networkConfig_ network configuration contract address.
     constructor(address networkConfig_) ImuaCapsuleStorage(networkConfig_) {
         _disableInitializers();
-    }
-
-    /// @notice Fallback function to receive ETH from outside the beacon chain.
-    receive() external payable {
-        nonBeaconChainETHBalance += msg.value;
-        emit NonBeaconChainETHReceived(msg.value);
     }
 
     /// @inheritdoc IImuaCapsule
@@ -198,58 +148,26 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
     }
 
     /// @inheritdoc IImuaCapsule
-    function verifyWithdrawalProof(
-        bytes32[] calldata validatorContainer,
-        BeaconChainProofs.ValidatorContainerProof calldata validatorProof,
-        bytes32[] calldata withdrawalContainer,
-        BeaconChainProofs.WithdrawalProof calldata withdrawalProof
-    ) external onlyGateway returns (bool partialWithdrawal, uint256 withdrawalAmount) {
-        bytes32 validatorPubkeyHash = validatorContainer.getPubkeyHash();
-        Validator storage validator = _capsuleValidators[validatorPubkeyHash];
-        uint64 withdrawalEpoch = withdrawalProof.slotRoot.getWithdrawalEpoch(getSlotsPerEpoch());
-        partialWithdrawal = withdrawalEpoch < validatorContainer.getWithdrawableEpoch();
-        uint256 withdrawalId = uint256(withdrawalContainer.getWithdrawalIndex());
-
-        if (!validatorContainer.verifyValidatorContainerBasic()) {
-            revert InvalidValidatorContainer(validatorPubkeyHash);
+    function startClaimNST(uint256 amount) external onlyGateway {
+        if (inClaimProgress) {
+            revert Errors.ClaimAlreadyInProgress();
         }
-        if (validator.status == VALIDATOR_STATUS.UNREGISTERED) {
-            revert UnregisteredOrWithdrawnValidatorContainer(validatorPubkeyHash);
+        if (amount > address(this).balance - withdrawableBalance) {
+            revert Errors.InsufficientBalance();
         }
-
-        if (provenWithdrawal[validatorPubkeyHash][withdrawalId]) {
-            revert WithdrawalAlreadyProven(validatorPubkeyHash, withdrawalId);
+        if (block.timestamp < lastClaimTimestamp + MIN_CLAIM_INTERVAL) {
+            revert Errors.TooEarlySinceLastClaim();
         }
+        inClaimProgress = true;
 
-        provenWithdrawal[validatorPubkeyHash][withdrawalId] = true;
+        emit NSTClaimStarted();
+    }
 
-        // Validate if validator and withdrawal proof state roots are the same
-        if (validatorProof.stateRoot != withdrawalProof.stateRoot) {
-            revert UnmatchedValidatorAndWithdrawal(validatorProof.stateRoot, withdrawalProof.stateRoot);
-        }
+    /// @inheritdoc IImuaCapsule
+    function endClaimNST() external onlyGateway {
+        inClaimProgress = false;
 
-        _verifyValidatorContainer(validatorContainer, validatorProof);
-        _verifyWithdrawalContainer(withdrawalContainer, withdrawalProof);
-
-        uint64 withdrawalAmountGwei = withdrawalContainer.getAmount();
-
-        if (partialWithdrawal) {
-            // Immediately send ETH without sending request to Imuachain side
-            emit PartialWithdrawalRedeemed(validatorPubkeyHash, withdrawalEpoch, capsuleOwner, withdrawalAmountGwei);
-            _sendETH(capsuleOwner, withdrawalAmountGwei * GWEI_TO_WEI);
-        } else {
-            // Full withdrawal
-            validator.status = VALIDATOR_STATUS.WITHDRAWN;
-            // If over MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 32 * 1e9, then send remaining amount immediately
-            emit FullWithdrawalRedeemed(validatorPubkeyHash, withdrawalEpoch, capsuleOwner, withdrawalAmountGwei);
-            if (withdrawalAmountGwei > MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) {
-                uint256 amountToSend = (withdrawalAmountGwei - MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) * GWEI_TO_WEI;
-                _sendETH(capsuleOwner, amountToSend);
-                withdrawalAmount = MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR * GWEI_TO_WEI;
-            } else {
-                withdrawalAmount = withdrawalAmountGwei * GWEI_TO_WEI;
-            }
-        }
+        emit NSTClaimEnded();
     }
 
     /// @inheritdoc IImuaCapsule
@@ -263,29 +181,10 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         emit WithdrawalSuccess(capsuleOwner, recipient, amount);
     }
 
-    /// @notice Withdraws the nonBeaconChainETHBalance
-    /// @dev This function must be called through the gateway. @param amountToWithdraw can not be greater than
-    /// the available nonBeaconChainETHBalance.
-    /// @param recipient The payable destination address to which the ETH are sent.
-    /// @param amountToWithdraw The amount to withdraw.
-    function withdrawNonBeaconChainETHBalance(address payable recipient, uint256 amountToWithdraw)
-        external
-        onlyGateway
-    {
-        require(
-            amountToWithdraw <= nonBeaconChainETHBalance,
-            "ImuaCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"
-        );
-        require(recipient != address(0), "ImuaCapsule: recipient address cannot be zero or empty");
-
-        nonBeaconChainETHBalance -= amountToWithdraw;
-        _sendETH(recipient, amountToWithdraw);
-        emit NonBeaconChainETHWithdrawn(recipient, amountToWithdraw);
-    }
-
     /// @inheritdoc IImuaCapsule
     function unlockETHPrincipal(uint256 unlockPrincipalAmount) external onlyGateway {
         withdrawableBalance += unlockPrincipalAmount;
+        lastClaimTimestamp = block.timestamp;
 
         emit ETHPrincipalUnlocked(capsuleOwner, unlockPrincipalAmount);
     }
@@ -339,6 +238,11 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         return validator;
     }
 
+    /// @inheritdoc IImuaCapsule
+    function isInClaimProgress() external view returns (bool) {
+        return inClaimProgress;
+    }
+
     /// @dev Sends @param amountWei of ETH to the @param recipient.
     /// @param recipient The address of the payable recipient.
     /// @param amountWei The amount of ETH to send, in wei.
@@ -371,44 +275,10 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         }
     }
 
-    /// @dev Verifies a withdrawal container.
-    /// @param withdrawalContainer The withdrawal container to verify.
-    /// @param proof The proof of the withdrawal container.
-    function _verifyWithdrawalContainer(
-        bytes32[] calldata withdrawalContainer,
-        BeaconChainProofs.WithdrawalProof calldata proof
-    ) internal view {
-        // To-do check withdrawalContainer length is valid
-        bytes32 withdrawalContainerRoot = withdrawalContainer.merkleizeWithdrawalContainer();
-        bool valid = withdrawalContainerRoot.isValidWithdrawalContainerRoot(proof, getDenebHardForkTimestamp());
-        if (!valid) {
-            revert InvalidWithdrawalContainer(withdrawalContainer.getValidatorIndex());
-        }
-    }
-
     /// @dev Checks if the proof is stale (too old).
     /// @param proofTimestamp The timestamp of the proof.
     function _isStaleProof(uint256 proofTimestamp) internal view returns (bool) {
         return proofTimestamp + VERIFY_BALANCE_UPDATE_WINDOW_SECONDS < block.timestamp;
-    }
-
-    /// @dev Checks if the validator has fully withdrawn.
-    /// @param validatorContainer The validator container.
-    /// @return True if the validator has fully withdrawn, false otherwise.
-    function _hasFullyWithdrawn(bytes32[] calldata validatorContainer) internal view returns (bool) {
-        return validatorContainer.getWithdrawableEpoch() <= _timestampToEpoch(block.timestamp)
-            && validatorContainer.getEffectiveBalance() == 0;
-    }
-
-    /// @dev Converts a timestamp to a beacon chain epoch by calculating the number of
-    /// seconds since genesis, and dividing by seconds per epoch.
-    /// reference: https://github.com/ethereum/consensus-specs/blob/dev/specs/bellatrix/beacon-chain.md
-    /// @param timestamp The timestamp to convert.
-    /// @return The epoch number.
-    function _timestampToEpoch(uint256 timestamp) internal view returns (uint64) {
-        uint256 beaconChainGenesisTime = getBeaconGenesisTimestamp();
-        require(timestamp >= beaconChainGenesisTime, "timestamp should be greater than beacon chain genesis timestamp");
-        return uint64((timestamp - beaconChainGenesisTime) / getSecondsPerEpoch());
     }
 
 }

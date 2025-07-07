@@ -6,7 +6,11 @@ import {Action} from "../storage/GatewayStorage.sol";
 library ActionAttributes {
 
     // Message length constants
-    uint256 internal constant ASSET_OPERATION_LENGTH = 97;
+    uint256 internal constant LST_ASSET_OPERATION_LENGTH = 97;
+    uint256 internal constant NST_DEPOSIT_LENGTH = 97; // 96 bytes for the staker address + amount + validator index, 1
+        // byte for action encoding
+    uint256 internal constant NST_WITHDRAWAL_LENGTH = 65; // 64 bytes for the staker address + amount, 1 byte for action
+        // encoding
     uint256 internal constant DELEGATION_OPERATION_LENGTH = 138;
     // 1 + 32 + 32 + 32 + 41 + 1 = 139
     uint256 internal constant UNDELEGATION_OPERATION_LENGTH = 139;
@@ -30,25 +34,24 @@ library ActionAttributes {
 
         if (action == Action.REQUEST_DEPOSIT_LST) {
             attributes = LST | PRINCIPAL;
-            messageLength = ASSET_OPERATION_LENGTH;
+            messageLength = LST_ASSET_OPERATION_LENGTH;
         } else if (action == Action.REQUEST_DEPOSIT_NST) {
             // we assume that a validatorID is at least 32 bytes, however, it is up for review.
             attributes = NST | PRINCIPAL | MIN_LENGTH_FLAG;
-            messageLength = ASSET_OPERATION_LENGTH;
+            messageLength = NST_DEPOSIT_LENGTH;
         } else if (action == Action.REQUEST_WITHDRAW_LST) {
             attributes = LST | PRINCIPAL | WITHDRAWAL;
-            messageLength = ASSET_OPERATION_LENGTH;
+            messageLength = LST_ASSET_OPERATION_LENGTH;
         } else if (action == Action.REQUEST_WITHDRAW_NST) {
-            // we assume that a validatorID is at least 32 bytes, however, it is up for review.
-            attributes = NST | PRINCIPAL | WITHDRAWAL | MIN_LENGTH_FLAG;
-            messageLength = ASSET_OPERATION_LENGTH;
+            attributes = NST | PRINCIPAL | WITHDRAWAL;
+            messageLength = NST_WITHDRAWAL_LENGTH;
         } else if (action == Action.REQUEST_CLAIM_REWARD) {
             attributes = REWARD | WITHDRAWAL;
-            messageLength = ASSET_OPERATION_LENGTH;
+            messageLength = LST_ASSET_OPERATION_LENGTH;
         } else if (action == Action.REQUEST_SUBMIT_REWARD) {
             // New action
             attributes = REWARD;
-            messageLength = ASSET_OPERATION_LENGTH;
+            messageLength = LST_ASSET_OPERATION_LENGTH;
         } else if (action == Action.REQUEST_DELEGATE_TO) {
             messageLength = DELEGATION_OPERATION_LENGTH;
         } else if (action == Action.REQUEST_UNDELEGATE_FROM) {
