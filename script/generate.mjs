@@ -756,12 +756,15 @@ async function updateGenesisFile() {
     const operator_records = genesisJSON.app_state.operator.operator_records;
     const opt_states = genesisJSON.app_state.operator.opt_states;
     const avs_usd_values = genesisJSON.app_state.operator.avs_usd_values;
-    const operator_asset_usd_values = genesisJSON.state.operator.operator_asset_usd_values;
+    const operator_asset_usd_values = genesisJSON.app_state.operator.operator_asset_usd_values;
     const operator_usd_values = genesisJSON.app_state.operator.operator_usd_values;
     const chain_id_without_revision = getChainIDWithoutPrevision(genesisJSON.chain_id);
     const dogfoodAddr = generateAVSAddr(chain_id_without_revision);
 
     // x/feedistribution: set the correct AVS address for dogfood.
+    if (!genesisJSON.app_state.feedistribution?.params?.all_avs_reward_assets?.length) {
+      throw new Error('all_avs_reward_assets is missing or empty in feedistribution params');
+    }
     genesisJSON.app_state.feedistribution.params.all_avs_reward_assets[0].avs = dogfoodAddr;
 
     for (let i = 0; i < operatorsCount; i++) {
@@ -858,7 +861,7 @@ async function updateGenesisFile() {
           div('1e' + decimals[j]).mul(exchangeRates[j].toFixed());
         // set the asset USD value for operator
         const assetId = tokenAddress.toLowerCase() + clientChainSuffix;
-        const assetUsdValuekey = getJoinedStoreKey(dogfoodEpochID, opAddressIm,assetId);
+        const assetUsdValuekey = getJoinedStoreKey(dogfoodEpochID, opAddressIm, assetId);
         operator_asset_usd_values.push({
           key: assetUsdValuekey,
           value: {
