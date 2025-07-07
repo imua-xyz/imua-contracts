@@ -69,7 +69,7 @@ const isValidBech32 = (address) => {
 
 
 // Load variables from .env file
-const { 
+const {
   INTEGRATION_BEACON_CHAIN_ENDPOINT,
   CLIENT_CHAIN_RPC,
   INTEGRATION_BOOTSTRAP_ADDRESS,
@@ -80,14 +80,14 @@ const {
 
 
 if (
-    !INTEGRATION_BEACON_CHAIN_ENDPOINT ||
-    !CLIENT_CHAIN_RPC ||
-    !INTEGRATION_BOOTSTRAP_ADDRESS ||
-    !INTEGRATION_BASE_GENESIS_FILE_PATH ||
-    !INTEGRATION_RESULT_GENESIS_FILE_PATH ||
-    !INTEGRATION_EXCHANGE_RATES
+  !INTEGRATION_BEACON_CHAIN_ENDPOINT ||
+  !CLIENT_CHAIN_RPC ||
+  !INTEGRATION_BOOTSTRAP_ADDRESS ||
+  !INTEGRATION_BASE_GENESIS_FILE_PATH ||
+  !INTEGRATION_RESULT_GENESIS_FILE_PATH ||
+  !INTEGRATION_EXCHANGE_RATES
 ) {
-    throw new Error('One or more required environment variables are missing.');
+  throw new Error('One or more required environment variables are missing.');
 }
 
 import pkg from 'js-sha3';
@@ -128,17 +128,17 @@ async function updateGenesisFile() {
     // Create contract instance
     const myContract = new web3.eth.Contract(contractABI, INTEGRATION_BOOTSTRAP_ADDRESS);
     // Create beacon API client
-    const api = getClient({baseUrl: INTEGRATION_BEACON_CHAIN_ENDPOINT}, {config});
+    const api = getClient({ baseUrl: INTEGRATION_BEACON_CHAIN_ENDPOINT }, { config });
     const spec = (await api.config.getSpec()).value();
     const maxEffectiveBalance = new Decimal(web3.utils.toWei(spec.MAX_EFFECTIVE_BALANCE, 'gwei'));
     const ejectionBalance = new Decimal(web3.utils.toWei(spec.EJECTION_BALANCE, 'gwei'));
     const slotsPerEpoch = parseInt(spec.SLOTS_PER_EPOCH, 10);
-    let lastHeader = (await api.beacon.getBlockHeader({blockId: "finalized"})).value();
+    let lastHeader = (await api.beacon.getBlockHeader({ blockId: "finalized" })).value();
     const finalizedSlot = lastHeader.header.message.slot;
     const finalizedEpoch = Math.floor(finalizedSlot / slotsPerEpoch);
     if (finalizedSlot % slotsPerEpoch != 0) {
       // change the header
-      lastHeader = (await api.beacon.getBlockHeader({blockId: finalizedEpoch * slotsPerEpoch})).value();
+      lastHeader = (await api.beacon.getBlockHeader({ blockId: finalizedEpoch * slotsPerEpoch })).value();
     }
     const stateRoot = web3.utils.bytesToHex(lastHeader.header.message.stateRoot);
 
@@ -170,6 +170,12 @@ async function updateGenesisFile() {
     const spawnTimeInSeconds = spawnTime.toString();
     const spawnDate = new Date(spawnTimeInSeconds * 1000).toISOString();
     genesisJSON.genesis_time = spawnDate;
+
+    // get and validate the epoch indentifier in dogfood params.
+    const dogfoodEpochID = genesisJSON.app_state.dogfood.params.epoch_identifier;
+    if (dogfoodEpochID == "") {
+      throw new Error('invalid epoch identifier in dogfood parameter.');
+    }
 
     // x/assets: client_chains (client_chain.go)
     if (!genesisJSON.app_state) {
@@ -399,7 +405,7 @@ async function updateGenesisFile() {
             throw new Error('No pubkeys found for the staker.');
           }
           const pubKeys = [];
-          for(let k = 0; k < pubKeyCount; k++) {
+          for (let k = 0; k < pubKeyCount; k++) {
             pubKeys.push(await myContract.methods.stakerToPubkeyIDs(stakerAddress, k).call());
           }
           if (pubKeys.length == 0) {
@@ -413,14 +419,14 @@ async function updateGenesisFile() {
           };
           staker_index_counter += 1;
           const validatorStates = (await api.beacon.getStateValidators(
-            {stateId: stateRoot, validatorIds: pubKeys.map(pubKey => parseInt(pubKey, 16))}
+            { stateId: stateRoot, validatorIds: pubKeys.map(pubKey => parseInt(pubKey, 16)) }
           )).value();
           let totalEffectiveBalance = ZERO_DECIMAL;
           let balances = [];
           // remember that these validators are specific to the provided staker address.
           // a validator is identified by its public key (or validator index), while a staker
           // is identified by its address. each staker may have multiple validators.
-          for(let k = 0; k < validatorStates.length; k++) {
+          for (let k = 0; k < validatorStates.length; k++) {
             // we cannot drop validators even though they may be slashed. this is because
             // even after slashing, the validators will retain 16 ETH of total balance.
             // this must be allowed to be withdrawn after Imuachain is launched. since the
@@ -576,7 +582,7 @@ async function updateGenesisFile() {
               let impactedValidators = [];
               let impactedValidatorsCount =
                 await myContract.methods.getValidatorsCountForStakerToken(stakerAddress, tokenAddress).call();
-              for(let k = 0; k < impactedValidatorsCount; k++) {
+              for (let k = 0; k < impactedValidatorsCount; k++) {
                 let impactedValidator =
                   await myContract.methods.stakerToTokenToValidators(stakerAddress, tokenAddress, k).call();
                 impactedValidators.push(impactedValidator);
@@ -655,7 +661,7 @@ async function updateGenesisFile() {
         );
         let totalSlashing = ZERO_DECIMAL;
         let selfSlashing = ZERO_DECIMAL;
-        for(let k = 0; k < matchingEntries.length; k++) {
+        for (let k = 0; k < matchingEntries.length; k++) {
           let matchingEntry = matchingEntries[k];
           let delegation = await myContract.methods.delegations(
             matchingEntry.staker, validatorImAddress, tokenAddress
@@ -742,6 +748,7 @@ async function updateGenesisFile() {
         power: new Decimal(validator.power),
       }
     });
+
     const operators = genesisJSON.app_state.operator.operators;
     const associations = genesisJSON.app_state.delegation.associations;
     const operatorsCount = await myContract.methods.getValidatorsCount().call();
@@ -749,9 +756,13 @@ async function updateGenesisFile() {
     const operator_records = genesisJSON.app_state.operator.operator_records;
     const opt_states = genesisJSON.app_state.operator.opt_states;
     const avs_usd_values = genesisJSON.app_state.operator.avs_usd_values;
+    const operator_asset_usd_values = genesisJSON.state.operator.operator_asset_usd_values;
     const operator_usd_values = genesisJSON.app_state.operator.operator_usd_values;
     const chain_id_without_revision = getChainIDWithoutPrevision(genesisJSON.chain_id);
     const dogfoodAddr = generateAVSAddr(chain_id_without_revision);
+
+    // x/feedistribution: set the correct AVS address for dogfood.
+    genesisJSON.app_state.feedistribution.params.all_avs_reward_assets[0].avs = dogfoodAddr;
 
     for (let i = 0; i < operatorsCount; i++) {
       // operators
@@ -813,14 +824,14 @@ async function updateGenesisFile() {
         const tokenAddress =
           (await myContract.methods.getWhitelistedTokenAtIndex(j).call()).tokenAddress;
         let selfDelegationAmount = new Decimal((await myContract.methods.delegations(
-            opAddressHex, opAddressIm, tokenAddress
+          opAddressHex, opAddressIm, tokenAddress
         ).call()).toString());
         let matchingEntries = slashProportions.filter(
           (element) => element.token === tokenAddress && element.impacted_validators.includes(opAddressIm)
         );
         let totalSlashing = ZERO_DECIMAL;
         let selfSlashing = ZERO_DECIMAL;
-        for(let k = 0; k < matchingEntries.length; k++) {
+        for (let k = 0; k < matchingEntries.length; k++) {
           let matchingEntry = matchingEntries[k];
           let delegation = await myContract.methods.delegations(
             matchingEntry.staker, opAddressIm, tokenAddress
@@ -842,10 +853,21 @@ async function updateGenesisFile() {
         const perTokenDelegation = new Decimal((await myContract.methods.delegationsByValidator(
           opAddressIm, tokenAddress
         ).call()).toString()).minus(totalSlashing).truncated();
+
+        const usdValuePerToken = perTokenDelegation.
+          div('1e' + decimals[j]).mul(exchangeRates[j].toFixed());
+        // set the asset USD value for operator
+        const assetId = tokenAddress.toLowerCase() + clientChainSuffix;
+        const assetUsdValuekey = getJoinedStoreKey(dogfoodEpochID, opAddressIm,assetId);
+        operator_asset_usd_values.push({
+          key: assetUsdValuekey,
+          value: {
+            amount: usdValuePerToken.toFixed(),
+          },
+        });
+
         totalAmount = totalAmount.plus(
-          perTokenDelegation.
-            div('1e' + decimals[j]).
-            mul(exchangeRates[j].toFixed())
+          usdValuePerToken
         );
         // break;
       }
@@ -950,10 +972,22 @@ async function updateGenesisFile() {
       }
       return 0;
     });
+
+    // operator_assset usd_values
+    operator_asset_usd_values.sort((a, b) => {
+      if (a.key < b.key) {
+        return -1;
+      }
+      if (a.key > b.key) {
+        return 1;
+      }
+      return 0;
+    });
     genesisJSON.app_state.operator.operators = operators;
     genesisJSON.app_state.operator.operator_records = operator_records;
     genesisJSON.app_state.operator.opt_states = opt_states;
     genesisJSON.app_state.operator.avs_usd_values = avs_usd_values;
+    genesisJSON.app_state.operator.operator_asset_usd_values = operator_asset_usd_values;
     genesisJSON.app_state.operator.operator_usd_values = operator_usd_values;
     // dogfood: val_set
     validators.sort((a, b) => {
@@ -1020,7 +1054,7 @@ async function updateGenesisFile() {
             (element) => element.token === tokenAddress && element.impacted_validators.includes(operator)
           );
           let totalSlashing = ZERO_DECIMAL;
-          for(let k = 0; k < matchingEntries.length; k++) {
+          for (let k = 0; k < matchingEntries.length; k++) {
             let matchingEntry = matchingEntries[k];
             let delegation = await myContract.methods.delegations(
               matchingEntry.staker, operator, tokenAddress
