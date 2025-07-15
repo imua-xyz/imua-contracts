@@ -56,8 +56,8 @@ contract ImuaCapsuleStorage {
     /// @notice Conversion factor from gwei to wei.
     uint256 public constant GWEI_TO_WEI = 1e9;
 
-    /// @notice The maximum amount of balance that a validator can restake, in gwei.
-    uint64 public constant MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 32e9;
+    /// @notice The maximum amount of effective balance that a validator can restake, in gwei.
+    uint64 public constant AFTER_PECTRA_MAX_EFFECTIVE_BALANCE_GWEI_PER_VALIDATOR = 2048e9;
 
     /// @notice The minimum interval between successful NST claims.
     uint256 public constant MIN_CLAIM_INTERVAL = 10 minutes;

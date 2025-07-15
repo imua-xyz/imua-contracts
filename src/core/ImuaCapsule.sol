@@ -138,8 +138,8 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         validator.status = VALIDATOR_STATUS.REGISTERED;
         validator.validatorIndex = proof.validatorIndex;
         uint64 depositAmountGwei = validatorContainer.getEffectiveBalance();
-        if (depositAmountGwei > MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) {
-            depositAmount = MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR * GWEI_TO_WEI;
+        if (depositAmountGwei > AFTER_PECTRA_MAX_EFFECTIVE_BALANCE_GWEI_PER_VALIDATOR) {
+            depositAmount = AFTER_PECTRA_MAX_EFFECTIVE_BALANCE_GWEI_PER_VALIDATOR * GWEI_TO_WEI;
         } else {
             depositAmount = depositAmountGwei * GWEI_TO_WEI;
         }
