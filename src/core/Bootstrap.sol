@@ -733,7 +733,10 @@ contract Bootstrap is
         nonReentrant
         nativeRestakingEnabled
     {
-        if (msg.value != 32 ether) {
+        if (
+            msg.value < AFTER_PECTRA_MIN_ACTIVATION_BALANCE_ETH_PER_VALIDATOR
+                || msg.value > AFTER_PECTRA_MAX_EFFECTIVE_BALANCE_ETH_PER_VALIDATOR
+        ) {
             revert Errors.NativeRestakingControllerInvalidStakeValue();
         }
 
