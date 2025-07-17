@@ -45,15 +45,17 @@ contract Vault is Initializable, VaultStorage, IVault {
         }
 
         tvlLimit = tvlLimit_;
-        emit TvlLimitUpdated(tvlLimit);
-        // do not set to 0 to avoid unnecessary sstore and save gas
-        // consumedTvl = 0;
-        emit ConsumedTvlChanged(consumedTvl);
-
-        // the gateway cannot be updated, so we don't emit an event.
+        // use `tvlLimit_` to avoid unnecessary sload
+        emit TvlLimitUpdated(tvlLimit_);
+        // at the time of init, the storage value is 0.
+        // do not explictly store or read it to save gas.
+        emit ConsumedTvlChanged(0);
+        // emit these events to aid indexation
+        // even though the values cannot be changed once set.
         gateway = ILSTRestakingController(gateway_);
-        // the underlying token cannot be updated, so we don't emit an event.
+        emit GatewaySet(gateway_);
         underlyingToken = IERC20(underlyingToken_);
+        emit UnderlyingTokenSet(underlyingToken_);
     }
 
     /// @inheritdoc IVault
