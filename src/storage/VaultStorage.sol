@@ -54,6 +54,18 @@ contract VaultStorage {
     /// @param consumed The total amount consumed, including the current transaction.
     event ConsumedTvlChanged(uint256 consumed);
 
+    /// @notice Emitted when the underlying token is set.
+    /// @param underlyingToken The address of the underlying token.
+    /// @dev Since a token cannot be changed once set, this event is only emitted once
+    /// for ease of indexation.
+    event UnderlyingTokenSet(address underlyingToken);
+
+    /// @notice Emitted when the gateway is set.
+    /// @param gateway The address of the gateway.
+    /// @dev Since a gateway cannot be changed once set, this event is only emitted once
+    /// to aid indexation.
+    event GatewaySet(address gateway);
+
     /// @dev Storage gap to allow for future upgrades.
     uint256[40] private __gap;
 

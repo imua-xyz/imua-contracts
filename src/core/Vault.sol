@@ -44,10 +44,18 @@ contract Vault is Initializable, VaultStorage, IVault {
             revert Errors.ZeroAddress();
         }
 
-        underlyingToken = IERC20(underlyingToken_);
         tvlLimit = tvlLimit_;
+        // use `tvlLimit_` to avoid unnecessary sload
+        emit TvlLimitUpdated(tvlLimit_);
+        // at the time of init, the storage value is 0.
+        // do not explictly store or read it to save gas.
+        emit ConsumedTvlChanged(0);
+        // emit these events to aid indexation
+        // even though the values cannot be changed once set.
         gateway = ILSTRestakingController(gateway_);
-        consumedTvl = 0;
+        emit GatewaySet(gateway_);
+        underlyingToken = IERC20(underlyingToken_);
+        emit UnderlyingTokenSet(underlyingToken_);
     }
 
     /// @inheritdoc IVault
