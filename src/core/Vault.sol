@@ -46,7 +46,8 @@ contract Vault is Initializable, VaultStorage, IVault {
 
         tvlLimit = tvlLimit_;
         emit TvlLimitUpdated(tvlLimit);
-        consumedTvl = 0;
+        // do not set to 0 to avoid unnecessary sstore and save gas
+        // consumedTvl = 0;
         emit ConsumedTvlChanged(consumedTvl);
 
         // the gateway cannot be updated, so we don't emit an event.
