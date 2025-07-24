@@ -75,7 +75,7 @@ Must include the following required outputs (in any order):
 2. No input can be from the vault address
 3. Must have exactly one vault output with sufficient amount
 4. Must have exactly one OP_RETURN output
-5. OP_RETURN must be exactly 64 bytes (20 + 42)
+5. OP_RETURN must be exactly 61 bytes (20 + 41)
 6. Validator address must be registered in bootstrap contract
 7. For subsequent stakes from same Bitcoin address:
    - Imuachain address must match the first stake's address
@@ -84,7 +84,7 @@ Must include the following required outputs (in any order):
 ### Address Format Requirements
 
 1. Imuachain address must be exactly 20 bytes
-2. Validator address must be exactly 42 bytes in bech32 format
+2. Validator address must be exactly 41 bytes in bech32 format
 3. Validator address must be registered in bootstrap contract
 4. Addresses must be properly encoded
 
