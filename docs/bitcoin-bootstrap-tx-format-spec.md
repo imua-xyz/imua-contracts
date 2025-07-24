@@ -24,7 +24,7 @@ Must include the following required outputs (in any order):
 
 2. **OP_RETURN Output**
    - Contains future Imuachain address and validator address (required for bootstrap)
-   - Format: `OP_RETURN <20-byte Imuachain address><41-byte validator address as UTF-8>`
+   - Format: `OP_RETURN <length> <20-byte Imuachain address> <41-byte validator address as UTF-8>`
    - Scriptpubkey format:
      - `6a`: OP_RETURN
      - Length byte: `3D` (61) for bootstrap stake (always includes validator)
@@ -33,10 +33,10 @@ Must include the following required outputs (in any order):
    - Examples:
 
      ```bash
-     HEX: 6a407d8bf59ba2e0b64bc4620a08844d34e2c56f9c3c65786f313368617372343376767138763434787078683066366c7975796d346b63613938663837673761630a
+     HEX: 6a3d7d8bf59ba2e0b64bc4620a08844d34e2c56f9c3c696d31336861737234337676713876343478707a68306c367975796d346b636139386638376a376163
      Display in wallet/explorer:
-       - First 20 bytes (Imuachain): 7d8bf59ba2e0b64bc4620a08844d34e2c56f9c3c
-       - Next 42 bytes (Validator): im13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac
+       - 20 bytes (Imuachain): 7d8bf59ba2e0b64bc4620a08844d34e2c56f9c3c
+       - 41 bytes (Validator): im13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac
      ```
 
 3. **Change Output(s)** (Optional)
@@ -114,14 +114,14 @@ This format is designed to be compatible with post-bootstrap UTXOGateway with th
 
 - Validator address is mandatory
 - Format always includes both addresses
-- Length is always 64 bytes (20 + 42)
+- Size is always 63 bytes (op code + length + 20 + 41)
 - All stakes must be delegated to a validator
 
 **Post-Bootstrap (UTXOGateway):**
 
 - Operator address is optional
 - Two possible formats:
-  1. Deposit only: `OP_RETURN <20-byte Imuachain address>`
-  2. Deposit with delegation: `OP_RETURN <20-byte Imuachain address><41-byte operator address>`
-- Length can be 20 or 64 bytes
+  1. Deposit only: `OP_RETURN <length> <20-byte Imuachain address>`
+  2. Deposit with delegation: `OP_RETURN <length> <20-byte Imuachain address> <41-byte operator address>`
+- Size is either 22 bytes or 63 bytes
 - Delegation to operator is optional

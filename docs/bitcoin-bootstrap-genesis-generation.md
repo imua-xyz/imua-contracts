@@ -21,9 +21,9 @@ A valid Bitcoin stake transaction must:
 2. Not originate from the vault address
 3. Contain exactly one output to the vault address with amount ≥ minimum stake (configurable, default: 0.1 BTC)
 4. Contain exactly one OP_RETURN output with the following format:
-   - Prefix: `6a3D` (OP_RETURN with 61 bytes of data)
-   - First 40 bytes: Imuachain address (hex format)
-   - Remaining bytes: Validator address (bech32 format with 'im' prefix)
+   - Prefix: `6a3D` (OP_RETURN with length followed by 61 bytes of data)
+   - First 20 bytes: Imuachain address (hex format)
+   - Remaining 41 bytes: Validator address (bech32 format with 'im' prefix)
 5. Have the validator registered in the bootstrap contract
 
 ### Transaction Data Extraction
