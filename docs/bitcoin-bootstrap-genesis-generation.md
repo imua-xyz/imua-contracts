@@ -29,6 +29,7 @@ A valid Bitcoin stake transaction must:
 ### Transaction Data Extraction
 
 From each valid transaction, we extract:
+
 - Transaction ID (`txid`)
 - Block height
 - Transaction index in block
@@ -116,6 +117,7 @@ The genesis state is generated with the following modules:
 ## Validation and Sorting
 
 To ensure deterministic output:
+
 1. All arrays are sorted (typically by ID or key)
 2. Validators are sorted by power (descending)
 3. In case of equal power, validators are sorted by address
