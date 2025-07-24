@@ -11,6 +11,8 @@ import "src/interfaces/IImuaCapsule.sol";
 
 import "src/libraries/BeaconChainProofs.sol";
 import "src/libraries/Endian.sol";
+
+import {Errors} from "src/libraries/Errors.sol";
 import {ImuaCapsuleStorage} from "src/storage/ImuaCapsuleStorage.sol";
 
 contract DepositSetup is Test {
@@ -336,7 +338,6 @@ contract WithdrawalSetup is Test {
     BeaconChainProofs.ValidatorContainerProof validatorProof;
 
     bytes32[] withdrawalContainer;
-    BeaconChainProofs.WithdrawalProof withdrawalProof;
     bytes32 beaconBlockRoot; // latest beacon block root
 
     ImuaCapsule capsule;
@@ -355,6 +356,7 @@ contract WithdrawalSetup is Test {
     uint256 mockProofTimestamp;
     uint256 mockCurrentBlockTimestamp;
     uint256 activationTimestamp;
+    uint256 depositAmount;
 
     function setUp() public {
         vm.chainId(1); // set chainid to 1 so that capsule implementation can use default network constants
@@ -394,14 +396,12 @@ contract WithdrawalSetup is Test {
             abi.encode(beaconBlockRoot)
         );
 
-        uint256 depositAmount = capsule.verifyDepositProof(validatorContainer, validatorProof);
+        depositAmount = capsule.verifyDepositProof(validatorContainer, validatorProof);
 
         ImuaCapsuleStorage.Validator memory validator =
             capsule.getRegisteredValidatorByPubkey(_getPubkey(validatorContainer));
         assertEq(uint8(validator.status), uint8(ImuaCapsuleStorage.VALIDATOR_STATUS.REGISTERED));
         assertEq(validator.validatorIndex, validatorProof.validatorIndex);
-
-        vm.deal(address(capsule), 1 ether); // Deposit 1 ether to handle excess amount withdraw
     }
 
     function _setValidatorContainer(string memory validatorInfo) internal {
@@ -421,36 +421,6 @@ contract WithdrawalSetup is Test {
 
         beaconBlockRoot = stdJson.readBytes32(validatorInfo, ".latestBlockHeaderRoot");
         require(beaconBlockRoot != bytes32(0), "beacon block root should not be empty");
-    }
-
-    function _setWithdrawalContainer(string memory withdrawalInfo) internal {
-        withdrawalContainer = stdJson.readBytes32Array(withdrawalInfo, ".WithdrawalFields");
-        require(withdrawalContainer.length > 0, "validator container should not be empty");
-
-        // bytes32 array proof data
-        withdrawalProof.withdrawalContainerRootProof = stdJson.readBytes32Array(withdrawalInfo, ".WithdrawalProof");
-        withdrawalProof.slotProof = stdJson.readBytes32Array(withdrawalInfo, ".SlotProof");
-        withdrawalProof.executionPayloadRootProof = stdJson.readBytes32Array(withdrawalInfo, ".ExecutionPayloadProof");
-        withdrawalProof.timestampProof = stdJson.readBytes32Array(withdrawalInfo, ".TimestampProof");
-        withdrawalProof.historicalSummaryBlockRootProof =
-            stdJson.readBytes32Array(withdrawalInfo, ".HistoricalSummaryProof");
-
-        // Index data
-        withdrawalProof.blockRootIndex = stdJson.readUint(withdrawalInfo, ".blockHeaderRootIndex");
-        require(withdrawalProof.blockRootIndex != 0, "block header root index should not be 0");
-
-        withdrawalProof.historicalSummaryIndex = stdJson.readUint(withdrawalInfo, ".historicalSummaryIndex");
-        require(withdrawalProof.historicalSummaryIndex != 0, "historical summary index should not be 0");
-
-        withdrawalProof.withdrawalIndex = stdJson.readUint(withdrawalInfo, ".withdrawalIndex");
-
-        // Root data
-        withdrawalProof.blockRoot = stdJson.readBytes32(withdrawalInfo, ".blockHeaderRoot");
-        withdrawalProof.slotRoot = stdJson.readBytes32(withdrawalInfo, ".slotRoot");
-        withdrawalProof.timestampRoot = stdJson.readBytes32(withdrawalInfo, ".timestampRoot");
-        withdrawalProof.executionPayloadRoot = stdJson.readBytes32(withdrawalInfo, ".executionPayloadRoot");
-        withdrawalProof.stateRoot = stdJson.readBytes32(withdrawalInfo, ".beaconStateRoot");
-        require(withdrawalProof.stateRoot != bytes32(0), "state root should not be empty");
     }
 
     function _setTimeStamp() internal {
@@ -497,72 +467,48 @@ contract WithdrawalSetup is Test {
 contract VerifyWithdrawalProof is WithdrawalSetup {
 
     using BeaconChainProofs for bytes32;
-    using WithdrawalContainer for bytes32[];
     using stdStorage for StdStorage;
 
-    function test_NonBeaconChainETHWithdraw() public {
-        assertEq(capsule.nonBeaconChainETHBalance(), 0);
-        address sender = vm.addr(1);
-        vm.startPrank(sender);
-        vm.deal(sender, 1 ether);
-        (bool sent,) = address(capsule).call{value: 0.5 ether}("");
-        assertEq(sent, true);
-        assertEq(capsule.nonBeaconChainETHBalance(), 0.5 ether);
-        vm.stopPrank();
+    uint256 constant MIN_CLAIM_INTERVAL = 10 minutes;
 
-        address recipient = vm.addr(2);
-        capsule.withdrawNonBeaconChainETHBalance(payable(recipient), 0.2 ether);
-        assertEq(recipient.balance, 0.2 ether);
-        assertEq(capsule.nonBeaconChainETHBalance(), 0.3 ether);
-
-        vm.expectRevert(
-            bytes(
-                "ImuaCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"
-            )
-        );
-        capsule.withdrawNonBeaconChainETHBalance(payable(recipient), 0.5 ether);
+    function test_startClaimNST_success() public {
+        // simulate beacon chain withdrawal that transfers deposit amount to the capsule
+        vm.deal(address(capsule), depositAmount);
+        assertEq(address(capsule).balance, depositAmount);
+        capsule.startClaimNST(depositAmount);
     }
 
-    function test_processFullWithdrawal_success() public setValidatorContainerAndTimestampForFullWithdrawal {
-        capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
+    function test_startClaimNST_revert_ExceedClaimableBalance() public {
+        // simulate beacon chain withdrawal that transfers deposit amount to the capsule
+        vm.deal(address(capsule), depositAmount);
+        uint256 claimableBalance = address(capsule).balance - capsule.withdrawableBalance();
+        vm.expectRevert(abi.encodeWithSelector(Errors.InsufficientBalance.selector));
+        capsule.startClaimNST(claimableBalance + 0.1 ether);
     }
 
-    function test_processFullWithdrawal_revert_AlreadyProcessed()
-        public
-        setValidatorContainerAndTimestampForFullWithdrawal
-    {
-        capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
+    function test_startClaimNST_revert_HasClaimInProgress() public {
+        // simulate beacon chain withdrawal that transfers deposit amount to the capsule
+        vm.deal(address(capsule), depositAmount);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ImuaCapsule.WithdrawalAlreadyProven.selector,
-                _getPubkey(validatorContainer),
-                uint256(_getWithdrawalIndex(withdrawalContainer))
-            )
-        );
-        capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
+        uint256 claimableBalance = address(capsule).balance - capsule.withdrawableBalance();
+        // start a claim to make capsule in claim progress
+        capsule.startClaimNST(claimableBalance / 3);
+
+        vm.expectRevert(abi.encodeWithSelector(Errors.ClaimAlreadyInProgress.selector));
+        capsule.startClaimNST(claimableBalance / 3);
     }
 
-    function test_processPartialWithdrawal_success() public setValidatorContainerAndTimestampForPartialWithdrawal {
-        capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
-    }
+    function test_startClaimNST_revert_TooEarlySinceLastClaim() public {
+        // simulate beacon chain withdrawal that transfers deposit amount to the capsule
+        vm.deal(address(capsule), depositAmount);
+        // simulate the claim is successful and updates the last claim timestamp
+        capsule.unlockETHPrincipal(depositAmount);
 
-    modifier setValidatorContainerAndTimestampForFullWithdrawal() {
-        string memory withdrawalInfo = vm.readFile("test/foundry/test-data/full_withdrawal_proof.json");
-        _setValidatorContainer(withdrawalInfo);
-        _setWithdrawalContainer(withdrawalInfo);
+        uint256 claimableBalance = address(capsule).balance - capsule.withdrawableBalance();
 
-        _setTimeStamp();
-        _;
-    }
-
-    modifier setValidatorContainerAndTimestampForPartialWithdrawal() {
-        string memory withdrawalInfo = vm.readFile("test/foundry/test-data/partial_withdrawal_proof.json");
-        _setValidatorContainer(withdrawalInfo);
-        _setWithdrawalContainer(withdrawalInfo);
-
-        _setTimeStamp();
-        _;
+        vm.warp(block.timestamp + MIN_CLAIM_INTERVAL - 1 seconds);
+        vm.expectRevert(abi.encodeWithSelector(Errors.TooEarlySinceLastClaim.selector));
+        capsule.startClaimNST(claimableBalance / 3);
     }
 
 }

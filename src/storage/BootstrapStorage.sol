@@ -25,6 +25,36 @@ import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 contract BootstrapStorage is GatewayStorage {
 
     /* -------------------------------------------------------------------------- */
+    /*     constants and immutables(hardcoded into code so not part of state)     */
+    /* -------------------------------------------------------------------------- */
+
+    /// @notice The beacon for the ImuaCapsule contract, which stores the ImuaCapsule implementation.
+    IBeacon public immutable IMUA_CAPSULE_BEACON;
+
+    /// @notice The address of the beacon chain oracle.
+    address public immutable BEACON_ORACLE_ADDRESS;
+
+    /// @dev The (virtual) address for native staking token.
+    address internal constant VIRTUAL_NST_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
+    /// @dev The address of the ETHPOS deposit contract.
+    IETHPOSDeposit internal immutable ETH_POS;
+
+    /// @notice Used to identify the specific chain this contract interacts with for cross-chain functionalities.
+    /// @dev Stores the Layer Zero chain ID of Imuachain.
+    uint32 public immutable IMUACHAIN_CHAIN_ID;
+
+    /// @notice This stores the Vault implementation contract address for proxy, and it is shared among all beacon
+    /// proxies.
+    IBeacon public immutable VAULT_BEACON;
+
+    /// @notice The minimum amount of ETH required to activate a validator after Pectra, in ETH.
+    uint256 public constant AFTER_PECTRA_MIN_ACTIVATION_BALANCE_ETH_PER_VALIDATOR = 32 ether;
+
+    /// @notice The maximum amount that a validator can stake to Ethereum after Pectra, in ETH.
+    uint256 public constant AFTER_PECTRA_MAX_EFFECTIVE_BALANCE_ETH_PER_VALIDATOR = 2048 ether;
+
+    /* -------------------------------------------------------------------------- */
     /*               state variables exclusively owned by Bootstrap               */
     /* -------------------------------------------------------------------------- */
 
@@ -132,26 +162,6 @@ contract BootstrapStorage is GatewayStorage {
     /// contract instance handling its operations.
     /// @dev Maps token addresses to their corresponding vault contracts.
     mapping(address token => IVault vault) public tokenToVault;
-
-    /// @notice The beacon for the ImuaCapsule contract, which stores the ImuaCapsule implementation.
-    IBeacon public immutable IMUA_CAPSULE_BEACON;
-
-    /// @notice The address of the beacon chain oracle.
-    address public immutable BEACON_ORACLE_ADDRESS;
-
-    /// @dev The (virtual) address for native staking token.
-    address internal constant VIRTUAL_NST_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-
-    /// @dev The address of the ETHPOS deposit contract.
-    IETHPOSDeposit internal immutable ETH_POS;
-
-    /// @notice Used to identify the specific chain this contract interacts with for cross-chain functionalities.
-    /// @dev Stores the Layer Zero chain ID of Imuachain.
-    uint32 public immutable IMUACHAIN_CHAIN_ID;
-
-    /// @notice This stores the Vault implementation contract address for proxy, and it is shared among all beacon
-    /// proxies.
-    IBeacon public immutable VAULT_BEACON;
 
     /// @notice A standalone contract that is dedicated for providing the bytecode of beacon proxy contract.
     /// @dev We do not store bytecode of beacon proxy contract in this storage because that would cause the code size of

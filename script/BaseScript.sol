@@ -79,7 +79,7 @@ contract BaseScript is Script, StdCheats {
 
     uint16 constant imuachainEndpointId = 40_259;
     address constant imuachainEndpointV2 = 0x6EDCE65403992e310A62460808c4b910D972f10f;
-    address erc20TokenAddress = 0x83E6850591425e3C1E263c054f4466838B9Bd9e4;
+    address erc20TokenAddress = 0xF79F563571f7D8122611D0219A0d5449B5304F79;
 
     uint256 constant DEPOSIT_AMOUNT = 1 ether;
     uint256 constant WITHDRAW_AMOUNT = 1 ether;
