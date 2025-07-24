@@ -1222,7 +1222,7 @@ async function updateGenesisFile() {
         next_round_id: "1",
         price_list: [
           {
-            decimal: "8",
+            decimal: 8,
             price: priceInDecimals,
             round_id: "0"
           }
