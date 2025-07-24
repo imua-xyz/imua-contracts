@@ -75,7 +75,8 @@ Must include the following required outputs (in any order):
 2. No input can be from the vault address
 3. Must have exactly one vault output with sufficient amount
 4. Must have exactly one OP_RETURN output
-5. OP_RETURN must be exactly 61 bytes (20 + 41)
+5. OP_RETURN payload must be exactly 61 bytes (20 + 41),  
+   resulting in a 63-byte scriptPubKey when the 0x6a opcode and length byte are included.
 6. Validator address must be registered in bootstrap contract
 7. For subsequent stakes from same Bitcoin address:
    - Imuachain address must match the first stake's address
