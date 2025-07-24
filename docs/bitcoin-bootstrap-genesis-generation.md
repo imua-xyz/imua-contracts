@@ -120,7 +120,7 @@ To ensure deterministic output:
 
 1. All arrays are sorted (typically by ID or key)
 2. Validators are sorted by power (descending)
-3. In case of equal power, validators are sorted by address
+3. In case of equal power, validators are sorted lexicographically by public key (using `localeCompare`)
 
 ## Security Considerations
 
