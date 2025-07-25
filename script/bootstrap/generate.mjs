@@ -1146,8 +1146,8 @@ async function updateGenesisFile() {
 
     // x/oracle - chains: Set chain information for oracle state
     // Initialize chains array with only the placeholder entry if it does not exist
-    if (!genesisJSON.app_state.oracle.chains) {
-      genesisJSON.app_state.oracle.chains = [{
+    if (!genesisJSON.app_state.oracle.params.chains) {
+      genesisJSON.app_state.oracle.params.chains = [{
         name: "-",
         desc: "-"
       }];
@@ -1156,7 +1156,7 @@ async function updateGenesisFile() {
     // Build the chains array by appending chains in order
     // The chainId in tokens will correspond to the index in this array
     for (const [chainName, chainInfo] of Object.entries(oracleChainInfo)) {
-      genesisJSON.app_state.oracle.chains.push({
+      genesisJSON.app_state.oracle.params.chains.push({
         name: chainInfo.name,
         desc: chainInfo.desc
       });
