@@ -14,7 +14,12 @@ contract DelegationMock is IDelegation {
         uint32 clientChainLzId, bytes assetsAddress, bytes stakerAddress, string operatorAddr, uint256 opAmount
     );
     event UndelegateRequestProcessed(
-        uint32 clientChainLzId, bytes assetsAddress, bytes stakerAddress, string operatorAddr, uint256 opAmount
+        uint32 clientChainLzId,
+        bytes assetsAddress,
+        bytes stakerAddress,
+        string operatorAddr,
+        uint256 opAmount,
+        bool instantUnbond
     );
 
     function delegate(
@@ -41,7 +46,8 @@ contract DelegationMock is IDelegation {
         bytes calldata assetsAddress,
         bytes calldata stakerAddress,
         bytes calldata operatorAddr,
-        uint256 opAmount
+        uint256 opAmount,
+        bool instantUnbond // unused
     ) external returns (bool success) {
         if (!AssetsMock(ASSETS_PRECOMPILE_ADDRESS).isRegisteredChain(clientChainLzId)) {
             return false;
@@ -53,7 +59,9 @@ contract DelegationMock is IDelegation {
             return false;
         }
         delegateToRecords[stakerAddress][operatorAddr][clientChainLzId][assetsAddress] -= opAmount;
-        emit UndelegateRequestProcessed(clientChainLzId, assetsAddress, stakerAddress, string(operatorAddr), opAmount);
+        emit UndelegateRequestProcessed(
+            clientChainLzId, assetsAddress, stakerAddress, string(operatorAddr), opAmount, instantUnbond
+        );
 
         return true;
     }

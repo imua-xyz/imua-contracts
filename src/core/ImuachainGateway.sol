@@ -388,23 +388,26 @@ contract ImuachainGateway is
     {
         bytes calldata staker = payload[:32];
         uint256 amount = uint256(bytes32(payload[32:64]));
-        // the length of the validatorID is not known. it depends on the chain.
-        // for Ethereum, it is the validatorIndex uint256 as bytes so it becomes 32. its value may be 0.
-        // for Solana, the pubkey is 32 bytes long but for Sui it is 96 bytes long.
-        // these chains do not have the concept of validatorIndex, so the raw key must be used.
-        bytes calldata validatorID = payload[64:];
 
         bool isDeposit = act == Action.REQUEST_DEPOSIT_NST;
         bool success;
         if (isDeposit) {
+            // the length of the validatorID is not known. it depends on the chain.
+            // for Ethereum, it is the validatorIndex uint256 as bytes so it becomes 32. its value may be 0.
+            // for Solana, the pubkey is 32 bytes long but for Sui it is 96 bytes long.
+            // these chains do not have the concept of validatorIndex, so the raw key must be used.
+            bytes calldata validatorID = payload[64:];
             (success,) = ASSETS_CONTRACT.depositNST(srcChainId, validatorID, staker, amount);
+
+            emit NSTTransfer(true, success, validatorID, bytes32(staker), amount);
         } else {
-            (success,) = ASSETS_CONTRACT.withdrawNST(srcChainId, validatorID, staker, amount);
+            (success,) = ASSETS_CONTRACT.withdrawNST(srcChainId, staker, amount);
+
+            emit NSTTransfer(false, success, bytes(""), bytes32(staker), amount);
         }
         if (isDeposit && !success) {
             revert Errors.DepositRequestShouldNotFail(srcChainId, lzNonce); // we should not let this happen
         }
-        emit NSTTransfer(isDeposit, success, validatorID, bytes32(staker), amount);
 
         response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success);
     }
@@ -457,16 +460,18 @@ contract ImuachainGateway is
         bytes memory staker = payload[:32];
         uint256 amount = uint256(bytes32(payload[32:64]));
         bytes memory token = payload[64:96];
-        bytes memory operator = payload[96:];
+        bytes memory operator = payload[96:137];
 
         bool isDelegate = act == Action.REQUEST_DELEGATE_TO;
         bool accepted;
         if (isDelegate) {
             accepted = DELEGATION_CONTRACT.delegate(srcChainId, token, staker, operator, amount);
+            emit DelegationRequest(accepted, bytes32(token), bytes32(staker), string(operator), amount);
         } else {
-            accepted = DELEGATION_CONTRACT.undelegate(srcChainId, token, staker, operator, amount);
+            bool instantUnbond = payload[137] == bytes1(0x01);
+            accepted = DELEGATION_CONTRACT.undelegate(srcChainId, token, staker, operator, amount, instantUnbond);
+            emit UndelegationRequest(accepted, bytes32(token), bytes32(staker), string(operator), amount, instantUnbond);
         }
-        emit DelegationRequest(isDelegate, accepted, bytes32(token), bytes32(staker), string(operator), amount);
     }
 
     /// @notice Responds to a deposit-then-delegate request from a client chain.
@@ -494,7 +499,7 @@ contract ImuachainGateway is
         emit LSTTransfer(true, success, bytes32(token), bytes32(depositor), amount);
 
         bool accepted = DELEGATION_CONTRACT.delegate(srcChainId, token, depositor, operator, amount);
-        emit DelegationRequest(true, accepted, bytes32(token), bytes32(depositor), string(operator), amount);
+        emit DelegationRequest(accepted, bytes32(token), bytes32(depositor), string(operator), amount);
     }
 
     /// @notice Handles the associating/dissociating operator request, and no response would be returned.

@@ -17,10 +17,7 @@ contract PrerequisitesScript is BaseScript {
     function setUp() public virtual override {
         super.setUp();
 
-        clientChain = vm.createSelectFork(clientChainRPCURL);
-
         // transfer some eth to deployer address
-        imuachain = vm.createSelectFork(imuachainRPCURL);
         _topUpPlayer(imuachain, address(0), imuachainGenesis, deployer.addr, 1 ether);
     }
 
@@ -29,22 +26,22 @@ contract PrerequisitesScript is BaseScript {
         if (useEndpointMock) {
             vm.selectFork(clientChain);
             vm.startBroadcast(deployer.privateKey);
-            clientChainLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, owner.addr);
+            clientChainLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainEndpointId, owner.addr);
             vm.stopBroadcast();
 
             vm.selectFork(imuachain);
             vm.startBroadcast(deployer.privateKey);
-            imuachainLzEndpoint = new NonShortCircuitEndpointV2Mock(imuachainChainId, owner.addr);
+            imuachainLzEndpoint = new NonShortCircuitEndpointV2Mock(imuachainEndpointId, owner.addr);
             vm.stopBroadcast();
         } else {
-            clientChainLzEndpoint = ILayerZeroEndpointV2(sepoliaEndpointV2);
+            clientChainLzEndpoint = ILayerZeroEndpointV2(clientChainEndpointV2);
             imuachainLzEndpoint = ILayerZeroEndpointV2(imuachainEndpointV2);
         }
 
         if (useImuachainPrecompileMock) {
             vm.selectFork(imuachain);
             vm.startBroadcast(deployer.privateKey);
-            assetsMock = address(new AssetsMock(clientChainId));
+            assetsMock = address(new AssetsMock(clientChainEndpointId));
             delegationMock = address(new DelegationMock());
             rewardMock = address(new RewardMock());
             vm.stopBroadcast();
@@ -70,7 +67,7 @@ contract PrerequisitesScript is BaseScript {
         string memory imuachainContractsOutput =
             vm.serializeAddress(imuachainContracts, "lzEndpoint", address(imuachainLzEndpoint));
 
-        vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
+        vm.serializeString(deployedContracts, clientChainName, clientChainContractsOutput);
         string memory finalJson = vm.serializeString(deployedContracts, "imuachain", imuachainContractsOutput);
 
         vm.writeJson(finalJson, "script/deployments/prerequisiteContracts.json");

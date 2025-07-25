@@ -151,11 +151,11 @@ jobs:
         run: |
           data=$(cat script/deployments/deployedContracts.json)
 
-          bootstrap=$(echo "$data" | jq -r '.clientChain.bootstrapLogic // empty')
-          clientGateway=$(echo "$data" | jq -r '.clientChain.clientGatewayLogic // empty')
-          vault=$(echo "$data" | jq -r '.clientChain.vaultImplementation // empty')
-          rewardVault=$(echo "$data" | jq -r '.clientChain.rewardVaultImplementation // empty')
-          capsule=$(echo "$data" | jq -r '.clientChain.capsuleImplementation // empty')
+          bootstrap=$(echo "$data" | jq -r '.sepolia.bootstrapLogic // empty')
+          clientGateway=$(echo "$data" | jq -r '.sepolia.clientGatewayLogic // empty')
+          vault=$(echo "$data" | jq -r '.sepolia.vaultImplementation // empty')
+          rewardVault=$(echo "$data" | jq -r '.sepolia.rewardVaultImplementation // empty')
+          capsule=$(echo "$data" | jq -r '.sepolia.capsuleImplementation // empty')
 
           validate_address() {
             local address=$1

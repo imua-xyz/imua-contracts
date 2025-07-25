@@ -526,7 +526,7 @@ contract Bootstrap is
     }
 
     /// @inheritdoc IBaseRestakingController
-    function undelegateFrom(string calldata validator, address token, uint256 amount)
+    function undelegateFrom(string calldata validator, address token, uint256 amount, bool instantUnbond)
         external
         payable
         beforeLocked
@@ -538,6 +538,10 @@ contract Bootstrap is
     {
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
+        }
+        if (!instantUnbond) {
+            // all unbondings on bootstrap are instant unbondings
+            revert Errors.NotYetSupported();
         }
         _undelegateFrom(msg.sender, validator, token, amount);
     }
@@ -729,7 +733,10 @@ contract Bootstrap is
         nonReentrant
         nativeRestakingEnabled
     {
-        if (msg.value != 32 ether) {
+        if (
+            msg.value < AFTER_PECTRA_MIN_ACTIVATION_BALANCE_ETH_PER_VALIDATOR
+                || msg.value > AFTER_PECTRA_MAX_EFFECTIVE_BALANCE_ETH_PER_VALIDATOR
+        ) {
             revert Errors.NativeRestakingControllerInvalidStakeValue();
         }
 
@@ -803,30 +810,8 @@ contract Bootstrap is
         emit DepositResult(true, VIRTUAL_NST_ADDRESS, msg.sender, depositValue);
     }
 
-    /// @notice Verifies a withdrawal proof from the beacon chain and forwards the information to Imuachain.
-    /// @notice This function is not yet supported, but staker could call this function after bootstrapping to withdraw
-    /// their stake.
-    function processBeaconChainWithdrawal(
-        bytes32[] calldata,
-        BeaconChainProofs.ValidatorContainerProof calldata,
-        bytes32[] calldata,
-        BeaconChainProofs.WithdrawalProof calldata
-    ) external payable whenNotPaused nativeRestakingEnabled {
+    function claimNSTFromImuachain(uint256) external payable whenNotPaused nativeRestakingEnabled {
         revert Errors.NotYetSupported();
-    }
-
-    /// @notice Withdraws the nonBeaconChainETHBalance from the ImuaCapsule contract.
-    /// @dev @param amountToWithdraw can not be greater than the available nonBeaconChainETHBalance.
-    /// @param recipient The payable destination address to which the ETH are sent.
-    /// @param amountToWithdraw The amount to withdraw.
-    function withdrawNonBeaconChainETHFromCapsule(address payable recipient, uint256 amountToWithdraw)
-        external
-        whenNotPaused
-        nonReentrant
-        nativeRestakingEnabled
-    {
-        IImuaCapsule capsule = _getCapsule(msg.sender);
-        capsule.withdrawNonBeaconChainETHBalance(recipient, amountToWithdraw);
     }
 
     /// @notice Returns the number of pubkeys (across all validators) deposited

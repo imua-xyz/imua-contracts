@@ -1337,7 +1337,7 @@ contract UTXOGatewayTest is Test {
         vm.expectEmit(true, true, true, true);
         emit UndelegationCompleted(UTXOGatewayStorage.ClientChainID.BITCOIN, user, operator, 1 ether);
 
-        gateway.undelegateFrom(UTXOGatewayStorage.Token.BTC, operator, 1 ether);
+        gateway.undelegateFrom(UTXOGatewayStorage.Token.BTC, operator, 1 ether, true);
     }
 
     function test_UndelegateFrom_RevertZeroAmount() public {
@@ -1345,7 +1345,7 @@ contract UTXOGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert(Errors.ZeroAmount.selector);
-        gateway.undelegateFrom(UTXOGatewayStorage.Token.BTC, operator, 0);
+        gateway.undelegateFrom(UTXOGatewayStorage.Token.BTC, operator, 0, true);
     }
 
     function test_UndelegateFrom_RevertWhenPaused() public {
@@ -1356,7 +1356,7 @@ contract UTXOGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert("Pausable: paused");
-        gateway.undelegateFrom(UTXOGatewayStorage.Token.BTC, operator, 1 ether);
+        gateway.undelegateFrom(UTXOGatewayStorage.Token.BTC, operator, 1 ether, true);
     }
 
     function test_UndelegateFrom_RevertNotRegistered() public {
@@ -1364,7 +1364,7 @@ contract UTXOGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert(Errors.AddressNotRegistered.selector);
-        gateway.undelegateFrom(UTXOGatewayStorage.Token.BTC, operator, 1 ether);
+        gateway.undelegateFrom(UTXOGatewayStorage.Token.BTC, operator, 1 ether, true);
     }
 
     function test_UndelegateFrom_RevertInvalidOperator() public {
@@ -1374,7 +1374,7 @@ contract UTXOGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert(Errors.InvalidOperator.selector);
-        gateway.undelegateFrom(UTXOGatewayStorage.Token.BTC, invalidOperator, 1 ether);
+        gateway.undelegateFrom(UTXOGatewayStorage.Token.BTC, invalidOperator, 1 ether, true);
     }
 
     function test_UndelegateFrom_RevertUndelegationFailed() public {
@@ -1387,7 +1387,7 @@ contract UTXOGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert(Errors.UndelegationFailed.selector);
-        gateway.undelegateFrom(UTXOGatewayStorage.Token.BTC, operator, 1 ether);
+        gateway.undelegateFrom(UTXOGatewayStorage.Token.BTC, operator, 1 ether, true);
     }
 
     function test_WithdrawPrincipal_Success() public {

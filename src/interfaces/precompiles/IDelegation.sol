@@ -7,7 +7,7 @@ address constant DELEGATION_PRECOMPILE_ADDRESS = 0x00000000000000000000000000000
 /// @dev The delegation contract's instance.
 IDelegation constant DELEGATION_CONTRACT = IDelegation(DELEGATION_PRECOMPILE_ADDRESS);
 
-/// @author imua-xyz
+/// @author Imuachain Team
 /// @title delegation Precompile Contract
 /// @dev The interface through which solidity contracts will interact with delegation
 /// @custom:address 0x0000000000000000000000000000000000000805
@@ -32,7 +32,6 @@ interface IDelegation {
         uint256 opAmount
     ) external returns (bool success);
 
-    /// TRANSACTIONS
     /// @dev undelegate the client chain assets from the operator through client chain, that will change the states in
     /// delegation and assets module
     /// Note that this address cannot be a module account.
@@ -43,17 +42,17 @@ interface IDelegation {
     /// @param stakerAddress The staker address
     /// @param operatorAddr  The operator address that wants to unDelegate from
     /// @param opAmount The Undelegation amount
+    /// @param instantUnbond Whether to unbond immediately
     function undelegate(
         uint32 clientChainID,
         bytes calldata assetsAddress,
         bytes calldata stakerAddress,
         bytes calldata operatorAddr,
-        uint256 opAmount
+        uint256 opAmount,
+        bool instantUnbond
     ) external returns (bool success);
 
-    /// TRANSACTIONS
-    /// @dev associate the operator with staker so that we could count staker's delegation as self-delegate
-    /// @notice a staker could only be associated with one operator while one operator could associate multiple stakers
+    /// @dev associate the staker as being owned by the specified operator
     /// @param clientChainID is the layerZero chainID if it is supported.
     //  It might be allocated by Imuachain when the client chain isn't supported
     //  by layerZero
@@ -63,8 +62,7 @@ interface IDelegation {
         external
         returns (bool success);
 
-    /// TRANSACTIONS
-    /// @dev dissociate the operator that has already been associated with the staker
+    /// @dev dissociate the operator from staker
     /// @param clientChainID is the layerZero chainID if it is supported.
     //  It might be allocated by Imuachain when the client chain isn't supported
     //  by layerZero

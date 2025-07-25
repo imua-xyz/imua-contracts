@@ -30,3 +30,4 @@ node_modules
 
 script/integration/*.json
 yarn-error.log
+typechain-types

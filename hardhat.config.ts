@@ -37,7 +37,7 @@ module.exports = {
       accounts: [
         process.env.TEST_ACCOUNT_THREE_PRIVATE_KEY,
         process.env.TEST_ACCOUNT_ONE_PRIVATE_KEY,
-        process.env.TEST_ACCOUNT_TWO_PRIVATE_KEY,
+        process.env.TEST_ACCOUNT_FOUR_PRIVATE_KEY,
       ]
     }
   },
