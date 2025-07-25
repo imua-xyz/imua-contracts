@@ -400,10 +400,10 @@ async function updateGenesisFile() {
           (await myContract.methods.getWhitelistedTokenAtIndex(j).call()).tokenAddress;
         let depositValue = new Decimal((await myContract.methods.totalDepositAmounts(
           stakerAddress, tokenAddress
-        )).toString());
+        ).call()).toString());
         let withdrawableValue = new Decimal((await myContract.methods.withdrawableAmounts(
           stakerAddress, tokenAddress
-        )).toString());
+        ).call()).toString());
         // for validator pubkey ids to be available, a deposit must have been made.
         // hence, the depositValue > 0 condition is necessary.
         if ((tokenAddress == VIRTUAL_STAKED_ETH_ADDR) && (depositValue > 0)) {
@@ -685,10 +685,10 @@ async function updateGenesisFile() {
         }
         const delegationValue = new Decimal((await myContract.methods.delegationsByValidator(
           validatorImAddress, tokenAddress
-        )).toString()).minus(totalSlashing).truncated();
+        ).call()).toString()).minus(totalSlashing).truncated();
         const selfDelegation = new Decimal((await myContract.methods.delegations(
           validatorEthAddress, validatorImAddress, tokenAddress
-        )).toString()).minus(selfSlashing).truncated();
+        ).call()).toString()).minus(selfSlashing).truncated();
 
         const assetsByOperatorForAsset = {
           asset_id: tokenAddress.toLowerCase() + clientChainSuffix,
@@ -1079,7 +1079,7 @@ async function updateGenesisFile() {
           }
           const amount = new Decimal((await myContract.methods.delegations(
             staker, operator, tokenAddress
-          )).toString()).minus(totalSlashing).truncated();
+          ).call()).toString()).minus(totalSlashing).truncated();
           if (amount.gt(ZERO_DECIMAL)) {
             const key = getJoinedStoreKey(stakerId, assetId, operator);
             delegation_states.push({
