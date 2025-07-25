@@ -1,6 +1,6 @@
-require("@nomicfoundation/hardhat-toolbox");
-require("@nomicfoundation/hardhat-foundry");
-require("dotenv").config();
+import "@nomicfoundation/hardhat-toolbox";
+import "@nomicfoundation/hardhat-foundry";
+import "dotenv/config";
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -9,13 +9,14 @@ module.exports = {
     settings: {
       optimizer: {
         enabled: true,
-        runs: 1000,
+        runs: 200,
       },
     },
   },
   allowUnlimitedContractSize: true,
   networks: {
     hardhat: {
+      chainId: 1,
     },
     imuachain_localnet: {
       url: "http://127.0.0.1:8545",
