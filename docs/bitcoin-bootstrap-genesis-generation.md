@@ -56,7 +56,7 @@ The genesis state is generated with the following modules:
   - Decimals: 8
 
 - **Deposits**: For each stake transaction
-  - Staker ID: `{bitcoin_address}_{chain_id_hex}`
+  - Staker ID: `{evm_address_set_by_staker}_{chain_id_hex}`
   - Asset ID: `{btc_virtual_address}_{chain_id_hex}`
   - Amount: Stake amount
   - Withdrawable amount: 0 (all stakes must be delegated to a validator)
