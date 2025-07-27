@@ -413,18 +413,27 @@ async function updateGenesisFile() {
           if (pubKeyCount == 0) {
             throw new Error('No pubkeys found for the staker.');
           }
+          const validatorInfos = [];
           const pubKeys = [];
           for (let k = 0; k < pubKeyCount; k++) {
-            pubKeys.push(await myContract.methods.stakerToPubkeyIDs(stakerAddress, k).call());
+            const pubKey = await myContract.methods.stakerToPubkeyIDs(stakerAddress, k).call();
+            pubKeys.push(pubKey);
+            const validatorInfo = {
+              validator_pubkey: pubKey,
+              version: 1,
+              deposit_amount: depositValue,
+            };
+            validatorInfos.push(validatorInfo);
           }
-          if (pubKeys.length == 0) {
+          if (validatorInfos.length == 0) {
             throw new Error('No pubkeys found for the staker.');
           }
           const staker_info = {
             staker_addr: stakerAddress.toLowerCase(),
             staker_index: staker_index_counter,
-            validator_pubkey_list: pubKeys,
-            balance_list: [] // filled later.
+            validator_list: validatorInfos,
+            balance_list: [], // filled later.
+            withdraw_version: 0,
           };
           staker_index_counter += 1;
           const validatorStates = (await api.beacon.getStateValidators(
@@ -522,7 +531,7 @@ async function updateGenesisFile() {
               new_balance = balances[balances.length - 1];
               new_balance.index += 1;
             }
-            new_balance.balance = web3.utils.fromWei(effectiveBalance.toFixed(), "ether");
+            new_balance.balance += web3.utils.fromWei(effectiveBalance.toFixed(), "ether");
             balances.push(new_balance);
           }
           // now we have the totalEffectiveBalance across all validator pubkeys for this staker
@@ -1140,7 +1149,7 @@ async function updateGenesisFile() {
       }
     ];
     genesisJSON.app_state.oracle.staker_infos_assets = [{
-      asset_id: VIRTUAL_STAKED_ETH_ADDR.toLowerCase() + clientChainSuffix,
+	  chain_id: clientChainInfo.layer_zero_chain_id,
       staker_infos: staker_infos,
     }];
 
