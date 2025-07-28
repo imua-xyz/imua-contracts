@@ -38,6 +38,7 @@ const DEFAULT_CONFIG = {
       enabled: true,
       script: './generate.mjs',
       tempOutput: 'genesis/temp_evm_genesis.json',
+      envPathKey: 'INTEGRATION_RESULT_GENESIS_FILE_PATH',
     },
     bitcoin: {
       enabled: true,
@@ -447,7 +448,7 @@ class ScriptRunner {
    */
   async runEvmGenesis(chainConfig) {
     return this.runChainGenesis('EVM', chainConfig, {
-      envPathKey: 'INTEGRATION_RESULT_GENESIS_FILE_PATH',
+      envPathKey: chainConfig.envPathKey,
       waitTime: 1000
     });
   }
