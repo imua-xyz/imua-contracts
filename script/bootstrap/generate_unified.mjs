@@ -7,7 +7,7 @@
  * It reuses existing scripts and combines their outputs intelligently.
  *
  * Usage:
- *   node script/generate_unified.mjs [--config=config.json] [--output=genesis.json]
+ *   node script/bootstrap/generate_unified.mjs [--config=config.json] [--output=genesis.json]
  *
  * Environment Variables:
  *   - UNIFIED_GENESIS_CONFIG: Path to configuration file
@@ -29,23 +29,23 @@ const __dirname = path.dirname(__filename);
 
 // Default configuration
 const DEFAULT_CONFIG = {
-  enableEVM: true,
-  enableBitcoin: false, // Bitcoin support requires additional setup
   output: {
-    path: process.env.UNIFIED_GENESIS_OUTPUT || './genesis_unified.json',
-    pretty: true
+    path: process.env.UNIFIED_GENESIS_OUTPUT || 'genesis/genesis_unified.json',
+    pretty: true,
   },
   chains: {
     evm: {
       enabled: true,
       script: './generate.mjs',
-      tempOutput: './temp_evm_genesis.json'
+      tempOutput: 'genesis/temp_evm_genesis.json',
     },
     bitcoin: {
-      enabled: false,
-      script: './bootstrap/bitcoin_genesis.ts',
-      tempOutput: './temp_btc_genesis.json'
+      enabled: true,
+      script: './bitcoin_genesis.ts',
+      tempOutput: 'genesis/temp_btc_genesis.json',
+      useTsx: true,
     },
+
     // XRP support can be added here in the future
     // xrp: {
     //   enabled: false,
@@ -55,8 +55,8 @@ const DEFAULT_CONFIG = {
   },
   merge: {
     strategy: 'merge', // 'merge' | 'replace' | 'append'
-    conflictResolution: 'evm_priority' // 'evm_priority' | 'bitcoin_priority' | 'fail' (xrp_priority reserved for future)
-  }
+    conflictResolution: 'evm_priority', // 'evm_priority' | 'bitcoin_priority' | 'fail' (xrp_priority reserved for future)
+  },
 };
 
 /**
@@ -69,14 +69,13 @@ class ConfigManager {
   }
 
   async loadConfig(configPath) {
-    if (configPath && await this.fileExists(configPath)) {
+    if (configPath && (await this.fileExists(configPath))) {
       try {
         const userConfig = JSON.parse(await fs.readFile(configPath, 'utf8'));
         this.config = this.mergeConfig(this.config, userConfig);
-        console.log(`✓ Loaded configuration from ${configPath}`);
+        console.log(`📄 Loaded configuration from ${configPath}`);
       } catch (error) {
-        console.warn(`⚠ Failed to load config from ${configPath}:`, error.message);
-        console.log('Using default configuration');
+        console.warn(`⚠ Failed to load config from ${configPath}: ${error.message}. Using default configuration.`);
       }
     }
     return this.config;
@@ -132,8 +131,6 @@ class GenesisStateMerger {
       return genesisStates[0];
     }
 
-    console.log(`📦 Merging ${genesisStates.length} genesis states using strategy: ${this.strategy}`);
-
     // Start with the first genesis state as base
     let unified = JSON.parse(JSON.stringify(genesisStates[0]));
 
@@ -164,14 +161,9 @@ class GenesisStateMerger {
         if (!result.app_state[module]) {
           // New module, add it directly
           result.app_state[module] = moduleState;
-          console.log(`✓ Added new module: ${module}`);
         } else {
           // Module exists, merge it
-          result.app_state[module] = this.mergeModule(
-            result.app_state[module],
-            moduleState,
-            module
-          );
+          result.app_state[module] = this.mergeModule(result.app_state[module], moduleState, module);
         }
       }
     }
@@ -204,7 +196,6 @@ class GenesisStateMerger {
       case 'oracle':
         return this.mergeOracleModule(result, additionalModule);
       default:
-        console.log(`⚠ Unknown module ${moduleName}, using simple merge`);
         return this.mergeSimple(result, additionalModule);
     }
   }
@@ -217,9 +208,8 @@ class GenesisStateMerger {
       if (!result.client_chains) result.client_chains = [];
 
       for (const chain of additional.client_chains) {
-        const existingIndex = result.client_chains.findIndex(c => c.layer_zero_chain_id === chain.layer_zero_chain_id);
+        const existingIndex = result.client_chains.findIndex((c) => c.layer_zero_chain_id === chain.layer_zero_chain_id);
         if (existingIndex >= 0) {
-          console.log(`⚠ Conflict: client_chain with layer_zero_chain_id ${chain.layer_zero_chain_id} already exists`);
           if (this.conflictResolution === 'bitcoin_priority') {
             result.client_chains[existingIndex] = chain;
           }
@@ -229,7 +219,6 @@ class GenesisStateMerger {
           // }
         } else {
           result.client_chains.push(chain);
-          console.log(`✓ Added client_chain: ${chain.name}`);
         }
       }
     }
@@ -239,13 +228,13 @@ class GenesisStateMerger {
       if (!result.tokens) result.tokens = [];
 
       for (const token of additional.tokens) {
-        const existingIndex = result.tokens.findIndex(t =>
-          t.asset_basic_info.layer_zero_chain_id === token.asset_basic_info.layer_zero_chain_id &&
-          t.asset_basic_info.address === token.asset_basic_info.address
+        const existingIndex = result.tokens.findIndex(
+          (t) =>
+            t.asset_basic_info.layer_zero_chain_id === token.asset_basic_info.layer_zero_chain_id &&
+            t.asset_basic_info.address === token.asset_basic_info.address
         );
 
         if (existingIndex >= 0) {
-          console.log(`⚠ Conflict: token ${token.asset_basic_info.name} already exists`);
           if (this.conflictResolution === 'bitcoin_priority') {
             result.tokens[existingIndex] = token;
           }
@@ -255,7 +244,6 @@ class GenesisStateMerger {
           // }
         } else {
           result.tokens.push(token);
-          console.log(`✓ Added token: ${token.asset_basic_info.name}`);
         }
       }
     }
@@ -264,7 +252,6 @@ class GenesisStateMerger {
     if (additional.deposits) {
       if (!result.deposits) result.deposits = [];
       result.deposits = result.deposits.concat(additional.deposits);
-      console.log(`✓ Added ${additional.deposits.length} deposits`);
     }
 
     return result;
@@ -277,21 +264,18 @@ class GenesisStateMerger {
     if (additional.delegations) {
       if (!result.delegations) result.delegations = [];
       result.delegations = result.delegations.concat(additional.delegations);
-      console.log(`✓ Added ${additional.delegations.length} delegations`);
     }
 
     // Merge associations
     if (additional.associations) {
       if (!result.associations) result.associations = [];
       result.associations = result.associations.concat(additional.associations);
-      console.log(`✓ Added ${additional.associations.length} associations`);
     }
 
     // Merge stakersByOperator
     if (additional.stakersByOperator) {
       if (!result.stakersByOperator) result.stakersByOperator = [];
       result.stakersByOperator = result.stakersByOperator.concat(additional.stakersByOperator);
-      console.log(`✓ Added ${additional.stakersByOperator.length} stakersByOperator entries`);
     }
 
     return result;
@@ -306,18 +290,14 @@ class GenesisStateMerger {
 
       // Merge validators, avoiding duplicates by consensus_public_key
       for (const validator of additional.val_set) {
-        const existingIndex = result.val_set.findIndex(v =>
-          v.consensus_public_key === validator.consensus_public_key
-        );
+        const existingIndex = result.val_set.findIndex((v) => v.consensus_public_key === validator.consensus_public_key);
 
         if (existingIndex >= 0) {
-          console.log(`⚠ Conflict: validator with consensus key ${validator.consensus_public_key} already exists`);
           if (this.conflictResolution === 'bitcoin_priority') {
             result.val_set[existingIndex] = validator;
           }
         } else {
           result.val_set.push(validator);
-          console.log(`✓ Added validator: ${validator.consensus_public_key}`);
         }
       }
     }
@@ -338,15 +318,13 @@ class GenesisStateMerger {
       if (!result.tokens) result.tokens = [];
 
       for (const token of additional.tokens) {
-        const existingIndex = result.tokens.findIndex(t => t.name === token.name);
+        const existingIndex = result.tokens.findIndex((t) => t.name === token.name);
         if (existingIndex >= 0) {
-          console.log(`⚠ Conflict: oracle token ${token.name} already exists`);
           if (this.conflictResolution === 'bitcoin_priority') {
             result.tokens[existingIndex] = token;
           }
         } else {
           result.tokens.push(token);
-          console.log(`✓ Added oracle token: ${token.name}`);
         }
       }
     }
@@ -388,37 +366,135 @@ class ScriptRunner {
   }
 
   /**
+   * Generic method to run chain genesis generation
+   * @param {string} chainName - Name of the chain (for logging)
+   * @param {Object} chainConfig - Chain configuration
+   * @param {Object} options - Generation options
+   * @returns {Object} Generated genesis state
+   */
+  async runChainGenesis(chainName, chainConfig, options = {}) {
+    try {
+      const {
+        envPathKey = null,
+        defaultOutputPath = chainConfig.tempOutput,
+        scriptFunction = null,
+        waitTime = 1000
+      } = options;
+
+      // Determine output path from environment or config
+      const outputPath = envPathKey ? (process.env[envPathKey] || defaultOutputPath) : defaultOutputPath;
+      const resolvedOutputPath = path.isAbsolute(outputPath) ? outputPath : path.resolve(outputPath);
+
+      // For Bitcoin genesis, set the environment variable to ensure consistent path usage
+      if (chainName === 'Bitcoin' && envPathKey) {
+        const oldValue = process.env[envPathKey];
+        process.env[envPathKey] = resolvedOutputPath;
+        console.log(`🔧 Setting ${envPathKey}=${resolvedOutputPath} (was: ${oldValue || 'undefined'}) for consistent path usage`);
+      }
+
+      // Check if genesis file already exists
+      if (await this.fileExists(resolvedOutputPath)) {
+        const content = await fs.readFile(resolvedOutputPath, 'utf8');
+        const genesis = JSON.parse(content);
+        console.log(`📄 Loading existing ${chainName} genesis from: ${resolvedOutputPath} ✓`);
+        return genesis;
+      }
+
+      // If file doesn't exist, run the generation script
+      console.log(`📋 ${chainName} genesis file not found, running generation script: ${chainConfig.script}`);
+
+      // Check if we need to use tsx for TypeScript files
+      if (chainConfig.useTsx && chainConfig.script.endsWith('.ts')) {
+        console.log(`🔧 Using tsx to run TypeScript file: ${chainConfig.script}`);
+        await this.runWithTsx(chainConfig.script, scriptFunction);
+      } else {
+        // Import and run the generation script (JavaScript)
+        const scriptModule = await import(`${chainConfig.script}`);
+
+        if (scriptFunction) {
+          // Call specific function if provided
+          await scriptModule[scriptFunction]();
+        }
+        // For EVM script, it executes immediately on import, so no function call needed
+      }
+
+      // Wait for file writing to complete
+      if (waitTime > 0) {
+        await new Promise((resolve) => setTimeout(resolve, waitTime));
+      }
+
+      // Read the generated file - use same resolved path for consistency
+      if (await this.fileExists(resolvedOutputPath)) {
+        const content = await fs.readFile(resolvedOutputPath, 'utf8');
+        const genesis = JSON.parse(content);
+        console.log(`🔄 ${chainName} genesis generation completed from: ${resolvedOutputPath} ✓`);
+        return genesis;
+      } else {
+        throw new Error(`${chainName} genesis output file not found: ${resolvedOutputPath}`);
+      }
+    } catch (error) {
+      console.error(`❌ ${chainName} genesis generation failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+
+
+  /**
    * Run EVM genesis generation script
    * @param {Object} chainConfig - Chain configuration
    * @returns {Object} Generated genesis state
    */
   async runEvmGenesis(chainConfig) {
-    console.log('🔄 Running EVM genesis generation...');
+    return this.runChainGenesis('EVM', chainConfig, {
+      envPathKey: 'INTEGRATION_RESULT_GENESIS_FILE_PATH',
+      waitTime: 1000
+    });
+  }
 
-    try {
-      // Import and run the existing generate.mjs
-      const { default: generateEvm } = await import('./generate.mjs');
+  /**
+   * Run TypeScript file using tsx
+   * @param {string} scriptPath - Path to TypeScript file
+   * @param {string} functionName - Function to call (optional)
+   */
+    async runWithTsx(scriptPath, functionName = null) {
+    const { spawn } = await import('child_process');
 
-      // The generate.mjs typically writes to a file, so we need to capture its output
-      // For now, we'll read the generated file
-      const outputPath = process.env.INTEGRATION_RESULT_GENESIS_FILE_PATH || chainConfig.tempOutput;
-
-      // Run the EVM genesis generation (it should create the file)
-      await this.runScript(chainConfig.script);
-
-      // Read the generated file
-      if (await this.fileExists(outputPath)) {
-        const content = await fs.readFile(outputPath, 'utf8');
-        const genesis = JSON.parse(content);
-        console.log('✓ EVM genesis generation completed');
-        return genesis;
+    return new Promise((resolve, reject) => {
+      let args;
+      if (functionName) {
+        // Create a temporary script that imports and calls the function
+        const tempScript = `
+import { ${functionName} } from '${scriptPath}';
+(async () => {
+  await ${functionName}();
+})().catch(console.error);
+        `;
+        args = ['tsx', '--eval', tempScript];
       } else {
-        throw new Error(`EVM genesis output file not found: ${outputPath}`);
+        args = ['tsx', scriptPath];
       }
-    } catch (error) {
-      console.error('❌ EVM genesis generation failed:', error.message);
-      throw error;
-    }
+
+      console.log(`🔧 Running: npx tsx with ${functionName ? 'function call' : 'direct execution'}`);
+
+      const tsxProcess = spawn('npx', args, {
+        cwd: path.dirname(process.argv[1]), // Run from script/bootstrap directory
+        stdio: 'inherit',
+        env: { ...process.env }
+      });
+
+      tsxProcess.on('close', (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`tsx process exited with code ${code}`));
+        }
+      });
+
+      tsxProcess.on('error', (error) => {
+        reject(new Error(`Failed to start tsx: ${error.message}`));
+      });
+    });
   }
 
   /**
@@ -427,20 +503,15 @@ class ScriptRunner {
    * @returns {Object} Generated genesis state
    */
   async runBitcoinGenesis(chainConfig) {
-    console.log('🔄 Running Bitcoin genesis generation...');
+    // Use absolute path to ensure consistency between read and write operations
+    const absoluteOutputPath = path.resolve(process.cwd(), 'genesis/bitcoin_bootstrap_genesis.json');
 
-    try {
-      // For Bitcoin genesis, we would need to import and run the TypeScript module
-      // This is more complex and would require ts-node or compilation
-      console.log('⚠ Bitcoin genesis generation not implemented in this version');
-      console.log('ℹ This would require additional setup for TypeScript execution');
-
-      // For now, return an empty genesis structure that can be extended
-      return this.createEmptyBitcoinGenesis();
-    } catch (error) {
-      console.error('❌ Bitcoin genesis generation failed:', error.message);
-      throw error;
-    }
+    return this.runChainGenesis('Bitcoin', chainConfig, {
+      envPathKey: 'GENESIS_OUTPUT_PATH',
+      defaultOutputPath: absoluteOutputPath,
+      scriptFunction: 'generateBootstrapGenesis',
+      waitTime: 0
+    });
   }
 
   // XRP genesis generation can be added here in the future
@@ -449,54 +520,10 @@ class ScriptRunner {
   //   // Implementation will be added when XRP support is ready
   // }
 
-  /**
-   * Create an empty Bitcoin genesis structure for demonstration
-   * @returns {Object} Empty Bitcoin genesis structure
-   */
-  createEmptyBitcoinGenesis() {
-    return {
-      app_state: {
-        assets: {
-          client_chains: [{
-            layer_zero_chain_id: 1,
-            name: "Bitcoin",
-            meta_info: "Bitcoin mainnet",
-            finalization_blocks: 6,
-            address_length: 20
-          }],
-          tokens: [{
-            asset_basic_info: {
-              name: "Bitcoin",
-              symbol: "BTC",
-              address: "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB",
-              decimals: "8",
-              layer_zero_chain_id: 1,
-              imua_chain_index: "2",
-              meta_info: "Bitcoin virtual token"
-            },
-            staking_total_amount: "0"
-          }],
-          deposits: []
-        },
-        delegation: {
-          delegations: [],
-          associations: [],
-          stakersByOperator: []
-        }
-      }
-    };
-  }
-
   // XRP genesis structure can be added here in the future
   // createEmptyXrpGenesis() {
   //   // Implementation will be added when XRP support is ready
   // }
-
-  async runScript(scriptPath) {
-    // For now, we'll assume scripts are run as separate processes
-    // In a production version, this could use child_process.exec
-    console.log(`Running script: ${scriptPath}`);
-  }
 
   async fileExists(filePath) {
     try {
@@ -523,42 +550,65 @@ class UnifiedGenesisGenerator {
       console.log('🚀 Starting unified genesis generation...');
 
       // Load configuration
-      const config = await this.configManager.loadConfig(
-        configPath || process.env.UNIFIED_GENESIS_CONFIG
-      );
+      const config = await this.configManager.loadConfig(configPath || process.env.UNIFIED_GENESIS_CONFIG);
 
       // Initialize merger with config
-      this.merger = new GenesisStateMerger(
-        config.merge.strategy,
-        config.merge.conflictResolution
-      );
+      this.merger = new GenesisStateMerger(config.merge.strategy, config.merge.conflictResolution);
 
-      console.log('📋 Configuration:');
-      console.log(`  - EVM enabled: ${config.chains.evm.enabled}`);
-      console.log(`  - Bitcoin enabled: ${config.chains.bitcoin.enabled}`);
-      console.log(`  - Merge strategy: ${config.merge.strategy}`);
-      console.log(`  - Conflict resolution: ${config.merge.conflictResolution}`);
+      // Check if we should use existing JSON files directly
+      const useExistingFiles = process.env.USE_EXISTING_FILES === 'true';
+
+      if (useExistingFiles) {
+        console.log('📄 Using existing JSON files for merge...');
+        return await this.mergeExistingFiles(config);
+      }
+
+      // Show enabled chains only
+      const enabledChains = [];
+      if (config.chains.evm.enabled) enabledChains.push('EVM');
+      if (config.chains.bitcoin.enabled) enabledChains.push('Bitcoin');
+
+      console.log(`📋 Generating genesis for: ${enabledChains.join(', ')}`);
 
       // Generate genesis states for each enabled chain
       const genesisStates = [];
 
-      if (config.chains.evm.enabled) {
-        try {
-          const evmGenesis = await this.scriptRunner.runEvmGenesis(config.chains.evm);
-          genesisStates.push(evmGenesis);
-        } catch (error) {
-          console.warn('⚠ EVM genesis generation failed, continuing with other chains');
-          console.warn(error.message);
-        }
-      }
+      console.log('🔄 Starting genesis generation for all enabled chains...');
 
-      if (config.chains.bitcoin.enabled) {
-        try {
-          const bitcoinGenesis = await this.scriptRunner.runBitcoinGenesis(config.chains.bitcoin);
-          genesisStates.push(bitcoinGenesis);
-        } catch (error) {
-          console.warn('⚠ Bitcoin genesis generation failed, continuing with other chains');
-          console.warn(error.message);
+      // Define chain runners
+      const chainRunners = [
+        {
+          name: 'EVM',
+          enabled: config.chains.evm.enabled,
+          config: config.chains.evm,
+          runner: this.scriptRunner.runEvmGenesis.bind(this.scriptRunner)
+        },
+        {
+          name: 'Bitcoin',
+          enabled: config.chains.bitcoin.enabled,
+          config: config.chains.bitcoin,
+          runner: this.scriptRunner.runBitcoinGenesis.bind(this.scriptRunner)
+        }
+        // Future chains can be added here:
+        // {
+        //   name: 'XRP',
+        //   enabled: config.chains.xrp?.enabled || false,
+        //   config: config.chains.xrp,
+        //   runner: this.scriptRunner.runXrpGenesis.bind(this.scriptRunner)
+        // }
+      ];
+
+      // Run enabled chains
+      for (const chain of chainRunners) {
+        if (chain.enabled) {
+          try {
+            console.log(`📋 Generating ${chain.name} genesis...`);
+            const genesis = await chain.runner(chain.config);
+            genesisStates.push(genesis);
+            console.log(`✅ ${chain.name} genesis completed successfully`);
+          } catch (error) {
+            console.warn(`⚠ ${chain.name} genesis generation failed, continuing with other chains. Error: ${error.message}`);
+          }
         }
       }
 
@@ -569,7 +619,7 @@ class UnifiedGenesisGenerator {
       //     genesisStates.push(xrpGenesis);
       //   } catch (error) {
       //     console.warn('⚠ XRP genesis generation failed, continuing with other chains');
-      //     console.warn(error.message);
+      //     console.warn(`   Error: ${error.message}`);
       //   }
       // }
 
@@ -578,34 +628,17 @@ class UnifiedGenesisGenerator {
       }
 
       // Merge genesis states
+      console.log('🔄 Merging genesis states...');
       const unifiedGenesis = this.merger.merge(genesisStates);
 
-      // Add metadata about the generation
-      unifiedGenesis._unified_generation_info = {
-        generated_at: new Date().toISOString(),
-        sources: [],
-        version: "1.0.0"
-      };
 
-      if (config.chains.evm.enabled) {
-        unifiedGenesis._unified_generation_info.sources.push('evm');
-      }
-      if (config.chains.bitcoin.enabled) {
-        unifiedGenesis._unified_generation_info.sources.push('bitcoin');
-      }
-      // XRP source tracking can be added here in the future
-      // if (config.chains.xrp && config.chains.xrp.enabled) {
-      //   unifiedGenesis._unified_generation_info.sources.push('xrp');
-      // }
 
       // Write output
       await this.writeOutput(unifiedGenesis, config.output);
 
-      console.log('✅ Unified genesis generation completed successfully!');
-      console.log(`📄 Output written to: ${config.output.path}`);
+      console.log(`✅ Unified genesis generation completed successfully! Output written to: ${config.output.path}`);
 
       return unifiedGenesis;
-
     } catch (error) {
       console.error('❌ Unified genesis generation failed:', error.message);
       throw error;
@@ -613,11 +646,77 @@ class UnifiedGenesisGenerator {
   }
 
   async writeOutput(genesis, outputConfig) {
-    const content = outputConfig.pretty
-      ? JSON.stringify(genesis, null, 2)
-      : JSON.stringify(genesis);
+    const content = outputConfig.pretty ? JSON.stringify(genesis, null, 2) : JSON.stringify(genesis);
+    const resolvedPath = path.isAbsolute(outputConfig.path) ? outputConfig.path : path.resolve(outputConfig.path);
+    await fs.writeFile(resolvedPath, content, 'utf8');
+  }
 
-    await fs.writeFile(outputConfig.path, content, 'utf8');
+  async mergeExistingFiles(config) {
+    try {
+      console.log('🔄 Loading existing JSON files for merge...');
+
+      const genesisStates = [];
+
+      // Define chain loaders for existing files
+      const chainLoaders = [
+        {
+          name: 'EVM',
+          enabled: config.chains.evm.enabled,
+          envPathKey: 'EVM_GENESIS_PATH',
+          defaultPath: config.chains.evm.tempOutput
+        },
+        {
+          name: 'Bitcoin',
+          enabled: config.chains.bitcoin.enabled,
+          envPathKey: 'BITCOIN_GENESIS_PATH',
+          defaultPath: config.chains.bitcoin.tempOutput
+        }
+        // Future chains can be added here:
+        // {
+        //   name: 'XRP',
+        //   enabled: config.chains.xrp?.enabled || false,
+        //   envPathKey: 'XRP_GENESIS_PATH',
+        //   defaultPath: config.chains.xrp?.tempOutput
+        // }
+      ];
+
+      // Load existing files for enabled chains
+      for (const chain of chainLoaders) {
+        if (chain.enabled) {
+          const filePath = process.env[chain.envPathKey] || chain.defaultPath;
+          const resolvedPath = path.isAbsolute(filePath) ? filePath : path.resolve(filePath);
+
+          if (await this.fileExists(resolvedPath)) {
+            const content = await fs.readFile(resolvedPath, 'utf8');
+            const genesis = JSON.parse(content);
+            genesisStates.push(genesis);
+            console.log(`📄 Loading ${chain.name} genesis from: ${resolvedPath} ✓`);
+          } else {
+            console.warn(`⚠ ${chain.name} genesis file not found: ${resolvedPath}`);
+          }
+        }
+      }
+
+      if (genesisStates.length === 0) {
+        throw new Error('No existing genesis files found to merge');
+      }
+
+      // Merge genesis states
+      console.log('🔄 Merging existing genesis files...');
+      const unifiedGenesis = this.merger.merge(genesisStates);
+
+
+
+      // Write output
+      await this.writeOutput(unifiedGenesis, config.output);
+
+      console.log(`✅ Existing files merge completed successfully! Output written to: ${config.output.path}`);
+
+      return unifiedGenesis;
+    } catch (error) {
+      console.error('❌ Existing files merge failed:', error.message);
+      throw error;
+    }
   }
 }
 
@@ -651,13 +750,13 @@ Environment Variables:
 
 Examples:
   # Generate with default configuration
-  node script/generate_unified.mjs
+  node script/bootstrap/generate_unified.mjs
 
   # Generate with custom configuration
-  node script/generate_unified.mjs --config=./my-config.json
+  node script/bootstrap/generate_unified.mjs --config=./my-config.json
 
   # Generate with environment variables
-  UNIFIED_GENESIS_OUTPUT=./custom_genesis.json node script/generate_unified.mjs
+  UNIFIED_GENESIS_OUTPUT=./custom_genesis.json node script/bootstrap/generate_unified.mjs
 `);
       process.exit(0);
     }
