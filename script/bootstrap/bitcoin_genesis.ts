@@ -2,12 +2,12 @@ import axios from 'axios';
 import fs from 'fs';
 import { ethers } from 'ethers';
 import { fromBech32, fromHex, toBech32 } from '@cosmjs/encoding';
-import {address, networks} from 'bitcoinjs-lib';
+import {address as addressUtils, networks} from 'bitcoinjs-lib';
 import config from './config';
 import bootstrapAbi from '../../out/Bootstrap.sol/Bootstrap.json';
 import { BTC_CONFIG, CHAIN_CONFIG } from './config';
-import { 
-  GenesisState, AppState, AssetsState, DelegationState, 
+import {
+  GenesisState, AppState, AssetsState, DelegationState,
   DogfoodState, Validator, OracleState, ClientChain, Token
 } from './types';
 import { toVersionAndHash } from './utils';
@@ -70,15 +70,15 @@ export class GenesisGenerator {
     try {
       const txResponse = await axios.get(`${this.baseUrl}/api/tx/${txid}`);
       const blockHash = txResponse.data.status.block_hash;
-      
+
       const blockResponse = await axios.get(`${this.baseUrl}/api/block/${blockHash}/txids`);
       const txids = blockResponse.data;
-      
+
       const index = txids.indexOf(txid);
       if (index === -1) {
         throw new Error(`Transaction ${txid} not found in block ${blockHash}`);
       }
-      
+
       return index;
     } catch (error) {
       console.error(`Error getting tx index for ${txid}:`, error);
@@ -146,6 +146,57 @@ export class GenesisGenerator {
     }
   }
 
+  private getNetworkFromAddress(address: string): networks.Network {
+    // Bech32 addresses (native segwit)
+    if (address.startsWith('bc1')) {
+      return networks.bitcoin; // Mainnet
+    }
+    if (address.startsWith('tb1')) {
+      return networks.testnet; // Testnet
+    }
+    if (address.startsWith('bcrt1')) {
+      return networks.regtest; // Regtest
+    }
+
+    // Legacy addresses (Base58Check)
+    try {
+      // Try to decode the address to get the version byte
+      const decoded = addressUtils.fromBase58Check(address);
+
+      // Check version bytes for different networks
+      if (decoded.version === networks.bitcoin.pubKeyHash ||
+          decoded.version === networks.bitcoin.scriptHash) {
+        return networks.bitcoin; // Mainnet
+      }
+      if (decoded.version === networks.testnet.pubKeyHash ||
+          decoded.version === networks.testnet.scriptHash) {
+        return networks.testnet; // Testnet
+      }
+      if (decoded.version === networks.regtest.pubKeyHash ||
+          decoded.version === networks.regtest.scriptHash) {
+        return networks.regtest; // Regtest
+      }
+    } catch (error) {
+      // If decoding fails, try prefix-based detection as fallback
+      console.warn(`Failed to decode address ${address}, using prefix-based detection`);
+    }
+
+    // Fallback prefix-based detection
+    if (address.startsWith('1') || address.startsWith('3')) {
+      return networks.bitcoin; // Mainnet P2PKH/P2SH
+    }
+    if (address.startsWith('m') || address.startsWith('n') || address.startsWith('2')) {
+      return networks.testnet; // Testnet
+    }
+    if (address.startsWith('bcrt')) {
+      return networks.regtest; // Regtest
+    }
+
+    // Default to mainnet
+    console.warn(`Could not determine network for address ${address}, defaulting to mainnet`);
+    return networks.bitcoin;
+  }
+
   private async isValidBootstrapTransaction(tx: BTCTransaction): Promise<boolean> {
     // Skip if not confirmed
     if (!tx.status.confirmed || !tx.status.block_height) {
@@ -162,7 +213,7 @@ export class GenesisGenerator {
 
     // Check vault output
     const vaultOutputs = tx.vout.filter(
-      (output) => output.scriptpubkey_address === this.vaultAddress && 
+      (output) => output.scriptpubkey_address === this.vaultAddress &&
                   output.value >= this.minAmount
     );
     if (vaultOutputs.length !== 1) {
@@ -197,7 +248,7 @@ export class GenesisGenerator {
     // Extract imuachain and validator addresses
     const imuachainAddressHex = '0x' + hexOpReturnData.slice(0, 40);
     const validatorAddressHex = hexOpReturnData.slice(40);
-    
+
     // Convert validator hex to bech32
     let validatorAddress = '';
     try {
@@ -205,7 +256,7 @@ export class GenesisGenerator {
       const bytes = Buffer.from(validatorAddressHex, 'hex');
       // Convert bytes to string
       validatorAddress = new TextDecoder().decode(bytes);
-      
+
       // Validate the validator address format
       if (!this.isValidValidatorAddress(validatorAddress)) {
         console.log(`Invalid validator address format in tx ${tx.txid}`);
@@ -257,7 +308,7 @@ export class GenesisGenerator {
     );
 
     const filteredTxs = validTxs
-      .filter(({ tx, isValid }) => 
+      .filter(({ tx, isValid }) =>
         isValid &&
         tx.status.block_height <= currentHeight &&
         (currentHeight - tx.status.block_height + 1) >= this.minConfirmations
@@ -278,26 +329,26 @@ export class GenesisGenerator {
       const vaultOutput = tx.vout.find(
         (output) => output.scriptpubkey_address === this.vaultAddress
       );
-      
+
       const opReturnOutput = tx.vout.find(
         (output) => output.scriptpubkey_type === "op_return"
       );
-      
+
       if (!vaultOutput || !opReturnOutput) continue;
-      
+
       const hexOpReturnData = opReturnOutput.scriptpubkey.slice(4);
       const imuaAddressHex = '0x' + hexOpReturnData.slice(0, 40);
       const validatorAddressHex = hexOpReturnData.slice(40);
-      
+
       // Convert validator hex to bech32
       const validatorAddress = toBech32('im', fromHex(validatorAddressHex));
-      
+
       const {version, hash} = toVersionAndHash(
         tx.vin[0].prevout.scriptpubkey_address,
-        networks.regtest,
+        this.getNetworkFromAddress(tx.vin[0].prevout.scriptpubkey_address),
       );
       console.log(`the underlying hash of address has length ${hash.length}`);
-      
+
       stakes.push({
         txid: tx.txid,
         blockHeight: tx.status.block_height,
@@ -317,14 +368,14 @@ export class GenesisGenerator {
 export async function generateGenesisState(stakes: BootstrapStake[]): Promise<GenesisState> {
   // Calculate total staked amount
   const totalStaked = stakes.reduce((sum, stake) => sum + stake.amount, 0);
-  
+
   // Current timestamp
   const genesisTime = new Date().toISOString();
-  
+
   // Asset ID for BTC
-  const btcAssetId = BTC_CONFIG.VIRTUAL_ADDRESS.toLowerCase() + '_0x' + 
+  const btcAssetId = BTC_CONFIG.VIRTUAL_ADDRESS.toLowerCase() + '_0x' +
                     CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID.toString(16);
-  
+
   // Group stakes by validator
   const validatorStakes = new Map<string, BootstrapStake[]>();
   stakes.forEach(stake => {
@@ -333,7 +384,7 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
     }
     validatorStakes.get(stake.validatorAddress)!.push(stake);
   });
-  
+
   // Create Bitcoin client chain
   const bitcoinChain: ClientChain = {
     name: CHAIN_CONFIG.NAME,
@@ -342,7 +393,7 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
     layer_zero_chain_id: CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID,
     address_length: CHAIN_CONFIG.ADDRESS_LENGTH
   };
-  
+
   // Create BTC token
   const btcToken: Token = {
     asset_basic_info: {
@@ -356,22 +407,22 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
     },
     staking_total_amount: totalStaked.toString()
   };
-  
+
   // Group deposits by staker_id
   const depositsByStaker = new Map<string, Map<string, number>>();
-  
+
   for (const stake of stakes) {
     const stakerId = stake.bitcoinAddress + '_0x' + CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID.toString(16);
-    
+
     if (!depositsByStaker.has(stakerId)) {
       depositsByStaker.set(stakerId, new Map<string, number>());
     }
-    
+
     const stakerDeposits = depositsByStaker.get(stakerId)!;
     const currentAmount = stakerDeposits.get(btcAssetId) || 0;
     stakerDeposits.set(btcAssetId, currentAmount + stake.amount);
   }
-  
+
   // Generate deposits array
   const deposits = Array.from(depositsByStaker.entries()).map(([stakerId, assetMap]) => ({
     staker: stakerId,
@@ -384,7 +435,7 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
       }
     }))
   }));
-  
+
   // Generate assets state
   const assetsState: AssetsState = {
     params: {
@@ -397,11 +448,11 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
     deposits: deposits,
     operator_assets: []
   };
-  
+
   // Generate operator assets
   for (const [validator, validatorStakeList] of validatorStakes.entries()) {
     const totalAmount = validatorStakeList.reduce((sum, stake) => sum + stake.amount, 0);
-    
+
     assetsState.operator_assets.push({
       operator: validator,
       assets_state: [{
@@ -415,20 +466,20 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
       }]
     });
   }
-  
+
   // Generate delegation state - skip associations as they don't exist for Bitcoin
   const delegationState: DelegationState = {
     associations: [], // No associations for Bitcoin
     delegation_states: [],
     stakers_by_operator: []
   };
-  
+
   // Map to collect stakers by operator
   const stakersByOperator = new Map<string, Set<string>>();
-  
+
   for (const stake of stakes) {
     const stakerId = stake.bitcoinAddress + '_0x' + CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID.toString(16);
-    
+
     // Add delegation state
     const key = `${stakerId}/${btcAssetId}/${stake.validatorAddress}`;
     delegationState.delegation_states.push({
@@ -438,7 +489,7 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
         wait_undelegation_amount: "0"
       }
     });
-    
+
     // Collect stakers by operator
     const mapKey = `${stake.validatorAddress}/${btcAssetId}`;
     if (!stakersByOperator.has(mapKey)) {
@@ -446,7 +497,7 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
     }
     stakersByOperator.get(mapKey)!.add(stakerId);
   }
-  
+
   // Convert stakers by operator map to array
   for (const [key, stakers] of stakersByOperator.entries()) {
     delegationState.stakers_by_operator.push({
@@ -454,30 +505,30 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
       stakers: Array.from(stakers)
     });
   }
-  
+
   // Sort arrays for deterministic output
   delegationState.delegation_states.sort((a, b) => a.key.localeCompare(b.key));
   delegationState.stakers_by_operator.sort((a, b) => a.key.localeCompare(b.key));
-  
+
   // Calculate validator power based on stake and BTC price
   let validators: Validator[] = [];
   let totalPower = 0;
-  
+
   for (const [validator, validatorStakeList] of validatorStakes.entries()) {
     const totalStake = validatorStakeList.reduce((sum, stake) => sum + stake.amount, 0);
     // Convert BTC to USD value and then to power units
     const usdValue = totalStake * config.btcPriceUsd;
     // Convert to integer power (e.g., 1 USD = 1000000 power units)
     const power = Math.floor(usdValue * 1000000);
-    
+
     validators.push({
       public_key: validator,
       power: power.toString()
     });
-    
+
     totalPower += power;
   }
-  
+
   // Sort validators by power (descending)
   validators.sort((a, b) => {
     const powerA = BigInt(a.power);
@@ -487,13 +538,13 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
     }
     return powerB > powerA ? 1 : -1;
   });
-  
+
   // Limit to max validators
   validators = validators.slice(0, config.maxValidators);
-  
+
   // Recalculate total power after limiting validators
   totalPower = validators.reduce((sum, validator) => sum + parseInt(validator.power), 0);
-  
+
   // Generate dogfood state
   const dogfoodState: DogfoodState = {
     params: {
@@ -503,7 +554,7 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
     val_set: validators,
     last_total_power: totalPower.toString()
   };
-  
+
   // Generate oracle state
   const oracleState: OracleState = {
     params: {
@@ -538,7 +589,7 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
       }))
     }]
   };
-  
+
   // Combine all states into app state
   const appState: AppState = {
     assets: assetsState,
@@ -546,7 +597,7 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
     dogfood: dogfoodState,
     oracle: oracleState
   };
-  
+
   // Construct the full genesis state
   const genesisState: GenesisState = {
     genesis_time: genesisTime,
