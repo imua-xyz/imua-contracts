@@ -19,6 +19,7 @@ export const XRP_CONFIG = {
   CHAIN_ID: 2, // XRP Ledger chain ID
   META_INFO: 'XRP Ledger native token',
 };
+
 export const CHAIN_CONFIG = {
   NAME: 'Bitcoin',
   META_INFO: 'Bitcoin mainnet',

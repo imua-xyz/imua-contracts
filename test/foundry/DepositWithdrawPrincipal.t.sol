@@ -34,7 +34,7 @@ contract DepositWithdrawPrincipalTest is ImuachainDeployer {
     event PrincipalWithdrawn(address indexed src, address indexed dst, uint256 amount);
 
     uint256 constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200_000;
-    uint64 public constant MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 32e9;
+    uint64 public constant MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 2048e9;
 
     function test_LSTDepositWithdrawByLayerZero() public {
         Player memory depositor = players[0];
@@ -246,9 +246,9 @@ contract DepositWithdrawPrincipalTest is ImuachainDeployer {
         uint256 lastlyUpdatedPrincipalBalance;
 
         uint256 depositAmount = uint256(_getEffectiveBalance(validatorContainer)) * GWEI_TO_WEI;
-        // Cap to 32 ether
-        if (depositAmount >= 32 ether) {
-            depositAmount = 32 ether;
+        // Cap to 2048 ether
+        if (depositAmount >= 2048 ether) {
+            depositAmount = 2048 ether;
         }
 
         // transfer some ETH to depositor for staking and paying for gas fee
@@ -273,28 +273,26 @@ contract DepositWithdrawPrincipalTest is ImuachainDeployer {
         );
         assertEq(withdrawableBefore, capsule.withdrawableBalance());
 
-        lastlyUpdatedPrincipalBalance += 32 ether;
+        lastlyUpdatedPrincipalBalance += depositAmount;
 
-        // before native withdraw, we simulate proper block environment states to make proof valid
-        _simulateBlockEnvironmentForNativeWithdraw();
-        deal(address(capsule), 1 ether); // Deposit 1 ether to handle excess amount withdraw
-        uint64 withdrawalAmountGwei = _getWithdrawalAmount(withdrawalContainer);
-        uint256 withdrawalAmount;
-        if (withdrawalAmountGwei > MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) {
-            withdrawalAmount = MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR * GWEI_TO_WEI;
-        } else {
-            withdrawalAmount = withdrawalAmountGwei * GWEI_TO_WEI;
-        }
+        _simulateBeaconchainWithdrawal(depositAmount);
+
+        uint256 withdrawalAmount = depositAmount / 2;
 
         principalBalanceBefore = _getPrincipalBalance(clientChainId, depositor.addr, VIRTUAL_STAKED_ETH_ADDRESS);
         withdrawableBefore = capsule.withdrawableBalance();
-        _testNativeWithdraw(depositor, relayer, lastlyUpdatedPrincipalBalance);
+        _testNativeWithdraw(depositor, relayer, lastlyUpdatedPrincipalBalance, withdrawalAmount);
         assertEq(
             principalBalanceBefore - withdrawalAmount,
             _getPrincipalBalance(clientChainId, depositor.addr, VIRTUAL_STAKED_ETH_ADDRESS)
         );
         assertEq(withdrawableBefore + withdrawalAmount, capsule.withdrawableBalance());
         _validateNonces();
+    }
+
+    function _simulateBeaconchainWithdrawal(uint256 validatorBalance) internal {
+        // assume all of the validator would be withdrawn to the capsule
+        vm.deal(address(capsule), validatorBalance);
     }
 
     function _testNativeDeposit(Player memory depositor, Player memory relayer, uint256 lastlyUpdatedPrincipalBalance)
@@ -305,9 +303,9 @@ contract DepositWithdrawPrincipalTest is ImuachainDeployer {
 
         /// client chain layerzero endpoint should emit the message packet including deposit payload.
         uint256 depositAmount = uint256(_getEffectiveBalance(validatorContainer)) * GWEI_TO_WEI;
-        // Cap to 32 ether
-        if (depositAmount >= 32 ether) {
-            depositAmount = 32 ether;
+        // Cap to 2048 ether
+        if (depositAmount >= 2048 ether) {
+            depositAmount = 2048 ether;
         }
 
         bytes memory depositRequestPayload = abi.encodePacked(
@@ -429,25 +427,17 @@ contract DepositWithdrawPrincipalTest is ImuachainDeployer {
         capsule.initialize(address(clientGateway), payable(depositor.addr), address(beaconOracle));
     }
 
-    function _testNativeWithdraw(Player memory withdrawer, Player memory relayer, uint256 lastlyUpdatedPrincipalBalance)
-        internal
-    {
-        // 1. withdrawer will call clientGateway.processBeaconChainWithdrawal to withdraw from Imuachain thru layerzero
+    function _testNativeWithdraw(
+        Player memory withdrawer,
+        Player memory relayer,
+        uint256 lastlyUpdatedPrincipalBalance,
+        uint256 withdrawalAmount
+    ) internal {
+        // 1. withdrawer will call clientGateway.claimNSTFromImuachain to claim NST from Imuachain thru layerzero
 
-        /// client chain layerzero endpoint should emit the message packet including deposit payload.
-        uint64 withdrawalAmountGwei = _getWithdrawalAmount(withdrawalContainer);
-        uint256 withdrawalAmount;
-        if (withdrawalAmountGwei > MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) {
-            withdrawalAmount = MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR * GWEI_TO_WEI;
-        } else {
-            withdrawalAmount = withdrawalAmountGwei * GWEI_TO_WEI;
-        }
-        bytes memory withdrawRequestPayload = abi.encodePacked(
-            Action.REQUEST_WITHDRAW_NST,
-            bytes32(bytes20(withdrawer.addr)),
-            withdrawalAmount,
-            validatorProof.validatorIndex
-        );
+        /// client chain layerzero endpoint should emit the message packet including withdraw payload.
+        bytes memory withdrawRequestPayload =
+            abi.encodePacked(Action.REQUEST_WITHDRAW_NST, bytes32(bytes20(withdrawer.addr)), withdrawalAmount);
         uint256 withdrawRequestNativeFee = clientGateway.quote(withdrawRequestPayload);
         bytes32 withdrawRequestId = generateUID(outboundNonces[clientChainId], true);
 
@@ -467,9 +457,7 @@ contract DepositWithdrawPrincipalTest is ImuachainDeployer {
         );
 
         vm.startPrank(withdrawer.addr);
-        clientGateway.processBeaconChainWithdrawal{value: withdrawRequestNativeFee}(
-            validatorContainer, validatorProof, withdrawalContainer, withdrawalProof
-        );
+        clientGateway.claimNSTFromImuachain{value: withdrawRequestNativeFee}(withdrawalAmount);
         vm.stopPrank();
 
         /// imuachain gateway should return response message to imuachain network layerzero endpoint
@@ -483,7 +471,7 @@ contract DepositWithdrawPrincipalTest is ImuachainDeployer {
         emit NSTTransfer(
             false, // isDeposit (false for withdrawal)
             true, // success
-            abi.encodePacked(bytes32(validatorProof.validatorIndex)),
+            bytes(""),
             bytes32(bytes20(withdrawer.addr)),
             withdrawalAmount
         );
@@ -527,28 +515,6 @@ contract DepositWithdrawPrincipalTest is ImuachainDeployer {
             withdrawResponseId,
             withdrawResponsePayload,
             bytes("")
-        );
-    }
-
-    function _simulateBlockEnvironmentForNativeWithdraw() internal {
-        // load beacon chain validator container and proof from json file
-        string memory withdrawalInfo = vm.readFile("test/foundry/test-data/full_withdrawal_proof.json");
-        _loadValidatorContainer(withdrawalInfo);
-        // load withdrawal proof
-        _loadWithdrawalContainer(withdrawalInfo);
-
-        activationTimestamp = BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
-        mockProofTimestamp = activationTimestamp;
-        validatorProof.beaconBlockTimestamp = mockProofTimestamp;
-
-        /// we set current block timestamp to be exactly one slot after the proof generation timestamp
-        mockCurrentBlockTimestamp = mockProofTimestamp + SECONDS_PER_SLOT;
-        vm.warp(mockCurrentBlockTimestamp);
-
-        vm.mockCall(
-            address(beaconOracle),
-            abi.encodeWithSelector(beaconOracle.timestampToBlockRoot.selector, validatorProof.beaconBlockTimestamp),
-            abi.encode(beaconBlockRoot)
         );
     }
 

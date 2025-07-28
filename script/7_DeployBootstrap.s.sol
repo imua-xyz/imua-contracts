@@ -33,22 +33,27 @@ contract DeployBootstrapOnly is BaseScript {
         super.setUp();
         // load contracts
         string memory prerequisiteContracts = vm.readFile("script/deployments/prerequisiteContracts.json");
-        clientChainLzEndpoint =
-            ILayerZeroEndpointV2(stdJson.readAddress(prerequisiteContracts, ".clientChain.lzEndpoint"));
+        clientChainLzEndpoint = ILayerZeroEndpointV2(
+            stdJson.readAddress(prerequisiteContracts, string.concat(".", clientChainName, ".lzEndpoint"))
+        );
         require(address(clientChainLzEndpoint) != address(0), "Client chain endpoint not found");
-        restakeToken = ERC20PresetFixedSupply(stdJson.readAddress(prerequisiteContracts, ".clientChain.erc20Token"));
+        restakeToken = ERC20PresetFixedSupply(
+            stdJson.readAddress(prerequisiteContracts, string.concat(".", clientChainName, ".erc20Token"))
+        );
         require(address(restakeToken) != address(0), "Restake token not found");
-        clientChain = vm.createSelectFork(clientChainRPCURL);
         // we should use the pre-requisite to save gas instead of deploying our own
-        beaconOracle = EigenLayerBeaconOracle(stdJson.readAddress(prerequisiteContracts, ".clientChain.beaconOracle"));
+        beaconOracle = EigenLayerBeaconOracle(
+            stdJson.readAddress(prerequisiteContracts, string.concat(".", clientChainName, ".beaconOracle"))
+        );
         require(address(beaconOracle) != address(0), "Beacon oracle not found");
         // same for BeaconProxyBytecode
-        beaconProxyBytecode =
-            BeaconProxyBytecode(stdJson.readAddress(prerequisiteContracts, ".clientChain.beaconProxyBytecode"));
+        beaconProxyBytecode = BeaconProxyBytecode(
+            stdJson.readAddress(prerequisiteContracts, string.concat(".", clientChainName, ".beaconProxyBytecode"))
+        );
         require(address(beaconProxyBytecode) != address(0), "Beacon proxy bytecode not found");
         // wstETH on Sepolia
         // https://docs.lido.fi/deployed-contracts/sepolia/
-        wstETH = stdJson.readAddress(prerequisiteContracts, ".clientChain.wstETH");
+        wstETH = stdJson.readAddress(prerequisiteContracts, string.concat(".", clientChainName, ".wstETH"));
         require(wstETH != address(0), "wstETH not found");
         // salt is automatically scoped to the deployer address
         salt = keccak256(abi.encodePacked("Bootstrap"));
@@ -83,7 +88,7 @@ contract DeployBootstrapOnly is BaseScript {
 
         // Create ImmutableConfig struct
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            imuachainChainId: imuachainChainId,
+            imuachainChainId: imuachainEndpointId,
             beaconOracleAddress: address(beaconOracle),
             vaultBeacon: address(vaultBeacon),
             imuaCapsuleBeacon: address(capsuleBeacon),
@@ -147,7 +152,7 @@ contract DeployBootstrapOnly is BaseScript {
             vm.serializeAddress(clientChainContracts, "clientGatewayLogic", address(clientGatewayLogic));
 
         string memory deployedContracts = "deployedContracts";
-        string memory finalJson = vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
+        string memory finalJson = vm.serializeString(deployedContracts, clientChainName, clientChainContractsOutput);
 
         vm.writeJson(finalJson, "script/deployments/deployedBootstrapOnly.json");
     }

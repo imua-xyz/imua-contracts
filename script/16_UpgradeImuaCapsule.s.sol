@@ -14,10 +14,10 @@ contract UpgradeImuaCapsuleScript is BaseScript {
 
         string memory deployedContracts = vm.readFile("script/deployments/deployedContracts.json");
 
-        capsuleBeaconContract =
-            UpgradeableBeacon((stdJson.readAddress(deployedContracts, ".clientChain.capsuleBeacon")));
+        capsuleBeaconContract = UpgradeableBeacon(
+            stdJson.readAddress(deployedContracts, string.concat(".", clientChainName, ".capsuleBeacon"))
+        );
         require(address(capsuleBeaconContract) != address(0), "capsuleBeacon address should not be empty");
-        clientChain = vm.createSelectFork(clientChainRPCURL);
     }
 
     function run() public {

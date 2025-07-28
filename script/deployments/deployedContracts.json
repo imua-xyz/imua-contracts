@@ -1,12 +1,12 @@
 {
-  "clientChain": {
+  "sepolia": {
     "beaconOracle": "0xd3D285cd1516038dAED61B8BF7Ae2daD63662492",
     "beaconProxyBytecode": "0xA15Ce26ba8E50ac21ecDa1791BAa3bf22a95b575",
     "bootstrap": "0x64B5B5A618072C1E4D137f91Af780e3B17A81f3f",
     "bootstrapLogic": "0xaa8901063317BF66dfed363468b01A9FD08D1a79",
     "capsuleBeacon": "0x1F91eD5F48E5Ad897E71Fa4559Be8fA1851F0696",
-    "capsuleImplementation": "0xE71771EeC8ba37c8383FaAe6F4D0de7521813442",
-    "clientGatewayLogic": "0xF1d902b81aEc0E4944FE6675c32FD21dfBe365ae",
+    "capsuleImplementation": "0xEE40Bab74cB57A7787A2d75991b7f23b065788ee",
+    "clientGatewayLogic": "0x2c0dcD77922CBF685Df1Ac9bcab82ea2571665bc",
     "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
     "proxyAdmin": "0xDb8710Ba0A1F161747d9459947Fd3B23DbdaB4ED",
     "rewardVaultBeacon": "0xB058fa6626Fcc56e44A1137a4CE2EFd8BD7f7711",
@@ -21,9 +21,9 @@
     "bootstrap": "0x38674073a3713dd2C46892f1d2C5Dadc5Bb14172",
     "bootstrapLogic": "0xCdA750418AFE2d2aD0f1052E8e997a52C2AA6861",
     "capsuleBeacon": "0xafc8e60Ab69735C5097c47e5E3A7ED5E63ce5001",
-    "capsuleImplementation": "0x954B9BC52C4394984390065830500006805Db9C9",
-    "clientGatewayLogic": "0x7944cd287F2Fcd03F4Cdc0B17801e29F1317c386",
-    "erc20Token": "0x1E867667Ef16111047C2c7f6ADf4612bDf80064D",
+    "capsuleImplementation": "0x5b04832d2D4Bf2fcFa69510860B273b5213DCA8A",
+    "clientGatewayLogic": "0x4Ff78FE5bb6F7697A4eef96e690CEB57317BA218",
+    "erc20Token": "0x2F9db0Fd41429199519Ad57ef4fD7CfecE98D32B",
     "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
     "proxyAdmin": "0x5cF0d7F7ae1085705DBD86f24b7E8000181a4190",
     "rewardVaultBeacon": "0x1b4B4D6abE71a49e7bb13774F3e1cb721a21Af8B",
@@ -33,10 +33,10 @@
   },
   "imuachain": {
     "imuachainGateway": "0xdDf5218Dbff297ADdF17fB7977E2469D774545ED",
-    "imuachainGatewayLogic": "0x71C95911E9a5D330f4D621842EC243EE1343292e",
+    "imuachainGatewayLogic": "0xD99eDF46a36F13cE59f547Be3525bF2b6A7363E9",
     "imuachainProxyAdmin": "0x8464135c8F25Da09e49BC8782676a84730C318bC",
     "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
-    "utxoGateway": "0x9483Ace644B65032234E36706E08eBCbe94b0BD3",
-    "utxoGatewayLogic": "0xDfaFD33F2b8f9CfaAcE03bCd24029357C4868A18"
+    "utxoGateway": "0x7c61a871071F91933a11567C14e056982aca93b4",
+    "utxoGatewayLogic": "0xEB4033a472AAc0066A86C19E44002a560Eeb6290"
   }
 }

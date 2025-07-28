@@ -134,7 +134,7 @@ describe('Bitcoin Bootstrap Genesis Generation', function() {
 
   it('should generate a valid genesis file', async function() {
     // Send Bitcoin staking transactions
-    stakingTxids = await sendBitcoinStakingTransactions();
+    stakingTxids = await sendBitcoinStakingTransactions();    
 
     // Wait for confirmations
     for (const txid of stakingTxids) {
@@ -148,7 +148,7 @@ describe('Bitcoin Bootstrap Genesis Generation', function() {
       TEST_CONFIG.MIN_CONFIRMATIONS,
       TEST_CONFIG.MIN_AMOUNT
     );
-
+  
     const stakes = await generator.generateGenesisStakes();
     console.log(`Found ${stakes.length} stakes`);
     const genesisState = await generateGenesisState(stakes);
@@ -199,7 +199,8 @@ describe('Bitcoin Bootstrap Genesis Generation', function() {
     console.log(`Genesis file written to: ${TEST_CONFIG.OUTPUT_PATH}`);
     console.log(`Number of stakes: ${stakingTxids.length}`);
     console.log(`Number of validators: ${validators.length}`);
-  }).timeout(300000); // 5-minute timeout
+  }).timeout(300000); // 5 minutes timeout
+
 
   // Helper function to send Bitcoin staking transactions
   async function sendBitcoinStakingTransactions() {
@@ -231,11 +232,11 @@ describe('Bitcoin Bootstrap Genesis Generation', function() {
         TEST_CONFIG.STAKE_AMOUNT,
         validatorAddress
       );
-
+      
       txids.push(txid);
       console.log(`Sent staking transaction ${i+1}/${TEST_CONFIG.NUM_STAKES} with txid ${txid} from staker ${stakerIndex} to validator ${validatorIndex} (${validatorAddress})`);
     }
-
+    
     console.log(`Total staking transactions sent: ${txids.length}`);
     return txids;
   }
@@ -246,17 +247,17 @@ describe('Bitcoin Bootstrap Genesis Generation', function() {
     const mockOwner = deployer.address;
     const spawnTime = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60; // 1 week from now
     const offsetDuration = 2; // 2 seconds
-
+    
     // Whitelist tokens and TVL limits
     const whitelistTokens = [];
     const tvlLimits = [];
-
+    
     // Mock proxy admin
     const mockProxyAdmin = "0x0000000000000000000000000000000000000009";
-
+    
     // Mock client chain gateway logic
     const mockClientGatewayLogic = "0x000000000000000000000000000000000000000A";
-
+    
     // Mock client chain initialization data
     // This should be the encoded call to ClientChainGateway.initialize(owner)
     const clientChainInitData = ethers.AbiCoder.defaultAbiCoder().encode(
@@ -277,7 +278,6 @@ describe('Bitcoin Bootstrap Genesis Generation', function() {
     ];
 
     console.log('initializeArgs', initializeArgs);
-
     return initializeArgs;
   }
 

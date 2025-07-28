@@ -23,8 +23,6 @@ contract DeployImuachainGatewayOnly is BaseScript {
         string memory prerequisites = vm.readFile("script/deployments/prerequisiteContracts.json");
         imuachainLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(prerequisites, ".imuachain.lzEndpoint"));
         require(address(imuachainLzEndpoint) != address(0), "imuachain l0 endpoint should not be empty");
-        // fork
-        imuachain = vm.createSelectFork(imuachainRPCURL);
         salt = keccak256(abi.encodePacked("imuachaintestnet_233-8"));
     }
 

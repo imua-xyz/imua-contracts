@@ -1,7 +1,8 @@
 # Bitcoin Bootstrap Transaction Format Specification for Imuachain
 
 ## Overview
-This specification defines the required transaction format for staking BTC during the Imuachain bootstrap phase. All bootstrap staking transactions must strictly follow this format to be considered valid by the system.
+This specification defines the required transaction format for staking BTC during the Imuachain bootstrap phase.
+All bootstrap staking transactions must strictly follow this format to be considered valid by the system.
 
 ## Transaction Structure Requirements
 
@@ -20,18 +21,19 @@ Must include the following required outputs (in any order):
 
 2. **OP_RETURN Output**
    - Contains future Imuachain address and validator address (required for bootstrap)
-   - Format: `OP_RETURN <20-byte Imuachain address><41-byte validator address as UTF-8>`
-   - Scriptpubkey format: 
+   - Format: `OP_RETURN <length> <20-byte Imuachain address> <41-byte validator address as UTF-8>`
+   - Scriptpubkey format:
+
      - `6a`: OP_RETURN
      - Length byte: `3D` (61) for bootstrap stake (always includes validator)
      - First 20 bytes: Future Imuachain address in raw bytes
      - Next 41 bytes: Validator address in bech32 format as UTF-8 bytes
    - Examples:
-     ```
-     HEX: 6a407d8bf59ba2e0b64bc4620a08844d34e2c56f9c3c65786f313368617372343376767138763434787078683066366c7975796d346b63613938663837673761630a
+     ```bash
+     HEX: 6a3d7d8bf59ba2e0b64bc4620a08844d34e2c56f9c3c696d31336861737234337676713876343478707a68306c367975796d346b636139386638376a376163
      Display in wallet/explorer:
-       - First 20 bytes (Imuachain): 7d8bf59ba2e0b64bc4620a08844d34e2c56f9c3c
-       - Next 42 bytes (Validator): im13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac
+       - 20 bytes (Imuachain): 7d8bf59ba2e0b64bc4620a08844d34e2c56f9c3c
+       - 41 bytes (Validator): im13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac
      ```
 
 3. **Change Output(s)** (Optional)
@@ -66,7 +68,8 @@ Must include the following required outputs (in any order):
 2. No input can be from the vault address
 3. Must have exactly one vault output with sufficient amount
 4. Must have exactly one OP_RETURN output
-5. OP_RETURN must be exactly 64 bytes (20 + 42)
+5. OP_RETURN payload must be exactly 61 bytes (20 + 41),
+   resulting in a 63-byte scriptPubKey when the 0x6a opcode and length byte are included.
 6. Validator address must be registered in bootstrap contract
 7. For subsequent stakes from same Bitcoin address:
    - Imuachain address must match the first stake's address
@@ -74,7 +77,7 @@ Must include the following required outputs (in any order):
 
 ### Address Format Requirements
 1. Imuachain address must be exactly 20 bytes
-2. Validator address must be exactly 42 bytes in bech32 format
+2. Validator address must be exactly 41 bytes in bech32 format
 3. Validator address must be registered in bootstrap contract
 4. Addresses must be properly encoded
 
@@ -97,15 +100,17 @@ The system processes bootstrap transactions by:
 This format is designed to be compatible with post-bootstrap UTXOGateway with these differences:
 
 **Bootstrap Phase:**
+
 - Validator address is mandatory
 - Format always includes both addresses
-- Length is always 64 bytes (20 + 42)
+- Size is always 63 bytes (op code + length + 20 + 41)
 - All stakes must be delegated to a validator
 
 **Post-Bootstrap (UTXOGateway):**
+
 - Operator address is optional
 - Two possible formats:
-  1. Deposit only: `OP_RETURN <20-byte Imuachain address>`
-  2. Deposit with delegation: `OP_RETURN <20-byte Imuachain address><41-byte operator address>`
-- Length can be 20 or 64 bytes
+  1. Deposit only: `OP_RETURN <length> <20-byte Imuachain address>`
+  2. Deposit with delegation: `OP_RETURN <length> <20-byte Imuachain address> <41-byte operator address>`
+- Size is either 22 bytes or 63 bytes
 - Delegation to operator is optional

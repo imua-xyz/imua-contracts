@@ -16,7 +16,12 @@ interface IBaseRestakingController {
     /// @param operator The address of the operator to undelegate tokens from.
     /// @param token The address of the token to be undelegated.
     /// @param amount The amount of tokens to undelegate.
-    function undelegateFrom(string calldata operator, address token, uint256 amount) external payable;
+    /// @param instantUnbond Whether to unbond immediately, possibly with a penalty configured by the network. Note that
+    /// instant unbonding does not release tokens immediately, instead, the tokens will be released after the current
+    /// epoch ends.
+    function undelegateFrom(string calldata operator, address token, uint256 amount, bool instantUnbond)
+        external
+        payable;
 
     /// @notice Client chain users call to withdraw their unlocked assets from the vault.
     /// @dev This function assumes that the withdrawable assets should have been unlocked before calling this.

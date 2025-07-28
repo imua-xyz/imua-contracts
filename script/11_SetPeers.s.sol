@@ -21,14 +21,11 @@ contract SetPeersAndUpgrade is BaseScript {
         super.setUp();
         // load contracts
         string memory deployed = vm.readFile("script/deployments/deployedBootstrapOnly.json");
-        bootstrapAddr = stdJson.readAddress(deployed, ".clientChain.bootstrap");
+        bootstrapAddr = stdJson.readAddress(deployed, string.concat(".", clientChainName, ".bootstrap"));
         require(address(bootstrapAddr) != address(0), "bootstrap address should not be empty");
         deployed = vm.readFile("script/deployments/deployedImuachainGatewayOnly.json");
         imuachainGatewayAddr = stdJson.readAddress(deployed, ".imuachain.imuachainGateway");
         require(address(imuachainGatewayAddr) != address(0), "imuachain gateway address should not be empty");
-        // forks
-        imuachain = vm.createSelectFork(imuachainRPCURL);
-        clientChain = vm.createSelectFork(clientChainRPCURL);
     }
 
     function run() public {
@@ -39,20 +36,21 @@ contract SetPeersAndUpgrade is BaseScript {
             _bindPrecompileMocks();
         }
         vm.startBroadcast(owner.privateKey);
-        gateway.setPeer(clientChainId, bootstrapAddr.toBytes32());
+        gateway.setPeer(clientChainEndpointId, bootstrapAddr.toBytes32());
         vm.stopBroadcast();
 
         Bootstrap bootstrap = Bootstrap(payable(bootstrapAddr));
 
         vm.selectFork(clientChain);
         vm.startBroadcast(owner.privateKey);
-        bootstrap.setPeer(imuachainChainId, address(imuachainGatewayAddr).toBytes32());
+        bootstrap.setPeer(imuachainEndpointId, address(imuachainGatewayAddr).toBytes32());
         vm.stopBroadcast();
 
         vm.selectFork(imuachain);
         vm.startBroadcast(owner.privateKey);
-        uint256 nativeFee = imuachainGateway.quote(clientChainId, abi.encodePacked(Action.REQUEST_MARK_BOOTSTRAP, ""));
-        imuachainGateway.markBootstrap{value: nativeFee}(clientChainId);
+        uint256 nativeFee =
+            imuachainGateway.quote(clientChainEndpointId, abi.encodePacked(Action.REQUEST_MARK_BOOTSTRAP, ""));
+        imuachainGateway.markBootstrap{value: nativeFee}(clientChainEndpointId);
     }
 
 }
