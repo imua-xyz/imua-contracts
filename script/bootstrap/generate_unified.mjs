@@ -71,12 +71,20 @@ class ConfigManager {
 
   async loadConfig(configPath) {
     if (configPath && (await this.fileExists(configPath))) {
+      let configData;
       try {
-        const userConfig = JSON.parse(await fs.readFile(configPath, 'utf8'));
+        configData = await fs.readFile(configPath, 'utf8');
+      } catch (error) {
+        console.warn(`⚠ Failed to read config file ${configPath}: ${error.message}. Using default configuration.`);
+        return this.config;
+      }
+
+      try {
+        const userConfig = JSON.parse(configData);
         this.config = this.mergeConfig(this.config, userConfig);
         console.log(`📄 Loaded configuration from ${configPath}`);
       } catch (error) {
-        console.warn(`⚠ Failed to load config from ${configPath}: ${error.message}. Using default configuration.`);
+        console.warn(`⚠ Invalid JSON in config file ${configPath}: ${error.message}. Using default configuration.`);
       }
     }
     return this.config;
