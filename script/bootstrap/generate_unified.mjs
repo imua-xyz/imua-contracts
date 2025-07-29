@@ -20,12 +20,25 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import JSONbig from 'json-bigint';
 
 // Load environment variables
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Configure json-bigint for safe BigInt handling
+const jsonBig = JSONbig({ storeAsString: true });
+
+/**
+ * Safe deep copy function that handles BigInt values
+ * @param {Object} obj - Object to deep copy
+ * @returns {Object} Deep copied object
+ */
+function safeDeepCopy(obj) {
+  return jsonBig.parse(jsonBig.stringify(obj));
+}
 
 // Default configuration
 const DEFAULT_CONFIG = {
@@ -141,7 +154,7 @@ class GenesisStateMerger {
     }
 
     // Start with the first genesis state as base
-    let unified = JSON.parse(JSON.stringify(genesisStates[0]));
+    let unified = safeDeepCopy(genesisStates[0]);
 
     // Merge additional genesis states
     for (let i = 1; i < genesisStates.length; i++) {
@@ -158,7 +171,7 @@ class GenesisStateMerger {
    * @returns {Object} Merged genesis state
    */
   mergeTwo(base, additional) {
-    const result = JSON.parse(JSON.stringify(base));
+    const result = safeDeepCopy(base);
 
     // Merge app_state modules
     if (additional.app_state) {
@@ -193,7 +206,7 @@ class GenesisStateMerger {
    * @returns {Object} Merged module state
    */
   mergeModule(baseModule, additionalModule, moduleName) {
-    const result = JSON.parse(JSON.stringify(baseModule));
+    const result = safeDeepCopy(baseModule);
 
     switch (moduleName) {
       case 'assets':
