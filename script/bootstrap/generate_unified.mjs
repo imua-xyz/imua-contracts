@@ -427,20 +427,26 @@ class ScriptRunner {
         // For EVM script, it executes immediately on import, so no function call needed
       }
 
-      // Wait for file writing to complete
-      if (waitTime > 0) {
-        await new Promise((resolve) => setTimeout(resolve, waitTime));
+      // Poll for file with timeout
+      const maxAttempts = 30;
+      const pollInterval = 100;
+
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        if (await this.fileExists(resolvedOutputPath)) {
+          try {
+            const content = await fs.readFile(resolvedOutputPath, 'utf8');
+            const genesis = JSON.parse(content);
+            console.log(`🔄 ${chainName} genesis generation completed from: ${resolvedOutputPath} ✓`);
+            return genesis;
+          } catch (error) {
+            if (attempt === maxAttempts - 1) throw error;
+            // File might still be writing, continue polling
+          }
+        }
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
       }
 
-      // Read the generated file - use same resolved path for consistency
-      if (await this.fileExists(resolvedOutputPath)) {
-        const content = await fs.readFile(resolvedOutputPath, 'utf8');
-        const genesis = JSON.parse(content);
-        console.log(`🔄 ${chainName} genesis generation completed from: ${resolvedOutputPath} ✓`);
-        return genesis;
-      } else {
-        throw new Error(`${chainName} genesis output file not found: ${resolvedOutputPath}`);
-      }
+      throw new Error(`${chainName} genesis output file not found after ${maxAttempts * pollInterval}ms: ${resolvedOutputPath}`);
     } catch (error) {
       console.error(`❌ ${chainName} genesis generation failed: ${error.message}`);
       throw error;
