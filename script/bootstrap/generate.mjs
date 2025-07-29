@@ -294,7 +294,7 @@ async function updateGenesisFile() {
           contract_address: '',
           active: true,
           asset_id: "NST" + clientChainSuffix,
-          decimal: 0,
+          decimal: 9,
         };
         oracleTokenFeeder.rule_id = "3";
       } else {
@@ -1140,17 +1140,10 @@ async function updateGenesisFile() {
     genesisJSON.app_state.delegation.stakers_by_operator = stakers_by_operator;
 
     // x/oracle - native restaking for ETH
-    genesisJSON.app_state.oracle.staker_list_assets = [
-      {
-        asset_id: VIRTUAL_STAKED_ETH_ADDR.toLowerCase() + clientChainSuffix,
-        staker_list: {
-          staker_addrs: nativeTokenDepositors,
-        }
-      }
-    ];
     genesisJSON.app_state.oracle.staker_infos_assets = [{
 	  chain_id: clientChainInfo.layer_zero_chain_id,
       staker_infos: staker_infos,
+      nst_version_info: {}
     }];
 
     // x/oracle - chains: Set chain information for oracle state
