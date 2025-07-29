@@ -472,7 +472,7 @@ class ScriptRunner {
    * @param {string} scriptPath - Path to TypeScript file
    * @param {string} functionName - Function to call (optional)
    */
-    async runWithTsx(scriptPath, functionName = null) {
+  async runWithTsx(scriptPath, functionName = null) {
     const { spawn } = await import('child_process');
 
     return new Promise((resolve, reject) => {
@@ -646,7 +646,8 @@ class UnifiedGenesisGenerator {
       console.log('🔄 Merging genesis states...');
       const unifiedGenesis = this.merger.merge(genesisStates);
 
-
+      // Validate genesis structure
+      this.validateGenesisStructure(unifiedGenesis);
 
       // Write output
       await this.writeOutput(unifiedGenesis, config.output);
@@ -658,6 +659,58 @@ class UnifiedGenesisGenerator {
       console.error('❌ Unified genesis generation failed:', error.message);
       throw error;
     }
+  }
+
+  /**
+ * Validate the unified genesis structure
+ * @param {Object} genesis - The unified genesis to validate
+ */
+  validateGenesisStructure(genesis) {
+    if (!genesis || typeof genesis !== 'object') {
+      throw new Error('Invalid genesis: must be an object');
+    }
+
+    if (!genesis.app_state || typeof genesis.app_state !== 'object') {
+      throw new Error('Invalid genesis: missing or invalid app_state');
+    }
+
+    if (!genesis.genesis_time) {
+      throw new Error('Invalid genesis: missing genesis_time');
+    }
+
+    console.log('✅ Basic genesis structure validation passed');
+
+    // Validate required modules based on enabled chains
+    const config = this.configManager.getConfig();
+    const requiredModules = [];
+
+    if (config.chains.evm?.enabled) {
+      requiredModules.push('assets', 'oracle', 'dogfood', 'delegation');
+    }
+
+    if (config.chains.bitcoin?.enabled) {
+      // Bitcoin-specific modules (add as needed based on actual requirements)
+      requiredModules.push('assets', 'delegation');
+    }
+
+    // Remove duplicates
+    const uniqueModules = [...new Set(requiredModules)];
+
+    let missingModules = 0;
+    for (const module of uniqueModules) {
+      if (!genesis.app_state[module]) {
+        console.warn(`⚠ Warning: Expected module '${module}' not found in genesis app_state`);
+        missingModules++;
+      }
+    }
+
+    if (missingModules === 0 && uniqueModules.length > 0) {
+      console.log(`✅ All ${uniqueModules.length} expected modules found in genesis`);
+    } else if (uniqueModules.length > 0) {
+      console.log(`⚠ Genesis validation completed with ${missingModules} missing expected modules`);
+    }
+
+    console.log('✅ Genesis structure validation completed');
   }
 
   async writeOutput(genesis, outputConfig) {
