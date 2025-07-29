@@ -18,14 +18,16 @@ All bootstrap staking transactions must strictly follow this format to be consid
 Must include the following required outputs (in any order):
 
 1. **Vault Output**
+
    - Recipient: Vault address
    - Amount: Must be >= minimum required amount
    - Exactly one vault output allowed
-
 2. **OP_RETURN Output**
+
    - Contains future Imuachain address and validator address (required for bootstrap)
    - Format: `OP_RETURN <length> <20-byte Imuachain address> <41-byte validator address as UTF-8>`
    - Scriptpubkey format:
+
      - `6a`: OP_RETURN
      - Length byte: `3D` (61) for bootstrap stake (always includes validator)
      - First 20 bytes: Future Imuachain address in raw bytes
@@ -38,8 +40,8 @@ Must include the following required outputs (in any order):
        - 20 bytes (Imuachain): 7d8bf59ba2e0b64bc4620a08844d34e2c56f9c3c
        - 41 bytes (Validator): im13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac
      ```
-
 3. **Change Output(s)** (Optional)
+
    - Any additional outputs are allowed for change
    - Can send change back to sender or any other address
 
@@ -98,6 +100,70 @@ The system processes bootstrap transactions by:
 3. Validating validator registration
 4. Recording stake amount and delegation
 5. Including in genesis state
+
+## Wallet Usage Examples
+
+### Using Bitcoin Electrum Wallet
+
+To create a bootstrap staking transaction using Electrum wallet:
+
+1. Open Electrum wallet
+2. Click "Send" --> "Pay to" tab
+3. Paste the following content in the recipients field:
+
+```
+tb1q3w7ar6cxdc7j3g8dunqdve589l0t4383pp8efk,0.0002
+script(OP_RETURN 70997970C51812dc3A010C7d01b50e0d17dc79C8696d31633578376d787068766761766a6875306175396a6a716e667163797370657674353666786538),0
+```
+
+**Format Explanation:**
+
+- `tb1q3w7ar6cxdc7j3g8dunqdve589l0t4383pp8efk` - Vault address (destination for BTC)
+- `0.0002` - Stake amount in BTC
+- `script(OP_RETURN ...)` - OP_RETURN output with embedded data
+- `,0` - Zero amount for OP_RETURN output (no BTC sent to this output)
+
+**OP_RETURN Data Construction:**
+
+The OP_RETURN data contains concatenated hex values:
+
+```
+70997970C51812dc3A010C7d01b50e0d17dc79C8 + 696d31633578376d787068766761766a6875306175396a6a716e667163797370657674353666786538
+```
+
+Where:
+
+- **First 20 bytes (40 hex chars)**: `70997970C51812dc3A010C7d01b50e0d17dc79C8`
+
+  - Imuachain EVM address (remove `0x` prefix)
+  - Example: `0x70997970C51812dc3A010C7d01b50e0d17dc79C8` → `70997970C51812dc3A010C7d01b50e0d17dc79C8`
+- **Next 41 bytes (82 hex chars)**: `696d31633578376d787068766761766a6875306175396a6a716e667163797370657674353666786538`
+
+  - Validator address in bech32 format converted to hex
+  - Example: `im1c5x7mxphvgavjhu0au9jjqnfqcyspevt56fxe8` (bech32 address)
+
+**Converting Validator Address to Hex:**
+
+Method 1 - Using `xxd`:
+
+```bash
+echo -n "im1c5x7mxphvgavjhu0au9jjqnfqcyspevt56fxe8" | xxd -p
+```
+
+Method 2 - Using `cast`:
+
+```bash
+cast --from-utf8 im1c5x7mxphvgavjhu0au9jjqnfqcyspevt56fxe8
+```
+
+Both commands will output: `696d31633578376d787068766761766a6875306175396a6a716e667163797370657674353666786538`
+
+**Transaction Structure:**
+
+- Input: Your Bitcoin address (sender)
+- Output 1: Vault address receiving the stake amount
+- Output 2: OP_RETURN with Imuachain and validator addresses
+- Output 3+: Change outputs (optional)
 
 ## Important Notes
 
