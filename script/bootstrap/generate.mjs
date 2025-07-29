@@ -1140,11 +1140,13 @@ async function updateGenesisFile() {
     genesisJSON.app_state.delegation.stakers_by_operator = stakers_by_operator;
 
     // x/oracle - native restaking for ETH
-    genesisJSON.app_state.oracle.staker_infos_assets = [{
-	  chain_id: clientChainInfo.layer_zero_chain_id,
-      staker_infos: staker_infos,
-      nst_version_info: {}
-    }];
+    if (staker_infos.length > 0) {
+      genesisJSON.app_state.oracle.staker_infos_assets = [{
+        chain_id: clientChainInfo.layer_zero_chain_id,
+        staker_infos: staker_infos,
+        nst_version_info: {}
+      }];
+    }
 
     // x/oracle - chains: Set chain information for oracle state
     // Initialize chains array with only the placeholder entry if it does not exist
