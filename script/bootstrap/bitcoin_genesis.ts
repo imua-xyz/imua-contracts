@@ -2,25 +2,27 @@ import axios from 'axios';
 import fs from 'fs';
 import { ethers } from 'ethers';
 import { fromBech32, fromHex, toBech32 } from '@cosmjs/encoding';
-import {address as addressUtils, networks} from 'bitcoinjs-lib';
+import { address as addressUtils, networks } from 'bitcoinjs-lib';
 import config from './config';
 import bootstrapAbi from '../../out/Bootstrap.sol/Bootstrap.json';
 import { BTC_CONFIG, CHAIN_CONFIG } from './config';
-import {
-  GenesisState, AppState, AssetsState, DelegationState,
-  DogfoodState, Validator, OracleState, ClientChain, Token
-} from './types';
+import { GenesisState, AppState, AssetsState, DelegationState, DogfoodState, Validator, OracleState, ClientChain, Token } from './types';
 import { toVersionAndHash } from './utils';
 
 interface BootstrapStake {
   txid: string;
   blockHeight: number;
   txIndex: number;
-  bitcoinAddress: string;
+  stakerAddress: string; // Imuachain address from OP_RETURN (formerly bitcoinAddress)
   imuachainAddress: string;
   validatorAddress: string;
   amount: number;
   timestamp: number;
+}
+
+interface OpReturnData {
+  imuachainAddressHex: string;
+  validatorAddress: string;
 }
 
 interface BTCTransaction {
@@ -111,7 +113,7 @@ export class GenesisGenerator {
 
         if (txs.length === 0) break;
 
-        const confirmedTxs = txs.filter(tx => tx.status.confirmed);
+        const confirmedTxs = txs.filter((tx) => tx.status.confirmed);
         for (const tx of confirmedTxs) {
           tx.status.txIndex = await this.getTxIndexInBlock(tx.txid);
           allTxs.push(tx);
@@ -146,6 +148,57 @@ export class GenesisGenerator {
     }
   }
 
+  /**
+   * Parse and validate OP_RETURN data from Bitcoin transaction output
+   * Format: 6a3d{20 bytes imuachain}{41 bytes validator}
+   */
+  private parseOpReturnData(scriptPubKey: string, txid?: string): OpReturnData | null {
+    // Validate OP_RETURN format
+    if (!scriptPubKey.startsWith('6a3d')) {
+      if (txid) {
+        console.log(`Invalid OP_RETURN prefix in tx ${txid}`);
+      }
+      return null;
+    }
+
+    const hexOpReturnData = scriptPubKey.slice(4);
+    if (hexOpReturnData.length !== 122) {
+      // 20 bytes + 41 bytes = 122 hex chars
+      if (txid) {
+        console.log(`Invalid OP_RETURN data length in tx ${txid}`);
+      }
+      return null;
+    }
+
+    // Extract imuachain and validator addresses
+    const imuachainAddressHex = '0x' + hexOpReturnData.slice(0, 40);
+    const validatorAddressHex = hexOpReturnData.slice(40);
+
+    try {
+      // Convert validator hex to string
+      const bytes = Buffer.from(validatorAddressHex, 'hex');
+      const validatorAddress = new TextDecoder().decode(bytes);
+
+      // Validate the validator address format
+      if (!this.isValidValidatorAddress(validatorAddress)) {
+        if (txid) {
+          console.log(`Invalid validator address format in tx ${txid}: ${validatorAddress}`);
+        }
+        return null;
+      }
+
+      return {
+        imuachainAddressHex,
+        validatorAddress,
+      };
+    } catch (error) {
+      if (txid) {
+        console.error(`Error converting validator address in tx ${txid}:`, error);
+      }
+      return null;
+    }
+  }
+
   private getNetworkFromAddress(address: string): networks.Network {
     // Bech32 addresses (native segwit)
     if (address.startsWith('bc1')) {
@@ -164,16 +217,13 @@ export class GenesisGenerator {
       const decoded = addressUtils.fromBase58Check(address);
 
       // Check version bytes for different networks
-      if (decoded.version === networks.bitcoin.pubKeyHash ||
-          decoded.version === networks.bitcoin.scriptHash) {
+      if (decoded.version === networks.bitcoin.pubKeyHash || decoded.version === networks.bitcoin.scriptHash) {
         return networks.bitcoin; // Mainnet
       }
-      if (decoded.version === networks.testnet.pubKeyHash ||
-          decoded.version === networks.testnet.scriptHash) {
+      if (decoded.version === networks.testnet.pubKeyHash || decoded.version === networks.testnet.scriptHash) {
         return networks.testnet; // Testnet
       }
-      if (decoded.version === networks.regtest.pubKeyHash ||
-          decoded.version === networks.regtest.scriptHash) {
+      if (decoded.version === networks.regtest.pubKeyHash || decoded.version === networks.regtest.scriptHash) {
         return networks.regtest; // Regtest
       }
     } catch (error) {
@@ -204,68 +254,34 @@ export class GenesisGenerator {
     }
 
     // Check if it's from vault (should not be)
-    const isFromVault = tx.vin.some(
-      (input) => input.prevout.scriptpubkey_address === this.vaultAddress
-    );
+    const isFromVault = tx.vin.some((input) => input.prevout.scriptpubkey_address === this.vaultAddress);
     if (isFromVault) {
       return false;
     }
 
     // Check vault output
-    const vaultOutputs = tx.vout.filter(
-      (output) => output.scriptpubkey_address === this.vaultAddress &&
-                  output.value >= this.minAmount
-    );
+    const vaultOutputs = tx.vout.filter((output) => output.scriptpubkey_address === this.vaultAddress && output.value >= this.minAmount);
     if (vaultOutputs.length !== 1) {
       console.log(`Invalid number of vault outputs in tx ${tx.txid}`);
       return false;
     }
 
     // Check OP_RETURN output
-    const opReturnOutputs = tx.vout.filter(
-      (output) => output.scriptpubkey_type === "op_return"
-    );
+    const opReturnOutputs = tx.vout.filter((output) => output.scriptpubkey_type === 'op_return');
     if (opReturnOutputs.length !== 1) {
       console.log(`Invalid number of OP_RETURN outputs in tx ${tx.txid}`);
       return false;
     }
 
     const opReturnOutput = opReturnOutputs[0];
-    // Validate OP_RETURN format
-    // Format: 6a3d{20 bytes imuachain}{41 bytes validator}
-    const scriptPubKey = opReturnOutput.scriptpubkey;
-    if (!scriptPubKey.startsWith('6a3d')) {
-      console.log(`Invalid OP_RETURN prefix in tx ${tx.txid}`);
+
+    // Parse and validate OP_RETURN data using the private method
+    const opReturnData = this.parseOpReturnData(opReturnOutput.scriptpubkey, tx.txid);
+    if (!opReturnData) {
       return false;
     }
 
-    const hexOpReturnData = scriptPubKey.slice(4);
-    if (hexOpReturnData.length !== 122) { // 20 bytes + 41 bytes = 122 hex chars
-      console.log(`Invalid OP_RETURN data length in tx ${tx.txid}`);
-      return false;
-    }
-
-    // Extract imuachain and validator addresses
-    const imuachainAddressHex = '0x' + hexOpReturnData.slice(0, 40);
-    const validatorAddressHex = hexOpReturnData.slice(40);
-
-    // Convert validator hex to bech32
-    let validatorAddress = '';
-    try {
-      // Convert hex to bytes
-      const bytes = Buffer.from(validatorAddressHex, 'hex');
-      // Convert bytes to string
-      validatorAddress = new TextDecoder().decode(bytes);
-
-      // Validate the validator address format
-      if (!this.isValidValidatorAddress(validatorAddress)) {
-        console.log(`Invalid validator address format in tx ${tx.txid}`);
-        return false;
-      }
-    } catch (error) {
-      console.error(`Error converting validator address in tx ${tx.txid}:`, error);
-      return false;
-    }
+    const { imuachainAddressHex, validatorAddress } = opReturnData;
 
     // Check if validator is registered
     const isRegistered = await this.isValidatorRegistered(validatorAddress);
@@ -301,17 +317,16 @@ export class GenesisGenerator {
 
     // Filter and sort transactions
     const validTxs = await Promise.all(
-      transactions.map(async tx => ({
+      transactions.map(async (tx) => ({
         tx,
-        isValid: await this.isValidBootstrapTransaction(tx)
+        isValid: await this.isValidBootstrapTransaction(tx),
       }))
     );
 
     const filteredTxs = validTxs
-      .filter(({ tx, isValid }) =>
-        isValid &&
-        tx.status.block_height <= currentHeight &&
-        (currentHeight - tx.status.block_height + 1) >= this.minConfirmations
+      .filter(
+        ({ tx, isValid }) =>
+          isValid && tx.status.block_height <= currentHeight && currentHeight - tx.status.block_height + 1 >= this.minConfirmations
       )
       .map(({ tx }) => tx)
       .sort((a, b) => {
@@ -326,26 +341,21 @@ export class GenesisGenerator {
     // Convert to BootstrapStake objects
     const stakes: BootstrapStake[] = [];
     for (const tx of filteredTxs) {
-      const vaultOutput = tx.vout.find(
-        (output) => output.scriptpubkey_address === this.vaultAddress
-      );
+      const vaultOutput = tx.vout.find((output) => output.scriptpubkey_address === this.vaultAddress);
 
-      const opReturnOutput = tx.vout.find(
-        (output) => output.scriptpubkey_type === "op_return"
-      );
+      const opReturnOutput = tx.vout.find((output) => output.scriptpubkey_type === 'op_return');
 
       if (!vaultOutput || !opReturnOutput) continue;
 
-      const hexOpReturnData = opReturnOutput.scriptpubkey.slice(4);
-      const imuaAddressHex = '0x' + hexOpReturnData.slice(0, 40);
-      const validatorAddressHex = hexOpReturnData.slice(40);
+      // Parse OP_RETURN data using the private method
+      const opReturnData = this.parseOpReturnData(opReturnOutput.scriptpubkey);
+      if (!opReturnData) continue;
 
-      // Convert validator hex to bech32
-      const validatorAddress = toBech32('im', fromHex(validatorAddressHex));
+      const { imuachainAddressHex: imuaAddressHex, validatorAddress } = opReturnData;
 
-      const {version, hash} = toVersionAndHash(
+      const { version, hash } = toVersionAndHash(
         tx.vin[0].prevout.scriptpubkey_address,
-        this.getNetworkFromAddress(tx.vin[0].prevout.scriptpubkey_address),
+        this.getNetworkFromAddress(tx.vin[0].prevout.scriptpubkey_address)
       );
       console.log(`the underlying hash of address has length ${hash.length}`);
 
@@ -353,11 +363,11 @@ export class GenesisGenerator {
         txid: tx.txid,
         blockHeight: tx.status.block_height,
         txIndex: tx.status.txIndex || 0,
-        bitcoinAddress: '0x' + Buffer.from(hash).toString('hex'),
+        stakerAddress: imuaAddressHex, // Use imuachain address from OP_RETURN as staker address per protocol
         imuachainAddress: imuaAddressHex,
         validatorAddress: validatorAddress,
         amount: vaultOutput.value,
-        timestamp: tx.status.block_time
+        timestamp: tx.status.block_time,
       });
     }
 
@@ -373,12 +383,11 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
   const genesisTime = new Date().toISOString();
 
   // Asset ID for BTC
-  const btcAssetId = BTC_CONFIG.VIRTUAL_ADDRESS.toLowerCase() + '_0x' +
-                    CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID.toString(16);
+  const btcAssetId = BTC_CONFIG.VIRTUAL_ADDRESS.toLowerCase() + '_0x' + CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID.toString(16);
 
   // Group stakes by validator
   const validatorStakes = new Map<string, BootstrapStake[]>();
-  stakes.forEach(stake => {
+  stakes.forEach((stake) => {
     if (!validatorStakes.has(stake.validatorAddress)) {
       validatorStakes.set(stake.validatorAddress, []);
     }
@@ -391,7 +400,7 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
     meta_info: CHAIN_CONFIG.META_INFO,
     finalization_blocks: CHAIN_CONFIG.FINALIZATION_BLOCKS,
     layer_zero_chain_id: CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID,
-    address_length: CHAIN_CONFIG.ADDRESS_LENGTH
+    address_length: CHAIN_CONFIG.ADDRESS_LENGTH,
   };
 
   // Create BTC token
@@ -402,17 +411,17 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
       address: BTC_CONFIG.VIRTUAL_ADDRESS,
       decimals: BTC_CONFIG.DECIMALS.toString(),
       layer_zero_chain_id: CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID,
-      imua_chain_index: "0",
-      meta_info: BTC_CONFIG.META_INFO
+      imua_chain_index: '0',
+      meta_info: BTC_CONFIG.META_INFO,
     },
-    staking_total_amount: totalStaked.toString()
+    staking_total_amount: totalStaked.toString(),
   };
 
   // Group deposits by staker_id
   const depositsByStaker = new Map<string, Map<string, number>>();
 
   for (const stake of stakes) {
-    const stakerId = stake.bitcoinAddress + '_0x' + CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID.toString(16);
+    const stakerId = stake.stakerAddress + '_0x' + CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID.toString(16);
 
     if (!depositsByStaker.has(stakerId)) {
       depositsByStaker.set(stakerId, new Map<string, number>());
@@ -430,23 +439,23 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
       asset_id: assetId,
       info: {
         total_deposit_amount: amount.toString(),
-        withdrawable_amount: "0", // All stakes must be delegated
-        pending_undelegation_amount: "0"
-      }
-    }))
+        withdrawable_amount: '0', // All stakes must be delegated
+        pending_undelegation_amount: '0',
+      },
+    })),
   }));
 
   // Generate assets state
   const assetsState: AssetsState = {
     params: {
       gateways: [
-        "0x0000000000000000000000000000000000000901" // UTXO Gateway address
-      ]
+        '0x0000000000000000000000000000000000000901', // UTXO Gateway address
+      ],
     },
     client_chains: [bitcoinChain],
     tokens: [btcToken],
     deposits: deposits,
-    operator_assets: []
+    operator_assets: [],
   };
 
   // Generate operator assets
@@ -455,15 +464,17 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
 
     assetsState.operator_assets.push({
       operator: validator,
-      assets_state: [{
-        asset_id: btcAssetId,
-        info: {
-          total_amount: totalAmount.toString(),
-          pending_undelegation_amount: "0",
-          total_share: totalAmount.toString(),
-          operator_share: "0" // Operators don't have their own stake in bootstrap
-        }
-      }]
+      assets_state: [
+        {
+          asset_id: btcAssetId,
+          info: {
+            total_amount: totalAmount.toString(),
+            pending_undelegation_amount: '0',
+            total_share: totalAmount.toString(),
+            operator_share: '0', // Operators don't have their own stake in bootstrap
+          },
+        },
+      ],
     });
   }
 
@@ -471,14 +482,14 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
   const delegationState: DelegationState = {
     associations: [], // No associations for Bitcoin
     delegation_states: [],
-    stakers_by_operator: []
+    stakers_by_operator: [],
   };
 
   // Map to collect stakers by operator
   const stakersByOperator = new Map<string, Set<string>>();
 
   for (const stake of stakes) {
-    const stakerId = stake.bitcoinAddress + '_0x' + CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID.toString(16);
+    const stakerId = stake.stakerAddress + '_0x' + CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID.toString(16);
 
     // Add delegation state
     const key = `${stakerId}/${btcAssetId}/${stake.validatorAddress}`;
@@ -486,8 +497,8 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
       key: key,
       states: {
         undelegatable_share: stake.amount.toString(),
-        wait_undelegation_amount: "0"
-      }
+        wait_undelegation_amount: '0',
+      },
     });
 
     // Collect stakers by operator
@@ -502,7 +513,7 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
   for (const [key, stakers] of stakersByOperator.entries()) {
     delegationState.stakers_by_operator.push({
       key: key,
-      stakers: Array.from(stakers)
+      stakers: Array.from(stakers),
     });
   }
 
@@ -523,7 +534,7 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
 
     validators.push({
       public_key: validator,
-      power: power.toString()
+      power: power.toString(),
     });
 
     totalPower += power;
@@ -549,45 +560,53 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
   const dogfoodState: DogfoodState = {
     params: {
       asset_ids: [btcAssetId],
-      max_validators: config.maxValidators
+      max_validators: config.maxValidators,
     },
     val_set: validators,
-    last_total_power: totalPower.toString()
+    last_total_power: totalPower.toString(),
   };
 
   // Generate oracle state
   const oracleState: OracleState = {
     params: {
-      tokens: [{
-        name: BTC_CONFIG.SYMBOL,
-        chain_id: BTC_CONFIG.CHAIN_ID,
-        contract_address: BTC_CONFIG.VIRTUAL_ADDRESS,
-        active: true,
-        asset_id: btcAssetId,
-        decimal: BTC_CONFIG.DECIMALS
-      }]
+      tokens: [
+        {
+          name: BTC_CONFIG.SYMBOL,
+          chain_id: BTC_CONFIG.CHAIN_ID,
+          contract_address: BTC_CONFIG.VIRTUAL_ADDRESS,
+          active: true,
+          asset_id: btcAssetId,
+          decimal: BTC_CONFIG.DECIMALS,
+        },
+      ],
     },
-    staker_list_assets: [{
-      asset_id: btcAssetId,
-      staker_list: {
-        staker_addrs: stakes.map(stake => stake.bitcoinAddress)
-      }
-    }],
-    staker_infos_assets: [{
-      asset_id: btcAssetId,
-      staker_infos: stakes.map((stake, index) => ({
-        staker_addr: stake.bitcoinAddress,
-        staker_index: index,
-        validator_pubkey_list: [stake.validatorAddress],
-        balance_list: [{
-          round_id: 0,
-          block: 0,
-          index: 0,
-          balance: stake.amount.toString(),
-          change: "ACTION_DEPOSIT"
-        }]
-      }))
-    }]
+    staker_list_assets: [
+      {
+        asset_id: btcAssetId,
+        staker_list: {
+          staker_addrs: stakes.map((stake) => stake.stakerAddress),
+        },
+      },
+    ],
+    staker_infos_assets: [
+      {
+        asset_id: btcAssetId,
+        staker_infos: stakes.map((stake, index) => ({
+          staker_addr: stake.stakerAddress,
+          staker_index: index,
+          validator_pubkey_list: [stake.validatorAddress],
+          balance_list: [
+            {
+              round_id: 0,
+              block: 0,
+              index: 0,
+              balance: stake.amount.toString(),
+              change: 'ACTION_DEPOSIT',
+            },
+          ],
+        })),
+      },
+    ],
   };
 
   // Combine all states into app state
@@ -595,35 +614,33 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
     assets: assetsState,
     delegation: delegationState,
     dogfood: dogfoodState,
-    oracle: oracleState
+    oracle: oracleState,
   };
 
   // Construct the full genesis state
   const genesisState: GenesisState = {
     genesis_time: genesisTime,
-    chain_id: "imua-1",
-    initial_height: "1",
+    chain_id: 'imua-1',
+    initial_height: '1',
     consensus_params: {
       block: {
-        max_bytes: "22020096",
-        max_gas: "-1"
+        max_bytes: '22020096',
+        max_gas: '-1',
       },
       evidence: {
-        max_age_num_blocks: "100000",
-        max_age_duration: "172800000000000",
-        max_bytes: "1048576"
+        max_age_num_blocks: '100000',
+        max_age_duration: '172800000000000',
+        max_bytes: '1048576',
       },
       validator: {
-        pub_key_types: [
-          "ed25519"
-        ]
+        pub_key_types: ['ed25519'],
       },
       version: {
-        app: "0"
-      }
+        app: '0',
+      },
     },
-    app_hash: "",
-    app_state: appState
+    app_hash: '',
+    app_state: appState,
   };
 
   return genesisState;
@@ -631,11 +648,7 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
 
 export async function generateBootstrapGenesis(): Promise<void> {
   const provider = new ethers.JsonRpcProvider(config.rpcUrl);
-  const bootstrapContract = new ethers.Contract(
-    config.bootstrapContractAddress,
-    bootstrapAbi.abi,
-    provider
-  );
+  const bootstrapContract = new ethers.Contract(config.bootstrapContractAddress, bootstrapAbi.abi, provider);
 
   const generator = new GenesisGenerator(
     config.btcVaultAddress,
@@ -648,10 +661,7 @@ export async function generateBootstrapGenesis(): Promise<void> {
   const stakes = await generator.generateGenesisStakes();
   const genesisState = await generateGenesisState(stakes);
 
-  await fs.promises.writeFile(
-    config.genesisOutputPath,
-    JSON.stringify(genesisState, null, 2)
-  );
+  await fs.promises.writeFile(config.genesisOutputPath, JSON.stringify(genesisState, null, 2));
 
   console.log(`Generated genesis state with ${stakes.length} valid stakes`);
   console.log(`Written to ${config.genesisOutputPath}`);
