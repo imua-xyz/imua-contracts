@@ -75,7 +75,7 @@ library NetworkConstants {
                 // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7600.md
                 1_740_434_112
             );
-        } else if (chainId == 2048) {
+        } else if (chainId == 560_048) {
             // hoodi
             return NetworkParams(
                 // https://github.com/eth-clients/hoodi/blob/3a17a5f5a3e8bccd6609a887f0bbe7ffc71e99e4/metadata/config.yaml#L86
