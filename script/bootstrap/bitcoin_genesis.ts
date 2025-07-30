@@ -53,6 +53,7 @@ export class GenesisGenerator {
   private readonly minAmount: number; // in satoshis
   private readonly bootstrapContract: ethers.Contract;
   private addressMappings: Map<string, string> = new Map(); // bitcoin -> imuachain
+  private validatorInfoCache: Map<string, any> = new Map(); // validator address -> validator info
 
   constructor(
     vaultAddress: string,
@@ -131,7 +132,13 @@ export class GenesisGenerator {
 
   private async isValidatorRegistered(validatorAddr: string): Promise<boolean> {
     try {
-      const validatorInfo = await this.bootstrapContract.validators(validatorAddr);
+      // Check if we already have cached info for this validator
+      if (!this.validatorInfoCache.has(validatorAddr)) {
+        const validatorInfo = await this.bootstrapContract.validators(validatorAddr);
+        this.validatorInfoCache.set(validatorAddr, validatorInfo);
+      }
+
+      const validatorInfo = this.validatorInfoCache.get(validatorAddr);
       return validatorInfo && validatorInfo.name && validatorInfo.name.length > 0;
     } catch (error) {
       console.error(`Error checking validator registration for ${validatorAddr}:`, error);
@@ -373,9 +380,14 @@ export class GenesisGenerator {
 
     return stakes;
   }
+
+  // Get cached validator info (public method for use in genesis generation)
+  public getValidatorInfo(validatorAddr: string): any {
+    return this.validatorInfoCache.get(validatorAddr);
+  }
 }
 
-export async function generateGenesisState(stakes: BootstrapStake[]): Promise<GenesisState> {
+export async function generateGenesisState(stakes: BootstrapStake[], generator?: GenesisGenerator): Promise<GenesisState> {
   // Calculate total staked amount
   const totalStaked = stakes.reduce((sum, stake) => sum + stake.amount, 0);
 
@@ -532,8 +544,19 @@ export async function generateGenesisState(stakes: BootstrapStake[]): Promise<Ge
     // Convert to integer power (e.g., 1 USD = 1000000 power units)
     const power = Math.floor(usdValue * 1000000);
 
+    // Get cached validator info to retrieve consensus public key
+    let publicKey = validator; // fallback to validator address
+    if (generator) {
+      const validatorInfo = generator.getValidatorInfo(validator);
+      if (validatorInfo && validatorInfo.consensusPublicKey) {
+        publicKey = validatorInfo.consensusPublicKey;
+      } else {
+        console.warn(`No consensus public key found for validator ${validator}, using validator address`);
+      }
+    }
+
     validators.push({
-      public_key: validator,
+      public_key: publicKey,
       power: power.toString(),
     });
 
@@ -659,7 +682,7 @@ export async function generateBootstrapGenesis(): Promise<void> {
   );
 
   const stakes = await generator.generateGenesisStakes();
-  const genesisState = await generateGenesisState(stakes);
+  const genesisState = await generateGenesisState(stakes, generator);
 
   await fs.promises.writeFile(config.genesisOutputPath, JSON.stringify(genesisState, null, 2));
 
