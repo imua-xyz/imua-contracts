@@ -269,7 +269,7 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
             beaconBlockRoot,
             proof.stateRoot,
             proof.stateRootProof,
-            proof.beaconBlockTimestamp >= getPectraHardForkTimestamp();
+            proof.beaconBlockTimestamp >= getPectraHardForkTimestamp()
         );
         if (!valid) {
             revert InvalidValidatorContainer(validatorContainer.getPubkeyHash());
