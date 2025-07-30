@@ -30,7 +30,8 @@ contract NetworkConfig is INetworkConfig {
         uint256 denebTimestamp,
         uint64 slotsPerEpoch,
         uint64 secondsPerSlot,
-        uint256 beaconGenesisTimestamp
+        uint256 beaconGenesisTimestamp,
+        uint256 pectraTimestamp
     ) {
         // the value of 31337 is known to be a reserved chain id for testing.
         // it is different from Anvil's 1337 to avoid confusion, since it does not support PoS.
@@ -43,7 +44,10 @@ contract NetworkConfig is INetworkConfig {
         require(slotsPerEpoch > 0, "Slots per epoch must be set for integration network");
         require(secondsPerSlot > 0, "Seconds per slot must be set for integration network");
         require(beaconGenesisTimestamp > 0, "Beacon genesis timestamp must be set for integration network");
-        params = NetworkParams(deposit, denebTimestamp, slotsPerEpoch, secondsPerSlot, beaconGenesisTimestamp);
+        require(pectraTimestamp > 0, "Pectra timestamp must be set for integration network");
+        params = NetworkParams(
+            deposit, denebTimestamp, slotsPerEpoch, secondsPerSlot, beaconGenesisTimestamp, pectraTimestamp
+        );
     }
 
     /// @inheritdoc INetworkConfig
@@ -75,6 +79,11 @@ contract NetworkConfig is INetworkConfig {
     /// @inheritdoc INetworkConfig
     function getBeaconGenesisTimestamp() external view returns (uint256) {
         return params.beaconGenesisTimestamp;
+    }
+
+    /// @inheritdoc INetworkConfig
+    function getPectraHardForkTimestamp() external view returns (uint256) {
+        return params.pectraHardForkTimestamp;
     }
 
 }

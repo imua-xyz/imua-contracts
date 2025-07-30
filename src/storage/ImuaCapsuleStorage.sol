@@ -152,4 +152,13 @@ contract ImuaCapsuleStorage {
         }
     }
 
+    /// @dev Gets the pectra timestamp, either from the NetworkConfig contract or the NetworkConstants library.
+    function getPectraHardForkTimestamp() internal view returns (uint256) {
+        if (NETWORK_CONFIG == address(0)) {
+            return NetworkConstants.getPectraHardForkTimestamp();
+        } else {
+            return INetworkConfig(NETWORK_CONFIG).getPectraHardForkTimestamp();
+        }
+    }
+
 }

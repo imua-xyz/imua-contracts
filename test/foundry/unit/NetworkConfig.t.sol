@@ -15,6 +15,7 @@ contract NetworkConfigTest is Test {
     uint64 public constant SLOTS_PER_EPOCH = 32;
     uint64 public constant SECONDS_PER_SLOT = 12;
     uint256 public constant BEACON_GENESIS_TIMESTAMP = 1_606_824_023;
+    uint256 public constant PECTRA_TIMESTAMP = 1_746_612_311;
 
     /// @notice Sets up the chain ID for testing and initializes a new contract instance.
     function setUp() public {
@@ -23,7 +24,12 @@ contract NetworkConfigTest is Test {
 
         // Deploy the contract with valid test parameters
         networkConfig = new NetworkConfig(
-            DEPOSIT_CONTRACT_ADDRESS, DENEB_TIMESTAMP, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BEACON_GENESIS_TIMESTAMP
+            DEPOSIT_CONTRACT_ADDRESS,
+            DENEB_TIMESTAMP,
+            SLOTS_PER_EPOCH,
+            SECONDS_PER_SLOT,
+            BEACON_GENESIS_TIMESTAMP,
+            PECTRA_TIMESTAMP
         );
     }
 
@@ -67,38 +73,61 @@ contract NetworkConfigTest is Test {
         vm.chainId(1);
         vm.expectRevert("only the 31337 chain ID is supported for integration tests");
         new NetworkConfig(
-            DEPOSIT_CONTRACT_ADDRESS, DENEB_TIMESTAMP, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BEACON_GENESIS_TIMESTAMP
+            DEPOSIT_CONTRACT_ADDRESS,
+            DENEB_TIMESTAMP,
+            SLOTS_PER_EPOCH,
+            SECONDS_PER_SLOT,
+            BEACON_GENESIS_TIMESTAMP,
+            PECTRA_TIMESTAMP
         );
     }
 
     /// @notice Tests if the contract reverts when initialized with an invalid deposit contract address.
     function testRevertInvalidDepositAddress() public {
         vm.expectRevert("Deposit contract address must be set for integration network");
-        new NetworkConfig(address(0), DENEB_TIMESTAMP, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BEACON_GENESIS_TIMESTAMP);
+        new NetworkConfig(
+            address(0), DENEB_TIMESTAMP, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BEACON_GENESIS_TIMESTAMP, PECTRA_TIMESTAMP
+        );
     }
 
     /// @notice Tests if the contract reverts when initialized with an invalid Deneb timestamp.
     function testRevertInvalidDenebTimestamp() public {
         vm.expectRevert("Deneb timestamp must be set for integration network");
-        new NetworkConfig(DEPOSIT_CONTRACT_ADDRESS, 0, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BEACON_GENESIS_TIMESTAMP);
+        new NetworkConfig(
+            DEPOSIT_CONTRACT_ADDRESS, 0, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BEACON_GENESIS_TIMESTAMP, PECTRA_TIMESTAMP
+        );
     }
 
     /// @notice Tests if the contract reverts when initialized with invalid slots per epoch.
     function testRevertInvalidSlotsPerEpoch() public {
         vm.expectRevert("Slots per epoch must be set for integration network");
-        new NetworkConfig(DEPOSIT_CONTRACT_ADDRESS, DENEB_TIMESTAMP, 0, SECONDS_PER_SLOT, BEACON_GENESIS_TIMESTAMP);
+        new NetworkConfig(
+            DEPOSIT_CONTRACT_ADDRESS, DENEB_TIMESTAMP, 0, SECONDS_PER_SLOT, BEACON_GENESIS_TIMESTAMP, PECTRA_TIMESTAMP
+        );
     }
 
     /// @notice Tests if the contract reverts when initialized with invalid seconds per slot.
     function testRevertInvalidSecondsPerSlot() public {
         vm.expectRevert("Seconds per slot must be set for integration network");
-        new NetworkConfig(DEPOSIT_CONTRACT_ADDRESS, DENEB_TIMESTAMP, SLOTS_PER_EPOCH, 0, BEACON_GENESIS_TIMESTAMP);
+        new NetworkConfig(
+            DEPOSIT_CONTRACT_ADDRESS, DENEB_TIMESTAMP, SLOTS_PER_EPOCH, 0, BEACON_GENESIS_TIMESTAMP, PECTRA_TIMESTAMP
+        );
     }
 
     /// @notice Tests if the contract reverts when initialized with an invalid beacon genesis timestamp.
     function testRevertInvalidBeaconGenesisTimestamp() public {
         vm.expectRevert("Beacon genesis timestamp must be set for integration network");
-        new NetworkConfig(DEPOSIT_CONTRACT_ADDRESS, DENEB_TIMESTAMP, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, 0);
+        new NetworkConfig(
+            DEPOSIT_CONTRACT_ADDRESS, DENEB_TIMESTAMP, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, 0, PECTRA_TIMESTAMP
+        );
+    }
+
+    /// @notice Tests if the contract reverts when initialized with an invalid Pectra timestamp.
+    function testRevertInvalidPectraTimestamp() public {
+        vm.expectRevert("Pectra timestamp must be set for integration network");
+        new NetworkConfig(
+            DEPOSIT_CONTRACT_ADDRESS, DENEB_TIMESTAMP, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BEACON_GENESIS_TIMESTAMP, 0
+        );
     }
 
 }
