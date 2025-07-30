@@ -82,7 +82,7 @@ library NetworkConstants {
                 0x00000000219ab540356cBB839Cbe05303d7705Fa,
                 // launched with Dencun = Deneb + Cancun
                 // https://github.com/eth-clients/hoodi/tree/main?tab=readme-ov-file#hoodi-hoodi-testnet
-                1_742_212_800,
+                1_742_213_400,
                 // the `config.yaml` above uses the below preset as a base
                 // https://github.com/ethereum/consensus-specs/blob/a09d0c321550c5411557674a981e2b444a1178c0/presets/mainnet/phase0.yaml#L36
                 SLOTS_PER_EPOCH_DEFAULT,
@@ -90,7 +90,7 @@ library NetworkConstants {
                 SECONDS_PER_SLOT_DEFAULT,
                 // this is the genesis timestamp of Beacon (== execution in this case)
                 // https://github.com/eth-clients/hoodi/tree/main?tab=readme-ov-file#hoodi-hoodi-testnet
-                1_742_212_800,
+                1_742_213_400,
                 // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7600.md
                 1_742_999_832
             );
