@@ -133,8 +133,7 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
             revert WithdrawalCredentialsNotMatch();
         }
 
-        bool isElectra = proof.beaconBlockTimestamp >= getPectraHardForkTimestamp();
-        _verifyValidatorContainer(validatorContainer, proof, isElectra);
+        _verifyValidatorContainer(validatorContainer, proof);
 
         validator.status = VALIDATOR_STATUS.REGISTERED;
         validator.validatorIndex = proof.validatorIndex;
@@ -260,8 +259,7 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
     /// @param proof The proof of the validator container.
     function _verifyValidatorContainer(
         bytes32[] calldata validatorContainer,
-        BeaconChainProofs.ValidatorContainerProof calldata proof,
-        bool isElectra
+        BeaconChainProofs.ValidatorContainerProof calldata proof
     ) internal view {
         bytes32 beaconBlockRoot = getBeaconBlockRoot(proof.beaconBlockTimestamp);
         bytes32 validatorContainerRoot = validatorContainer.merkleizeValidatorContainer();
@@ -271,7 +269,7 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
             beaconBlockRoot,
             proof.stateRoot,
             proof.stateRootProof,
-            isElectra
+            proof.beaconBlockTimestamp >= getPectraHardForkTimestamp();
         );
         if (!valid) {
             revert InvalidValidatorContainer(validatorContainer.getPubkeyHash());
