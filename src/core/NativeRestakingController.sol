@@ -43,16 +43,22 @@ abstract contract NativeRestakingController is
         nonReentrant
         nativeRestakingEnabled
     {
-        if (
-            msg.value < AFTER_PECTRA_MIN_ACTIVATION_BALANCE_ETH_PER_VALIDATOR
-                || msg.value > AFTER_PECTRA_MAX_EFFECTIVE_BALANCE_ETH_PER_VALIDATOR
-        ) {
-            revert Errors.NativeRestakingControllerInvalidStakeValue();
-        }
-
         IImuaCapsule capsule = ownerToCapsule[msg.sender];
         if (address(capsule) == address(0)) {
             capsule = IImuaCapsule(createImuaCapsule());
+        }
+
+        if (capsule.isPectraMode()) {
+            if (
+                msg.value < AFTER_PECTRA_MIN_ACTIVATION_BALANCE_ETH_PER_VALIDATOR
+                    || msg.value > AFTER_PECTRA_MAX_EFFECTIVE_BALANCE_ETH_PER_VALIDATOR
+            ) {
+                revert Errors.NativeRestakingControllerInvalidStakeValue();
+            }
+        } else {
+            if (msg.value != AFTER_PECTRA_MIN_ACTIVATION_BALANCE_ETH_PER_VALIDATOR) {
+                revert Errors.NativeRestakingControllerInvalidStakeValue();
+            }
         }
 
         ETH_POS.deposit{value: 32 ether}(pubkey, capsule.capsuleWithdrawalCredentials(), signature, depositDataRoot);

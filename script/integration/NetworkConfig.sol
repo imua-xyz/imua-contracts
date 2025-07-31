@@ -23,6 +23,7 @@ contract NetworkConfig is INetworkConfig {
     /// @param slotsPerEpoch The number of slots per epoch to set for the integration network.
     /// @param secondsPerSlot The number of seconds per slot to set for the integration network.
     /// @param beaconGenesisTimestamp The timestamp of the beacon chain genesis.
+    /// @param pectraTimestamp The timestamp of the pectra hard fork.
     /// @dev Given that this contract is only used during integration testing, the parameters are set in the
     /// constructor and cannot be changed later.
     constructor(
@@ -30,7 +31,8 @@ contract NetworkConfig is INetworkConfig {
         uint256 denebTimestamp,
         uint64 slotsPerEpoch,
         uint64 secondsPerSlot,
-        uint256 beaconGenesisTimestamp
+        uint256 beaconGenesisTimestamp,
+        uint256 pectraTimestamp
     ) {
         // the value of 31337 is known to be a reserved chain id for testing.
         // it is different from Anvil's 1337 to avoid confusion, since it does not support PoS.
@@ -43,7 +45,16 @@ contract NetworkConfig is INetworkConfig {
         require(slotsPerEpoch > 0, "Slots per epoch must be set for integration network");
         require(secondsPerSlot > 0, "Seconds per slot must be set for integration network");
         require(beaconGenesisTimestamp > 0, "Beacon genesis timestamp must be set for integration network");
-        params = NetworkParams(deposit, denebTimestamp, slotsPerEpoch, secondsPerSlot, beaconGenesisTimestamp);
+        require(pectraTimestamp > 0, "Pectra timestamp must be set for integration network");
+        // sometimes, new networks are launched with either/or/and Deneb + Pectra hard forks.
+        // hence, >= is valid and not just >.
+        require(pectraTimestamp >= denebTimestamp, "Pectra timestamp must be on or after Deneb timestamp");
+        require(
+            denebTimestamp >= beaconGenesisTimestamp, "Deneb timestamp must be on or after Beacon genesis timestamp"
+        );
+        params = NetworkParams(
+            deposit, denebTimestamp, slotsPerEpoch, secondsPerSlot, beaconGenesisTimestamp, pectraTimestamp
+        );
     }
 
     /// @inheritdoc INetworkConfig
@@ -75,6 +86,11 @@ contract NetworkConfig is INetworkConfig {
     /// @inheritdoc INetworkConfig
     function getBeaconGenesisTimestamp() external view returns (uint256) {
         return params.beaconGenesisTimestamp;
+    }
+
+    /// @inheritdoc INetworkConfig
+    function getPectraHardForkTimestamp() external view returns (uint256) {
+        return params.pectraHardForkTimestamp;
     }
 
 }

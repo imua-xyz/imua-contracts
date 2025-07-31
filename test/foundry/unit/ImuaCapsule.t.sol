@@ -15,6 +15,8 @@ import "src/libraries/Endian.sol";
 import {Errors} from "src/libraries/Errors.sol";
 import {ImuaCapsuleStorage} from "src/storage/ImuaCapsuleStorage.sol";
 
+import {NetworkConstants} from "src/libraries/NetworkConstants.sol";
+
 contract DepositSetup is Test {
 
     using stdStorage for StdStorage;
@@ -50,7 +52,12 @@ contract DepositSetup is Test {
     uint256 mockCurrentBlockTimestamp;
 
     function setUp() public {
-        vm.chainId(1); // set chainid to 1 so that capsule implementation can use default network constants
+        // set chainid to 1 so that capsule implementation can use default network constants
+        vm.chainId(1);
+        // non pectra mode
+        uint256 pectraTs = NetworkConstants.getNetworkParams().pectraHardForkTimestamp;
+        vm.warp(pectraTs - 1);
+
         string memory validatorInfo = vm.readFile("test/foundry/test-data/validator_container_proof_8955769.json");
 
         validatorContainer = stdJson.readBytes32Array(validatorInfo, ".ValidatorFields");
@@ -359,7 +366,12 @@ contract WithdrawalSetup is Test {
     uint256 depositAmount;
 
     function setUp() public {
-        vm.chainId(1); // set chainid to 1 so that capsule implementation can use default network constants
+        // set chainid to 1 so that capsule implementation can use default network constants
+        vm.chainId(1);
+        // non pectra mode
+        uint256 pectraTs = NetworkConstants.getNetworkParams().pectraHardForkTimestamp;
+        vm.warp(pectraTs - 1);
+
         string memory validatorInfo = vm.readFile("test/foundry/test-data/validator_container_proof_302913.json");
         _setValidatorContainer(validatorInfo);
 
