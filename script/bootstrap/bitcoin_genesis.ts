@@ -603,33 +603,6 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
         },
       ],
     },
-    staker_list_assets: [
-      {
-        asset_id: btcAssetId,
-        staker_list: {
-          staker_addrs: stakes.map((stake) => stake.stakerAddress),
-        },
-      },
-    ],
-    staker_infos_assets: [
-      {
-        asset_id: btcAssetId,
-        staker_infos: stakes.map((stake, index) => ({
-          staker_addr: stake.stakerAddress,
-          staker_index: index,
-          validator_pubkey_list: [stake.validatorAddress],
-          balance_list: [
-            {
-              round_id: 0,
-              block: 0,
-              index: 0,
-              balance: stake.amount.toString(),
-              change: 'ACTION_DEPOSIT',
-            },
-          ],
-        })),
-      },
-    ],
   };
 
   // Combine all states into app state

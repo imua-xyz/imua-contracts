@@ -306,19 +306,24 @@ class GenesisStateMerger {
   mergeDogfoodModule(base, additional) {
     const result = { ...base };
 
-    // For dogfood, we typically want to merge validators and keep the most recent params
+    // For dogfood, we need to merge validators by public_key and sum their power
     if (additional.val_set) {
       if (!result.val_set) result.val_set = [];
 
-      // Merge validators, avoiding duplicates by consensus_public_key
+      // Merge validators, summing power for same public_key
       for (const validator of additional.val_set) {
-        const existingIndex = result.val_set.findIndex((v) => v.consensus_public_key === validator.consensus_public_key);
+        const existingIndex = result.val_set.findIndex((v) => v.public_key === validator.public_key);
 
         if (existingIndex >= 0) {
-          if (this.conflictResolution === 'bitcoin_priority') {
-            result.val_set[existingIndex] = validator;
-          }
+          // Same public_key found, sum the power values
+          const existingPower = BigInt(result.val_set[existingIndex].power || '0');
+          const additionalPower = BigInt(validator.power || '0');
+          const totalPower = existingPower + additionalPower;
+          
+          result.val_set[existingIndex].power = totalPower.toString();
+          console.log(`🔄 Merged validator with public_key ${validator.public_key}: ${existingPower} + ${additionalPower} = ${totalPower}`);
         } else {
+          // New validator, add it directly
           result.val_set.push(validator);
         }
       }
@@ -327,6 +332,25 @@ class GenesisStateMerger {
     // Use additional params if they exist
     if (additional.params) {
       result.params = additional.params;
+    }
+
+    // Sort validators by power (descending) and recalculate last_total_power
+    if (result.val_set && result.val_set.length > 0) {
+      // Sort validators by power (descending), then by public_key (ascending) for deterministic ordering
+      result.val_set.sort((a, b) => {
+        const powerA = BigInt(a.power || '0');
+        const powerB = BigInt(b.power || '0');
+        if (powerA === powerB) {
+          return a.public_key.localeCompare(b.public_key);
+        }
+        return powerB > powerA ? 1 : -1;
+      });
+
+      const totalPower = result.val_set.reduce((sum, validator) => {
+        return sum + BigInt(validator.power || '0');
+      }, BigInt('0'));
+      result.last_total_power = totalPower.toString();
+      console.log(`🔄 Sorted ${result.val_set.length} validators and updated last_total_power to ${totalPower}`);
     }
 
     return result;
@@ -858,3 +882,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 
 export default UnifiedGenesisGenerator;
+export { GenesisStateMerger };
