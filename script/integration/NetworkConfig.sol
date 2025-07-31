@@ -23,6 +23,7 @@ contract NetworkConfig is INetworkConfig {
     /// @param slotsPerEpoch The number of slots per epoch to set for the integration network.
     /// @param secondsPerSlot The number of seconds per slot to set for the integration network.
     /// @param beaconGenesisTimestamp The timestamp of the beacon chain genesis.
+    /// @param pectraTimestamp The timestamp of the pectra hard fork.
     /// @dev Given that this contract is only used during integration testing, the parameters are set in the
     /// constructor and cannot be changed later.
     constructor(
@@ -45,8 +46,10 @@ contract NetworkConfig is INetworkConfig {
         require(secondsPerSlot > 0, "Seconds per slot must be set for integration network");
         require(beaconGenesisTimestamp > 0, "Beacon genesis timestamp must be set for integration network");
         require(pectraTimestamp > 0, "Pectra timestamp must be set for integration network");
-        require(pectraTimestamp >= denebTimestamp, "Pectra timestamp must be after Deneb timestamp");
-        require(denebTimestamp >= beaconGenesisTimestamp, "Deneb timestamp must be after Beacon genesis timestamp");
+        require(pectraTimestamp >= denebTimestamp, "Pectra timestamp must be on or after Deneb timestamp");
+        require(
+            denebTimestamp >= beaconGenesisTimestamp, "Deneb timestamp must be on or after Beacon genesis timestamp"
+        );
         params = NetworkParams(
             deposit, denebTimestamp, slotsPerEpoch, secondsPerSlot, beaconGenesisTimestamp, pectraTimestamp
         );
