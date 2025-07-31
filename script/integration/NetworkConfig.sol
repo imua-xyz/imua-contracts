@@ -46,6 +46,8 @@ contract NetworkConfig is INetworkConfig {
         require(secondsPerSlot > 0, "Seconds per slot must be set for integration network");
         require(beaconGenesisTimestamp > 0, "Beacon genesis timestamp must be set for integration network");
         require(pectraTimestamp > 0, "Pectra timestamp must be set for integration network");
+        // sometimes, new networks are launched with either/or/and Deneb + Pectra hard forks.
+        // hence, >= is valid and not just >.
         require(pectraTimestamp >= denebTimestamp, "Pectra timestamp must be on or after Deneb timestamp");
         require(
             denebTimestamp >= beaconGenesisTimestamp, "Deneb timestamp must be on or after Beacon genesis timestamp"
