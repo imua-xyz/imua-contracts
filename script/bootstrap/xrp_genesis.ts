@@ -65,6 +65,7 @@ export class XRPGenesisGenerator {
   private readonly minAmount: number; // in drops (1 XRP = 1,000,000 drops)
   private readonly bootstrapContract: ethers.Contract;
   private addressMappings: Map<string, string> = new Map(); // xrp -> imuachain
+  private validatorInfoCache: Map<string, any> = new Map(); // validator address -> validator info
 
   constructor(
     vaultAddress: string,
@@ -254,7 +255,13 @@ export class XRPGenesisGenerator {
    */
   private async isValidatorRegistered(validatorAddr: string): Promise<boolean> {
     try {
-      const validatorInfo = await this.bootstrapContract.validators(validatorAddr);
+      // Check if we already have cached info for this validator
+      if (!this.validatorInfoCache.has(validatorAddr)) {
+        const validatorInfo = await this.bootstrapContract.validators(validatorAddr);
+        this.validatorInfoCache.set(validatorAddr, validatorInfo);
+      }
+
+      const validatorInfo = this.validatorInfoCache.get(validatorAddr);
       return validatorInfo && validatorInfo.name && validatorInfo.name.length > 0;
     } catch (error) {
       console.error(`Error checking validator registration for ${validatorAddr}:`, error);
@@ -493,12 +500,17 @@ export class XRPGenesisGenerator {
 
     return stakes;
   }
+
+  // Get cached validator info (public method for use in genesis generation)
+  public getValidatorInfo(validatorAddr: string): any {
+    return this.validatorInfoCache.get(validatorAddr);
+  }
 }
 
 /**
  * Generate genesis state from XRP bootstrap stakes
  */
-export async function generateXRPGenesisState(stakes: BootstrapStake[]): Promise<GenesisState> {
+export async function generateXRPGenesisState(stakes: BootstrapStake[], generator?: XRPGenesisGenerator): Promise<GenesisState> {
   // Calculate total staked amount
   const totalStaked = stakes.reduce((sum, stake) => sum + stake.amount, 0);
 
@@ -656,9 +668,20 @@ export async function generateXRPGenesisState(stakes: BootstrapStake[]): Promise
     // Convert to integer power (e.g., 1 USD = 1000000 power units)
     const power = Math.floor(usdValue * 1000000);
 
+    // Get cached validator info to retrieve consensus public key
+    let publicKey = validator; // fallback to validator address
+    if (generator) {
+      const validatorInfo = generator.getValidatorInfo(validator);
+      if (validatorInfo && validatorInfo.consensusPublicKey) {
+        publicKey = validatorInfo.consensusPublicKey;
+      } else {
+        console.warn(`No consensus public key found for validator ${validator}, using validator address`);
+      }
+    }
+
     validators.push({
-      public_key: validator,
-      power: power.toString()
+      power: power.toString(),
+      public_key: publicKey,
     });
 
     totalPower += power;
@@ -701,28 +724,7 @@ export async function generateXRPGenesisState(stakes: BootstrapStake[]): Promise
         asset_id: xrpAssetId,
         decimal: XRP_CONFIG.DECIMALS
       }]
-    },
-    staker_list_assets: [{
-      asset_id: xrpAssetId,
-      staker_list: {
-        staker_addrs: stakes.map(stake => stake.xrpAddress)
-      }
-    }],
-    staker_infos_assets: [{
-      asset_id: xrpAssetId,
-      staker_infos: stakes.map((stake, index) => ({
-        staker_addr: stake.xrpAddress,
-        staker_index: index,
-        validator_pubkey_list: [stake.validatorAddress],
-        balance_list: [{
-          round_id: 0,
-          block: 0,
-          index: 0,
-          balance: stake.amount.toString(),
-          change: "ACTION_DEPOSIT"
-        }]
-      }))
-    }]
+    }
   };
 
   // Combine all states into app state
@@ -784,7 +786,7 @@ export async function generateXRPBootstrapGenesis(): Promise<void> {
   );
 
   const stakes = await generator.generateGenesisStakes();
-  const genesisState = await generateXRPGenesisState(stakes);
+  const genesisState = await generateXRPGenesisState(stakes, generator);
 
   await fs.promises.writeFile(
     config.xrpGenesisOutputPath,
