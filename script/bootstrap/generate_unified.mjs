@@ -329,9 +329,25 @@ class GenesisStateMerger {
       }
     }
 
-    // Use additional params if they exist
+    // Merge params, especially asset_ids array with deduplication
     if (additional.params) {
-      result.params = additional.params;
+      if (!result.params) {
+        result.params = additional.params;
+      } else {
+        // Store original asset_ids before merging
+        const originalAssetIds = result.params.asset_ids || [];
+        const additionalAssetIds = additional.params.asset_ids || [];
+        
+        // Merge params fields (this might overwrite asset_ids)
+        result.params = { ...result.params, ...additional.params };
+        
+        // Special handling for asset_ids array - merge and deduplicate
+        if (originalAssetIds.length > 0 || additionalAssetIds.length > 0) {
+          const combinedAssetIds = [...originalAssetIds, ...additionalAssetIds];
+          result.params.asset_ids = [...new Set(combinedAssetIds)];
+          console.log(`🔄 Merged asset_ids: ${originalAssetIds.length} + ${additionalAssetIds.length} = ${result.params.asset_ids.length} unique assets - [${result.params.asset_ids.join(', ')}]`);
+        }
+      }
     }
 
     // Sort validators by power (descending) and recalculate last_total_power
