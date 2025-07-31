@@ -34,37 +34,42 @@ contract NetworkConfigTest is Test {
     }
 
     /// @notice Tests if the contract was correctly initialized and returns the correct deposit contract address.
-    function testGetDepositContractAddress() public {
+    function testGetDepositContractAddress() public view {
         assertEq(
             networkConfig.getDepositContractAddress(), DEPOSIT_CONTRACT_ADDRESS, "Deposit contract address mismatch"
         );
     }
 
     /// @notice Tests if the contract correctly returns the Deneb hard fork timestamp.
-    function testGetDenebHardForkTimestamp() public {
+    function testGetDenebHardForkTimestamp() public view {
         assertEq(networkConfig.getDenebHardForkTimestamp(), DENEB_TIMESTAMP, "Deneb timestamp mismatch");
     }
 
     /// @notice Tests if the contract correctly returns the number of slots per epoch.
-    function testGetSlotsPerEpoch() public {
+    function testGetSlotsPerEpoch() public view {
         assertEq(networkConfig.getSlotsPerEpoch(), SLOTS_PER_EPOCH, "Slots per epoch mismatch");
     }
 
     /// @notice Tests if the contract correctly returns the number of seconds per slot.
-    function testGetSecondsPerSlot() public {
+    function testGetSecondsPerSlot() public view {
         assertEq(networkConfig.getSecondsPerSlot(), SECONDS_PER_SLOT, "Seconds per slot mismatch");
     }
 
     /// @notice Tests if the contract correctly calculates the number of seconds per epoch.
-    function testGetSecondsPerEpoch() public {
+    function testGetSecondsPerEpoch() public view {
         assertEq(networkConfig.getSecondsPerEpoch(), SECONDS_PER_SLOT * SLOTS_PER_EPOCH, "Seconds per epoch mismatch");
     }
 
     /// @notice Tests if the contract correctly returns the beacon chain genesis timestamp.
-    function testGetBeaconGenesisTimestamp() public {
+    function testGetBeaconGenesisTimestamp() public view {
         assertEq(
             networkConfig.getBeaconGenesisTimestamp(), BEACON_GENESIS_TIMESTAMP, "Beacon genesis timestamp mismatch"
         );
+    }
+
+    /// @notice Tests if the contract correctly returns the Pectra hard fork timestamp.
+    function testGetPectraHardForkTimestamp() public view {
+        assertEq(networkConfig.getPectraHardForkTimestamp(), PECTRA_TIMESTAMP, "Pectra timestamp mismatch");
     }
 
     /// @notice Tests if the contract reverts when initialized with an unsupported chain ID.

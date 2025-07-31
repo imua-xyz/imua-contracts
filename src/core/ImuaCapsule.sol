@@ -103,6 +103,11 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         beaconOracle = IBeaconChainOracle(beaconOracle_);
         capsuleOwner = capsuleOwner_;
 
+        // This is a storage variable. The capsule's mode is determined when it is created.
+        // The mode defines how much balance a capsule can store: either exactly 32 ETH, or
+        // in the range of [32 ETH, 2048 ETH].
+        isPectra = block.timestamp >= getPectraHardForkTimestamp();
+
         __ReentrancyGuard_init_unchained();
 
         emit RestakingActivated(capsuleOwner);
@@ -193,11 +198,11 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
     function capsuleWithdrawalCredentials() public view returns (bytes memory) {
         /**
          * The withdrawal_credentials field must be such that:
-         * withdrawal_credentials[:1] == ETH1_ADDRESS_WITHDRAWAL_PREFIX
+         * withdrawal_credentials[:1] == 0x1 or 0x2 (if in Pectra mode)
          * withdrawal_credentials[1:12] == b'\x00' * 11
          * withdrawal_credentials[12:] == eth1_withdrawal_address
          */
-        return abi.encodePacked(bytes1(uint8(1)), bytes11(0), address(this));
+        return abi.encodePacked(bytes1(uint8(isPectra ? 2 : 1)), bytes11(0), address(this));
     }
 
     /// @notice Gets the beacon block root at the provided timestamp.
@@ -280,6 +285,11 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
     /// @param proofTimestamp The timestamp of the proof.
     function _isStaleProof(uint256 proofTimestamp) internal view returns (bool) {
         return proofTimestamp + VERIFY_BALANCE_UPDATE_WINDOW_SECONDS < block.timestamp;
+    }
+
+    /// @inheritdoc IImuaCapsule
+    function isPectraMode() external view returns (bool) {
+        return isPectra;
     }
 
 }

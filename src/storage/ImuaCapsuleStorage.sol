@@ -107,8 +107,11 @@ contract ImuaCapsuleStorage {
     /// @notice The timestamp of the last successful NST claim.
     uint256 public lastClaimTimestamp;
 
+    /// @notice Whether the creation was done in Pectra mode. Defaults to false.
+    bool public isPectra;
+
     /// @dev Storage gap to allow for future upgrades.
-    uint256[38] private __gap;
+    uint256[37] private __gap;
 
     /// @notice Sets the network configuration contract address for the ImuaCapsule contract.
     /// @param networkConfig_ The address of the NetworkConfig contract.
