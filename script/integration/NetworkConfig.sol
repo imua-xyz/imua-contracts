@@ -45,6 +45,8 @@ contract NetworkConfig is INetworkConfig {
         require(secondsPerSlot > 0, "Seconds per slot must be set for integration network");
         require(beaconGenesisTimestamp > 0, "Beacon genesis timestamp must be set for integration network");
         require(pectraTimestamp > 0, "Pectra timestamp must be set for integration network");
+        require(pectraTimestamp >= denebTimestamp, "Pectra timestamp must be after Deneb timestamp");
+        require(denebTimestamp >= beaconGenesisTimestamp, "Deneb timestamp must be after Beacon genesis timestamp");
         params = NetworkParams(
             deposit, denebTimestamp, slotsPerEpoch, secondsPerSlot, beaconGenesisTimestamp, pectraTimestamp
         );
