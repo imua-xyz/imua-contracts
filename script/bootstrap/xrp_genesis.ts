@@ -425,8 +425,7 @@ export class XRPGenesisGenerator {
     if (this.addressMappings.has(senderAddress)) {
       const existingImuachainAddress = this.addressMappings.get(senderAddress);
       if (existingImuachainAddress !== memoData.imuachainAddress) {
-        console.log(`Inconsistent imuachain address for XRP address ${senderAddress} in tx ${tx.hash}`);
-        console.log(`Previous: ${existingImuachainAddress}, Current: ${memoData.imuachainAddress}`);
+        console.log(`Inconsistent imuachain address for XRP address ${senderAddress} in tx ${tx.hash}\n  Previous: ${existingImuachainAddress}, Current: ${memoData.imuachainAddress}`);
         return false;
       }
     }
@@ -443,10 +442,8 @@ export class XRPGenesisGenerator {
   public async generateGenesisStakes(): Promise<BootstrapStake[]> {
     console.log(`Fetching transactions for vault address ${this.vaultAddress}...`);
     const transactions = await this.getVaultTransactions();
-    console.log(`Found ${transactions.length} transactions.`);
-
     const currentLedgerIndex = await this.getCurrentLedgerIndex();
-    console.log(`Current ledger index: ${currentLedgerIndex}`);
+    console.log(`Found ${transactions.length} transactions. Current ledger index: ${currentLedgerIndex}`);
 
     // Filter and validate transactions
     const validTxs = await Promise.all(
@@ -788,11 +785,11 @@ export async function generateXRPBootstrapGenesis(): Promise<void> {
   const stakes = await generator.generateGenesisStakes();
   const genesisState = await generateXRPGenesisState(stakes, generator);
 
+  const outputPath = process.env.XRP_GENESIS_OUTPUT_PATH || config.genesisOutputPath;
   await fs.promises.writeFile(
-    config.xrpGenesisOutputPath,
+    outputPath,
     JSON.stringify(genesisState, null, 2)
   );
 
-  console.log(`Generated XRP genesis state with ${stakes.length} valid stakes`);
-  console.log(`Written to ${config.xrpGenesisOutputPath}`);
+  console.log(`Generated XRP genesis state with ${stakes.length} valid stakes - Written to ${outputPath}`);
 }

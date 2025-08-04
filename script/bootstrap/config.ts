@@ -51,7 +51,6 @@ export interface Config {
   xrpRpcUrl: string;
   xrpMinConfirmations: number;
   xrpMinAmount: number;
-  xrpGenesisOutputPath: string;
   xrpPriceUsd: number; // XRP price in USD for voting power calculation
 }
 
@@ -70,7 +69,6 @@ const config: Config = {
   xrpRpcUrl: process.env.XRP_RPC_URL || 'wss://s.altnet.rippletest.net:51233/',
   xrpMinConfirmations: parseInt(process.env.XRP_MIN_CONFIRMATIONS || '6'),
   xrpMinAmount: parseInt(process.env.XRP_MIN_AMOUNT || '50000000'), // 50 XRP in drops
-  xrpGenesisOutputPath: process.env.XRP_GENESIS_OUTPUT_PATH || path.join(__dirname, '../../../genesis/xrp_bootstrap_stakes.json'),
   xrpPriceUsd: parseFloat(process.env.XRP_PRICE_USD || '1.00'),
 };
 
