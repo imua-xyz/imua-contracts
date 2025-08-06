@@ -420,7 +420,7 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
     asset_basic_info: {
       name: BTC_CONFIG.NAME,
       symbol: BTC_CONFIG.SYMBOL,
-      address: BTC_CONFIG.VIRTUAL_ADDRESS,
+      address: BTC_CONFIG.VIRTUAL_ADDRESS.toLowerCase(),
       decimals: BTC_CONFIG.DECIMALS.toString(),
       layer_zero_chain_id: CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID,
       imua_chain_index: '0',
@@ -556,8 +556,8 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
     }
 
     validators.push({
-      public_key: publicKey,
       power: power.toString(),
+      public_key: publicKey,
     });
 
     totalPower += power;
@@ -596,7 +596,7 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
         {
           name: BTC_CONFIG.SYMBOL,
           chain_id: BTC_CONFIG.CHAIN_ID,
-          contract_address: BTC_CONFIG.VIRTUAL_ADDRESS,
+          contract_address: BTC_CONFIG.VIRTUAL_ADDRESS.toLowerCase(),
           active: true,
           asset_id: btcAssetId,
           decimal: BTC_CONFIG.DECIMALS,
