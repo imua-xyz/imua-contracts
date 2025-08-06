@@ -21,6 +21,8 @@ import {Vault} from "src/core/Vault.sol";
 import {CustomProxyAdmin} from "src/utils/CustomProxyAdmin.sol";
 import {MyToken} from "test/foundry/unit/MyToken.sol";
 
+import {NetworkConstants} from "src/libraries/NetworkConstants.sol";
+
 contract BootstrapDepositNSTTest is Test {
 
     using Endian for bytes32;
@@ -70,7 +72,11 @@ contract BootstrapDepositNSTTest is Test {
     event StakedWithCapsule(address indexed staker, address indexed capsule);
 
     function setUp() public {
-        vm.chainId(1); // set chainid to 1 so that capsule implementation can use default network constants
+        // set chainid to 1 so that capsule implementation can use default network constants
+        vm.chainId(1);
+        // non pectra mode
+        uint256 pectraTs = NetworkConstants.getNetworkParams().pectraHardForkTimestamp;
+        vm.warp(pectraTs - 1);
         vm.startPrank(deployer);
 
         whitelistTokens.push(VIRTUAL_STAKED_ETH_ADDRESS);

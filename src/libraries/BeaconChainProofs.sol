@@ -20,6 +20,7 @@ library BeaconChainProofs {
     uint256 internal constant BEACON_BLOCK_BODY_FIELD_TREE_HEIGHT = 4;
 
     uint256 internal constant BEACON_STATE_FIELD_TREE_HEIGHT = 5;
+    uint256 internal constant BEACON_STATE_FIELD_TREE_HEIGHT_ELECTRA = 6;
 
     uint256 internal constant EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT_CAPELLA = 4;
     // After deneb hard fork, it's increased from 4 to 5
@@ -76,11 +77,12 @@ library BeaconChainProofs {
         uint256 validatorIndex,
         bytes32 beaconBlockRoot,
         bytes32 stateRoot,
-        bytes32[] calldata stateRootProof
+        bytes32[] calldata stateRootProof,
+        bool isElectra
     ) internal view returns (bool valid) {
         bool validStateRoot = isValidStateRoot(stateRoot, beaconBlockRoot, stateRootProof);
         bool validVCRootAgainstStateRoot = isValidVCRootAgainstStateRoot(
-            validatorContainerRoot, stateRoot, validatorContainerRootProof, validatorIndex
+            validatorContainerRoot, stateRoot, validatorContainerRootProof, validatorIndex, isElectra
         );
         if (validStateRoot && validVCRootAgainstStateRoot) {
             valid = true;
@@ -106,12 +108,21 @@ library BeaconChainProofs {
         bytes32 validatorContainerRoot,
         bytes32 stateRoot,
         bytes32[] calldata validatorContainerRootProof,
-        uint256 validatorIndex
+        uint256 validatorIndex,
+        bool isElectra
     ) internal view returns (bool) {
-        require(
-            validatorContainerRootProof.length == (VALIDATOR_TREE_HEIGHT + 1) + BEACON_STATE_FIELD_TREE_HEIGHT,
-            "validator container root proof should have 46 nodes"
-        );
+        if (isElectra) {
+            require(
+                validatorContainerRootProof.length
+                    == (VALIDATOR_TREE_HEIGHT + 1) + BEACON_STATE_FIELD_TREE_HEIGHT_ELECTRA,
+                "validator container root proof should have 47 nodes"
+            );
+        } else {
+            require(
+                validatorContainerRootProof.length == (VALIDATOR_TREE_HEIGHT + 1) + BEACON_STATE_FIELD_TREE_HEIGHT,
+                "validator container root proof should have 46 nodes"
+            );
+        }
 
         uint256 leafIndex = (VALIDATOR_TREE_ROOT_INDEX << (VALIDATOR_TREE_HEIGHT + 1)) | uint256(validatorIndex);
 
