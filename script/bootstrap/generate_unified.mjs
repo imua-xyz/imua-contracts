@@ -374,29 +374,58 @@ class GenesisStateMerger {
 
   mergeOracleModule(base, additional) {
     const result = { ...base };
+    
+    const baseTokens = base.params?.tokens || [];
+    const additionalTokens = additional.params?.tokens || [];
+    console.log(`🔍 Oracle merge: base tokens ${baseTokens.length}, additional tokens ${additionalTokens.length}`);
+
+    // Initialize result.params if needed
+    if (!result.params) result.params = {};
+    if (!result.params.tokens) result.params.tokens = [];
 
     // Merge tokens (oracle tokens are different from assets tokens)
-    if (additional.tokens) {
-      if (!result.tokens) result.tokens = [];
+    if (additionalTokens.length > 0) {
+      for (const token of additionalTokens) {
+        // Use more specific matching: name + chain_id + contract_address for uniqueness
+        const existingIndex = result.params.tokens.findIndex((t) => 
+          t.name === token.name && 
+          t.chain_id === token.chain_id && 
+          t.contract_address === token.contract_address
+        );
 
-      for (const token of additional.tokens) {
-        const existingIndex = result.tokens.findIndex((t) => t.name === token.name);
         if (existingIndex >= 0) {
+          // Exact match found, apply conflict resolution
           if (this.conflictResolution === 'bitcoin_priority') {
-            result.tokens[existingIndex] = token;
+            result.params.tokens[existingIndex] = token;
+            console.log(`🔄 Replaced oracle token ${token.name} (chain_id: ${token.chain_id}) with Bitcoin priority`);
+          } else {
+            console.log(`🔄 Keeping existing oracle token ${token.name} (chain_id: ${token.chain_id}) with ${this.conflictResolution}`);
           }
         } else {
-          result.tokens.push(token);
+          // No exact match, add the token
+          result.params.tokens.push(token);
+          console.log(`➕ Added oracle token ${token.name} (chain_id: ${token.chain_id}, address: ${token.contract_address})`);
         }
       }
     }
 
-    // Merge other oracle data
-    if (additional.prices) {
-      if (!result.prices) result.prices = [];
-      result.prices = result.prices.concat(additional.prices);
+    // Merge other oracle data at module level
+    if (additional.prices_list) {
+      if (!result.prices_list) result.prices_list = [];
+      result.prices_list = result.prices_list.concat(additional.prices_list);
     }
 
+    // Merge other oracle params
+    if (additional.params) {
+      if (!result.params) result.params = {};
+      for (const [key, value] of Object.entries(additional.params)) {
+        if (key !== 'tokens') { // tokens are handled above
+          result.params[key] = value;
+        }
+      }
+    }
+
+    console.log(`🔍 Oracle merge result: ${result.params.tokens.length} tokens total`);
     return result;
   }
 
@@ -770,6 +799,15 @@ class UnifiedGenesisGenerator {
     const content = outputConfig.pretty ? JSON.stringify(genesis, null, 2) : JSON.stringify(genesis);
     const resolvedPath = path.isAbsolute(outputConfig.path) ? outputConfig.path : path.resolve(outputConfig.path);
     await fs.writeFile(resolvedPath, content, 'utf8');
+  }
+
+  async fileExists(filePath) {
+    try {
+      await fs.access(filePath);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async mergeExistingFiles(config) {
