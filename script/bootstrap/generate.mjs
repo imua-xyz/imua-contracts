@@ -119,7 +119,7 @@ function getJoinedStoreKey(...keys) {
 async function updateGenesisFile() {
   try {
     // Read and parse the ABI from abi.json
-    const abiPath = '../../out/Bootstrap.sol/Bootstrap.json';
+    const abiPath = '../out/Bootstrap.sol/Bootstrap.json';
     const contractABI = JSON.parse(await fs.readFile(abiPath, 'utf8')).abi;
 
     // Set up Web3
@@ -130,7 +130,7 @@ async function updateGenesisFile() {
     // Create beacon API client
     const api = getClient({ baseUrl: INTEGRATION_BEACON_CHAIN_ENDPOINT }, { config });
     const spec = (await api.config.getSpec()).value();
-    const maxEffectiveBalance = new Decimal(web3.utils.toWei(spec.MAX_EFFECTIVE_BALANCE, 'gwei'));
+    const maxEffectiveBalance = new Decimal(web3.utils.toWei(spec.MAX_EFFECTIVE_BALANCE_ELECTRA, 'gwei'));
     const ejectionBalance = new Decimal(web3.utils.toWei(spec.EJECTION_BALANCE, 'gwei'));
     const slotsPerEpoch = parseInt(spec.SLOTS_PER_EPOCH, 10);
     let lastHeader = (await api.beacon.getBlockHeader({ blockId: "finalized" })).value();
@@ -762,10 +762,10 @@ async function updateGenesisFile() {
     const dogfoodAddr = generateAVSAddr(chain_id_without_revision);
 
     // x/feedistribution: set the correct AVS address for dogfood.
-    if (!genesisJSON.app_state.feedistribution?.params?.all_avs_reward_assets?.length) {
+    if (!genesisJSON.app_state.feedistribution?.all_avs_reward_assets?.length) {
       throw new Error('all_avs_reward_assets is missing or empty in feedistribution params');
     }
-    genesisJSON.app_state.feedistribution.params.all_avs_reward_assets[0].avs = dogfoodAddr;
+    genesisJSON.app_state.feedistribution.all_avs_reward_assets[0].avs = dogfoodAddr;
 
     for (let i = 0; i < operatorsCount; i++) {
       // operators
@@ -781,6 +781,7 @@ async function updateGenesisFile() {
       const operator_info = {
         earnings_addr: opAddressIm,
         // approve_addr unset
+        approve_addr: opAddressIm,
         operator_meta_info: operatorInfo.name,
         client_chain_earnings_addr: {
           earning_info_list: [
