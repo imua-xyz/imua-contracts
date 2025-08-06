@@ -31,6 +31,10 @@ interface INetworkConfig {
     /// @return The beacon chain genesis timestamp.
     function getBeaconGenesisTimestamp() external view returns (uint256);
 
+    /// @notice Returns the Pectra hard fork timestamp.
+    /// @return The Pectra hard fork timestamp.
+    function getPectraHardForkTimestamp() external view returns (uint256);
+
 }
 
 /// @notice Struct representing the configuration of a network.
@@ -44,4 +48,5 @@ struct NetworkParams {
     uint64 slotsPerEpoch;
     uint64 secondsPerSlot;
     uint256 beaconGenesisTimestamp;
+    uint256 pectraHardForkTimestamp;
 }

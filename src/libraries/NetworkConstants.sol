@@ -34,7 +34,9 @@ library NetworkConstants {
                 // https://github.com/eth-clients/mainnet/blob/f6b7882618a5ad2c1d2731ae35e5d16a660d5bb7/metadata/config.yaml#L58
                 SECONDS_PER_SLOT_DEFAULT,
                 // https://github.com/eth-clients/mainnet?tab=readme-ov-file
-                1_606_824_023
+                1_606_824_023,
+                // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7600.md
+                1_746_612_311
             );
         } else if (chainId == 11_155_111) {
             // sepolia
@@ -49,7 +51,9 @@ library NetworkConstants {
                 // https://github.com/eth-clients/sepolia/blob/f2c219a93c4491cee3d90c18f2f8e82aed850eab/metadata/config.yaml#L42
                 SECONDS_PER_SLOT_DEFAULT,
                 // https://github.com/eth-clients/sepolia?tab=readme-ov-file#meta-data-bepolia
-                1_655_733_600
+                1_655_733_600,
+                // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7600.md
+                1_741_159_776
             );
         } else if (chainId == 17_000) {
             // holesky
@@ -67,7 +71,28 @@ library NetworkConstants {
                 // for the beacon.
                 // In other words, the genesis time of the execution layer is the same as that of the Beacon.
                 // https://github.com/eth-clients/holesky?tab=readme-ov-file#metadata
-                1_695_902_400
+                1_695_902_400,
+                // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7600.md
+                1_740_434_112
+            );
+        } else if (chainId == 560_048) {
+            // hoodi
+            return NetworkParams(
+                // https://github.com/eth-clients/hoodi/blob/3a17a5f5a3e8bccd6609a887f0bbe7ffc71e99e4/metadata/config.yaml#L86
+                0x00000000219ab540356cBB839Cbe05303d7705Fa,
+                // launched with Dencun = Deneb + Cancun
+                // https://github.com/eth-clients/hoodi/tree/main?tab=readme-ov-file#hoodi-hoodi-testnet
+                1_742_213_400,
+                // the `config.yaml` above uses the below preset as a base
+                // https://github.com/ethereum/consensus-specs/blob/a09d0c321550c5411557674a981e2b444a1178c0/presets/mainnet/phase0.yaml#L36
+                SLOTS_PER_EPOCH_DEFAULT,
+                // https://github.com/eth-clients/hoodi/blob/3a17a5f5a3e8bccd6609a887f0bbe7ffc71e99e4/metadata/config.yaml#L46
+                SECONDS_PER_SLOT_DEFAULT,
+                // this is the genesis timestamp of Beacon (== execution in this case)
+                // https://github.com/eth-clients/hoodi/tree/main?tab=readme-ov-file#hoodi-hoodi-testnet
+                1_742_213_400,
+                // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7600.md
+                1_742_999_832
             );
         } else {
             // note that goerli is deprecated
@@ -112,6 +137,12 @@ library NetworkConstants {
     /// @return The beacon chain genesis timestamp.
     function getBeaconGenesisTimestamp() external view returns (uint256) {
         return getNetworkParams().beaconGenesisTimestamp;
+    }
+
+    /// @notice Returns the Pectra hard fork timestamp.
+    /// @return The Pectra hard fork timestamp.
+    function getPectraHardForkTimestamp() external view returns (uint256) {
+        return getNetworkParams().pectraHardForkTimestamp;
     }
 
 }

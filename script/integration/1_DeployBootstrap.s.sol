@@ -82,6 +82,7 @@ contract DeployContracts is Script {
     bytes pubkey;
     bytes signature;
     bytes32 depositDataRoot;
+    uint256 pectraTimestamp;
 
     function setUp() private {
         // placate the pre-simulation runner
@@ -129,6 +130,8 @@ contract DeployContracts is Script {
         require(denebTimestamp > 0, "Deneb timestamp must be set");
         beaconGenesisTimestamp = vm.envUint("INTEGRATION_BEACON_GENESIS_TIMESTAMP");
         require(beaconGenesisTimestamp > 0, "Beacon timestamp must be set");
+        pectraTimestamp = vm.envUint("INTEGRATION_PECTRA_TIMESTAMP");
+        require(pectraTimestamp > 0, "Pectra timestamp must be set");
         // can not read uint64 from env
         uint256 secondsPerSlot_ = vm.envUint("INTEGRATION_SECONDS_PER_SLOT");
         require(secondsPerSlot_ > 0, "Seconds per slot must be set");
@@ -181,8 +184,9 @@ contract DeployContracts is Script {
 
     function deployContract() private {
         vm.startBroadcast(contractDeployer);
-        networkConfig =
-            new NetworkConfig(depositAddress, denebTimestamp, slotsPerEpoch, secondsPerSlot, beaconGenesisTimestamp);
+        networkConfig = new NetworkConfig(
+            depositAddress, denebTimestamp, slotsPerEpoch, secondsPerSlot, beaconGenesisTimestamp, pectraTimestamp
+        );
         beaconOracle = new BeaconOracle(address(networkConfig));
 
         /// deploy vault implementation contract, capsule implementation contract
