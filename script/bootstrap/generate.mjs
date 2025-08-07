@@ -22,6 +22,22 @@ const tokenMetaInfos = [
 const tokenNamesForOracle = [
   'ETH', 'nstETH' // not case sensitive
 ]
+const ChainNamesForOracle = [
+  'Ethereum'
+]
+const TokenMappingChainIDsForOracle = {
+  "ETH": 1,
+  "nstETH": 1,
+}
+
+// Chain information for oracle state
+const oracleChainInfo = {
+  "Ethereum": {
+    "name": "Ethereum",
+    "desc": "Ethereum mainnet and testnets"
+  }
+}
+
 const nativeChain = {
   "name": "Imuachain",
   "meta_info": "The (native) Imuachain chain",
@@ -190,13 +206,13 @@ async function updateGenesisFile() {
     const existingChainIdIndex = genesisJSON.app_state.
       assets.client_chains.findIndex(
         chain =>
-          chain.layer_zero_chain_id === clientChainInfo.layer_zero_chain_id
+        chain.layer_zero_chain_id === clientChainInfo.layer_zero_chain_id
       );
     if (existingChainIdIndex >= 0) {
       // If found, raise an error
       throw new Error(
         `An entry with layer_zero_chain_id
-        ${clientChainInfo.layer_zero_chain_id} already exists.`
+    ${clientChainInfo.layer_zero_chain_id} already exists.`
       );
     }
     genesisJSON.app_state.assets.client_chains.push(clientChainInfo);
@@ -262,8 +278,7 @@ async function updateGenesisFile() {
       assetIds.push(token.tokenAddress.toLowerCase() + clientChainSuffix);
       let oracleToken;
       const oracleTokenFeeder = {
-        token_id: oracleTokenFeeders.length.toString(),
-        rule_id: "1",
+        token_id: oracleTokens.length.toString(),
         start_round_id: "1",
         start_base_block: (height + 20).toString(),
         interval: "30",
@@ -275,24 +290,26 @@ async function updateGenesisFile() {
         }
         oracleToken = {
           name: tokenNamesForOracle[i],
-          chain_id: 1, // first chain in the list
+          chain_id: TokenMappingChainIDsForOracle[tokenNamesForOracle[i]],
           contract_address: '',
           active: true,
           asset_id: "NST" + clientChainSuffix,
-          decimal: 0,
+          decimal: 9,
         };
+        oracleTokenFeeder.rule_id = "3";
       } else {
         if (token.tokenAddress == VIRTUAL_STAKED_ETH_ADDR) {
           throw new Error('Oracle name refers to LST token but this is NST');
         }
         oracleToken = {
           name: tokenNamesForOracle[i],
-          chain_id: 1,
+          chain_id: TokenMappingChainIDsForOracle[tokenNamesForOracle[i]],
           contract_address: token.tokenAddress,
           active: true,
           asset_id: token.tokenAddress.toLowerCase() + clientChainSuffix,
           decimal: 8,
         };
+        oracleTokenFeeder.rule_id = "2";
       }
       // check that the same token name exists already. if so, append to it.
       let found = false;
@@ -318,47 +335,39 @@ async function updateGenesisFile() {
           remainder: oracleToken.name.slice(3),
         };
       }
-      // break;
     }
     // bind nstETH asset_id to the ETH token, if nstETH is found.
     let found = false;
-    genesisJSON.app_state.oracle.params.tokens = oracleTokens.map((token) => {
-      if (token.name == hasNst.remainder) {
-        found = true;
-        token.asset_id += "," + hasNst.asset_id;
+    if (hasNst.status) {
+      genesisJSON.app_state.oracle.params.tokens = oracleTokens.map((token) => {
+        if (token.name === hasNst.remainder) {
+          found = true;
+          token.asset_id += "," + hasNst.asset_id;
+        }
+        return token;
+      });
+      if (!found) {
+        // add `ETH` manually, if `nstETH` exists but not `ETH` in the oracle tokens.
+        // the former in `tokens` is to get the validator effective balance from beacon, denominated in ETH.
+        // the latter in `tokens` is to get the price of ETH in USD.
+        genesisJSON.app_state.oracle.params.tokens.push({
+          name: hasNst.remainder,
+          chain_id: TokenMappingChainIDsForOracle[hasNst.remainder],
+          contract_address: VIRTUAL_STAKED_ETH_ADDR,
+          active: true,
+          asset_id: hasNst.asset_id,
+          decimal: 8,
+        });
+        genesisJSON.app_state.oracle.params.token_feeders.push({
+          token_id: (Number(supportedTokensCount) + 1).toString(),
+          rule_id: "2",
+          start_round_id: "1",
+          start_base_block: (height + 20).toString(),
+          interval: "30",
+          end_block: "0",
+        });
       }
-      return token;
-    });
-    if (!found && hasNst.status) {
-      // add `ETH` manually, if `nstETH` exists but not `ETH` in the oracle tokens.
-      // the former in `tokens` is to get the validator effective balance from beacon, denominated in ETH.
-      // the latter in `tokens` is to get the price of ETH in USD.
-      genesisJSON.app_state.oracle.params.tokens.push({
-        name: hasNst.remainder,
-        chain_id: 1,
-        contract_address: VIRTUAL_STAKED_ETH_ADDR,
-        active: true,
-        asset_id: hasNst.asset_id,
-        decimal: 8,
-      });
-      genesisJSON.app_state.oracle.params.token_feeders.push({
-        token_id: (Number(supportedTokensCount) + 1).toString(),
-        rule_id: "1",
-        start_round_id: "1",
-        start_base_block: (height + 20).toString(),
-        interval: "30",
-        end_block: "0",
-      });
     }
-    genesisJSON.app_state.oracle.params.token_feeders = oracleTokenFeeders.map((feeder) => {
-      if (feeder.token_id == "0") {
-        // first position is reserved
-        return feeder;
-      }
-      // update the height for the past ones too
-      feeder.start_base_block = (height + 20).toString();
-      return feeder;
-    });
     supportedTokens.sort((a, b) => {
       if (a.asset_basic_info.symbol < b.asset_basic_info.symbol) {
         return -1;
@@ -404,18 +413,27 @@ async function updateGenesisFile() {
           if (pubKeyCount == 0) {
             throw new Error('No pubkeys found for the staker.');
           }
+          const validatorInfos = [];
           const pubKeys = [];
           for (let k = 0; k < pubKeyCount; k++) {
-            pubKeys.push(await myContract.methods.stakerToPubkeyIDs(stakerAddress, k).call());
+            const pubKey = await myContract.methods.stakerToPubkeyIDs(stakerAddress, k).call();
+            pubKeys.push(pubKey);
+            const validatorInfo = {
+              validator_pubkey: pubKey,
+              version: 1,
+              deposit_amount: depositValue,
+            };
+            validatorInfos.push(validatorInfo);
           }
-          if (pubKeys.length == 0) {
+          if (validatorInfos.length == 0) {
             throw new Error('No pubkeys found for the staker.');
           }
           const staker_info = {
             staker_addr: stakerAddress.toLowerCase(),
             staker_index: staker_index_counter,
-            validator_pubkey_list: pubKeys,
-            balance_list: [] // filled later.
+            validator_list: validatorInfos,
+            balance_list: [], // filled later.
+            withdraw_version: 0,
           };
           staker_index_counter += 1;
           const validatorStates = (await api.beacon.getStateValidators(
@@ -513,7 +531,7 @@ async function updateGenesisFile() {
               new_balance = balances[balances.length - 1];
               new_balance.index += 1;
             }
-            new_balance.balance = web3.utils.fromWei(effectiveBalance.toFixed(), "ether");
+            new_balance.balance += web3.utils.fromWei(effectiveBalance.toFixed(), "ether");
             balances.push(new_balance);
           }
           // now we have the totalEffectiveBalance across all validator pubkeys for this staker
@@ -815,6 +833,7 @@ async function updateGenesisFile() {
       // and instead, load the asset prices into the oracle module genesis
       // and let the dogfood module pull the vote power from the rest of the system
       // at genesis.
+      // NOTE: This TODO has been partially addressed by adding prices_list to oracle genesis state.
       let amount = ZERO_DECIMAL;
       let totalAmount = ZERO_DECIMAL;
       if (exchangeRates.length != supportedTokensCount) {
@@ -850,8 +869,8 @@ async function updateGenesisFile() {
         selfDelegationAmount = selfDelegationAmount.minus(selfSlashing).truncated();
         amount = amount.plus(
           selfDelegationAmount.
-            div('1e' + decimals[j]).
-            mul(exchangeRates[j].toFixed())
+          div('1e' + decimals[j]).
+          mul(exchangeRates[j].toFixed())
         );
         const perTokenDelegation = new Decimal((await myContract.methods.delegationsByValidator(
           opAddressIm, tokenAddress
@@ -1121,18 +1140,102 @@ async function updateGenesisFile() {
     genesisJSON.app_state.delegation.stakers_by_operator = stakers_by_operator;
 
     // x/oracle - native restaking for ETH
-    genesisJSON.app_state.oracle.staker_list_assets = [
-      {
-        asset_id: VIRTUAL_STAKED_ETH_ADDR.toLowerCase() + clientChainSuffix,
-        staker_list: {
-          staker_addrs: nativeTokenDepositors,
+    if (staker_infos.length > 0) {
+      genesisJSON.app_state.oracle.staker_infos_assets = [{
+        chain_id: clientChainInfo.layer_zero_chain_id,
+        staker_infos: staker_infos,
+        nst_version_info: {}
+      }];
+    }
+
+    // x/oracle - chains: Set chain information for oracle state
+    // Initialize chains array with only the placeholder entry if it does not exist
+    if (!genesisJSON.app_state.oracle.params.chains) {
+      genesisJSON.app_state.oracle.params.chains = [{
+        name: "-",
+        desc: "-"
+      }];
+    }
+
+    // Build the chains array by appending chains in order
+    // The chainId in tokens will correspond to the index in this array
+    for (const [chainName, chainInfo] of Object.entries(oracleChainInfo)) {
+      genesisJSON.app_state.oracle.params.chains.push({
+        name: chainInfo.name,
+        desc: chainInfo.desc
+      });
+    }
+
+    // x/oracle - prices_list: Set exchange rates as round 0 prices for bootstrap
+    if (!genesisJSON.app_state.oracle.prices_list) {
+      genesisJSON.app_state.oracle.prices_list = [];
+    }
+
+    // Create a mapping from token names to their corresponding exchange rates
+    const tokenNameToExchangeRate = new Map();
+
+    // First, map the original supported tokens to their exchange rates
+    for (let i = 0; i < supportedTokensCount; i++) {
+      const tokenName = tokenNamesForOracle[i];
+      const exchangeRate = exchangeRates[i];
+      tokenNameToExchangeRate.set(tokenName, exchangeRate);
+    }
+
+    // Create price entries for each oracle token
+    const finalOracleTokens = genesisJSON.app_state.oracle.params.tokens;
+
+    for (let i = 1; i < finalOracleTokens.length; i++) {
+      // skip the native token
+      if (finalOracleTokens[i].name === nativeAsset.asset_basic_info.symbol) {
+        continue;
+      }
+      const oracleToken = finalOracleTokens[i];
+      const tokenName = oracleToken.name;
+      let exchangeRate;
+
+      // Check if this is an NST token (starts with 'nst')
+      if (tokenName.toLowerCase().startsWith('nst')) {
+        // Extract the base token name (e.g., 'nstETH' -> 'ETH')
+        const baseTokenName = tokenName.slice(3); // Remove 'nst' prefix
+
+        // Look for the base token in our exchange rate mapping
+        if (tokenNameToExchangeRate.has(baseTokenName)) {
+          exchangeRate = tokenNameToExchangeRate.get(baseTokenName);
+        } else {
+          // If base token not found, check if the NST token itself has an exchange rate
+          if (tokenNameToExchangeRate.has(tokenName)) {
+            exchangeRate = tokenNameToExchangeRate.get(tokenName);
+          } else {
+            throw new Error(`No exchange rate found for NST token ${tokenName} or its base token ${baseTokenName}`);
+          }
+        }
+      } else {
+        // For non-NST tokens, look up the exchange rate directly
+        if (tokenNameToExchangeRate.has(tokenName)) {
+          exchangeRate = tokenNameToExchangeRate.get(tokenName);
+        } else {
+          throw new Error(`No exchange rate found for token ${tokenName}`);
         }
       }
-    ];
-    genesisJSON.app_state.oracle.staker_infos_assets = [{
-      asset_id: VIRTUAL_STAKED_ETH_ADDR.toLowerCase() + clientChainSuffix,
-      staker_infos: staker_infos,
-    }];
+
+      // Convert exchange rate to the appropriate decimal format (8 decimals as shown in example)
+      // The exchange rate is in USD, so we multiply by 1e8 to get 8 decimal precision
+      const priceInDecimals = exchangeRate.mul(new Decimal('100000000')).toFixed(0);
+
+      const priceEntry = {
+        next_round_id: "1",
+        price_list: [
+          {
+            decimal: 8,
+            price: priceInDecimals,
+            round_id: "0"
+          }
+        ],
+        token_id: i.toString()
+      };
+
+      genesisJSON.app_state.oracle.prices_list.push(priceEntry);
+    }
 
     // add the native chain and at the end so that count-related issues don't arise.
     // but first, check that it doesn't already exist.
