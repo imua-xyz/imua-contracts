@@ -55,11 +55,16 @@ interface IImuaCapsule {
 
     /// @notice Returns the withdrawal credentials of the ImuaCapsule.
     /// @return The withdrawal credentials.
-    /// @dev Returns '0x1' + '0x0' * 11 + 'address' of capsule.
+    /// @dev Returns '0x1' + '0x0' * 11 + 'address' of capsule, if non-Pectra.
+    /// @dev Returns '0x2' + '0x0' * 11 + 'address' of capsule, if Pectra.
     function capsuleWithdrawalCredentials() external view returns (bytes memory);
 
     /// @notice Returns if the capsule is in a NST claim progress.
     /// @return True if the capsule is in a NST claim progress, false otherwise.
     function isInClaimProgress() external view returns (bool);
+
+    /// @notice Returns if the capsule is in Pectra mode.
+    /// @return True if the capsule is in Pectra mode, false otherwise.
+    function isPectraMode() external view returns (bool);
 
 }
