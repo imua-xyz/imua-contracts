@@ -1,6 +1,7 @@
 import { Client } from 'xrpl';
 import { decodeAccountID } from 'ripple-address-codec';
 import fs from 'fs';
+import path from 'path';
 import { ethers } from 'ethers';
 import { fromBech32 } from '@cosmjs/encoding';
 import config from './config';
@@ -263,7 +264,11 @@ export class XRPGenesisGenerator {
 
       const validatorInfo = this.validatorInfoCache.get(validatorAddr);
       return validatorInfo && validatorInfo.name && validatorInfo.name.length > 0;
-    } catch (error) {
+    } catch (error: any) {
+      if (error.code === 'ECONNREFUSED' || error.message.includes('JsonRpcProvider')) {
+        console.warn(`⚠️ RPC connection failed for validator ${validatorAddr}, assuming not registered`);
+        return false; // Assume not registered when RPC is unavailable
+      }
       console.error(`Error checking validator registration for ${validatorAddr}:`, error);
       return false;
     }
@@ -297,6 +302,7 @@ export class XRPGenesisGenerator {
   /**
    * Parse memo data to extract imuachain and validator addresses
    * Validates MemoType must be "Description" (hex: 4465736372697074696F6E)
+   * Format: memoData is binary data with last 41 bytes as validator address
    */
   private parseMemoData(memos: Array<{ Memo: any }>): { imuachainAddress: string; validatorAddress: string } | null {
     try {
@@ -315,28 +321,45 @@ export class XRPGenesisGenerator {
         const memoData = memo.Memo.MemoData;
         const buffer = Buffer.from(memoData, 'hex');
 
-        // Check if the length matches our expected format (20 + 41 = 61 bytes)
-        if (buffer.length === 61) {
-          const imuachainAddressHex = '0x' + buffer.slice(0, 20).toString('hex');
-          const validatorAddressBytes = buffer.slice(20);
-          const validatorAddress = validatorAddressBytes.toString('utf8');
+        // Use 41 character validator address to determine data format
+        if (buffer.length >= 41) {
+          // Extract last 41 bytes as validator address
+          const validatorBytes = buffer.slice(-41);
+          const validatorAddress = validatorBytes.toString('utf8');
 
-          // Validate addresses
-          if (!ethers.isAddress(imuachainAddressHex)) {
-            console.log(`Invalid imuachain address format: ${imuachainAddressHex}`);
-            return null;
-          }
+          // Validate validator address first (41 characters)
+          if (this.isValidValidatorAddress(validatorAddress) && validatorAddress.length === 41) {
+            // Extract remaining bytes as ethereum address
+            const ethBytes = buffer.slice(0, -41);
 
-          if (this.isValidValidatorAddress(validatorAddress)) {
-            return {
-              imuachainAddress: imuachainAddressHex,
-              validatorAddress: validatorAddress
-            };
+            if (ethBytes.length === 40) {
+              // 40 bytes UTF8 encoded hex string
+              const ethAddressString = ethBytes.toString('utf8');
+
+              // Validate hex format
+              if (/^[0-9a-fA-F]{40}$/.test(ethAddressString)) {
+                const imuachainAddressHex = '0x' + ethAddressString;
+
+                // Validate ethereum address format
+                if (ethers.isAddress(imuachainAddressHex)) {
+                  return {
+                    imuachainAddress: imuachainAddressHex,
+                    validatorAddress: validatorAddress
+                  };
+                } else {
+                  console.log(`Invalid imuachain address format: ${imuachainAddressHex}`);
+                }
+              } else {
+                console.log(`Invalid hex format for address: ${ethAddressString}`);
+              }
+            } else {
+              console.log(`Invalid ethereum address length: ${ethBytes.length}, expected: 40 bytes`);
+            }
           } else {
             console.log(`Invalid validator address format: ${validatorAddress}`);
           }
         } else {
-          console.log(`Invalid memo data length: ${buffer.length}, expected: 61`);
+          console.log(`Invalid memo data length: ${buffer.length}, expected at least 41 bytes`);
         }
       }
       return null;
@@ -440,10 +463,9 @@ export class XRPGenesisGenerator {
    * Generate bootstrap stakes from XRP transactions
    */
   public async generateGenesisStakes(): Promise<BootstrapStake[]> {
-    console.log(`Fetching transactions for vault address ${this.vaultAddress}...`);
     const transactions = await this.getVaultTransactions();
     const currentLedgerIndex = await this.getCurrentLedgerIndex();
-    console.log(`Found ${transactions.length} transactions. Current ledger index: ${currentLedgerIndex}`);
+    console.log(`Fetching transactions for vault address ${this.vaultAddress}... Found ${transactions.length} transactions. Current ledger index: ${currentLedgerIndex}`);
 
     // Filter and validate transactions
     const validTxs = await Promise.all(
@@ -541,7 +563,7 @@ export async function generateXRPGenesisState(stakes: BootstrapStake[], generato
     asset_basic_info: {
       name: XRP_CONFIG.NAME,
       symbol: XRP_CONFIG.SYMBOL,
-      address: XRP_CONFIG.VIRTUAL_ADDRESS,
+      address: XRP_CONFIG.VIRTUAL_ADDRESS.toLowerCase(),
       decimals: XRP_CONFIG.DECIMALS.toString(),
       layer_zero_chain_id: XRP_CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID,
       imua_chain_index: "0",
@@ -716,7 +738,7 @@ export async function generateXRPGenesisState(stakes: BootstrapStake[], generato
       tokens: [{
         name: XRP_CONFIG.SYMBOL,
         chain_id: XRP_CONFIG.CHAIN_ID,
-        contract_address: XRP_CONFIG.VIRTUAL_ADDRESS,
+        contract_address: XRP_CONFIG.VIRTUAL_ADDRESS.toLowerCase(),
         active: true,
         asset_id: xrpAssetId,
         decimal: XRP_CONFIG.DECIMALS
@@ -786,10 +808,16 @@ export async function generateXRPBootstrapGenesis(): Promise<void> {
   const genesisState = await generateXRPGenesisState(stakes, generator);
 
   const outputPath = process.env.XRP_GENESIS_OUTPUT_PATH || config.genesisOutputPath;
+  const resolvedPath = path.isAbsolute(outputPath) ? outputPath : path.resolve(outputPath);
+
+  // Ensure directory exists
+  const dir = path.dirname(resolvedPath);
+  await fs.promises.mkdir(dir, { recursive: true });
+
   await fs.promises.writeFile(
-    outputPath,
+    resolvedPath,
     JSON.stringify(genesisState, null, 2)
   );
 
-  console.log(`Generated XRP genesis state with ${stakes.length} valid stakes - Written to ${outputPath}`);
+  console.log(`Generated XRP genesis state with ${stakes.length} valid stakes - Written to ${resolvedPath}`);
 }

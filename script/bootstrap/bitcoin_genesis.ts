@@ -1,5 +1,6 @@
 import axios from 'axios';
 import fs from 'fs';
+import path from 'path';
 import { ethers } from 'ethers';
 import { fromBech32, fromHex, toBech32 } from '@cosmjs/encoding';
 import { address as addressUtils, networks } from 'bitcoinjs-lib';
@@ -56,11 +57,11 @@ export class GenesisGenerator {
   private validatorInfoCache: Map<string, any> = new Map(); // validator address -> validator info
 
   constructor(
-      vaultAddress: string,
-      baseUrl: string,
-      bootstrapContract: ethers.Contract,
-      minConfirmations: number = 6,
-      minAmount: number = 1000000
+    vaultAddress: string,
+    baseUrl: string,
+    bootstrapContract: ethers.Contract,
+    minConfirmations: number = 6,
+    minAmount: number = 1000000
   ) {
     this.vaultAddress = vaultAddress;
     this.baseUrl = baseUrl;
@@ -105,8 +106,8 @@ export class GenesisGenerator {
 
     while (true) {
       const url = lastSeenTxId
-          ? `${this.baseUrl}/api/address/${this.vaultAddress}/txs/chain/${lastSeenTxId}`
-          : `${this.baseUrl}/api/address/${this.vaultAddress}/txs`;
+        ? `${this.baseUrl}/api/address/${this.vaultAddress}/txs/chain/${lastSeenTxId}`
+        : `${this.baseUrl}/api/address/${this.vaultAddress}/txs`;
 
       try {
         const response = await axios.get(url);
@@ -277,7 +278,7 @@ export class GenesisGenerator {
     const opReturnOutputs = tx.vout.filter((output) => output.scriptpubkey_type === 'op_return');
     if (opReturnOutputs.length !== 1) {
       console.log(`Invalid number of OP_RETURN outputs in tx ${tx.txid}`);
-      return false;
+       return false;
     }
 
     const opReturnOutput = opReturnOutputs[0];
@@ -302,7 +303,8 @@ export class GenesisGenerator {
     if (this.addressMappings.has(senderAddress)) {
       const existingImuachainAddress = this.addressMappings.get(senderAddress);
       if (existingImuachainAddress !== imuachainAddressHex) {
-        console.log(`Inconsistent imuachain address for Bitcoin address ${senderAddress} in tx ${tx.txid}\n  Previous: ${existingImuachainAddress}, Current: ${imuachainAddressHex}`);
+        console.log(`Inconsistent imuachain address for Bitcoin address ${senderAddress} in tx ${tx.txid}`);
+        console.log(`Previous: ${existingImuachainAddress}, Current: ${imuachainAddressHex}`);
         return false;
       }
     }
@@ -316,29 +318,31 @@ export class GenesisGenerator {
   public async generateGenesisStakes(): Promise<BootstrapStake[]> {
     console.log(`Fetching transactions for vault address ${this.vaultAddress}...`);
     const transactions = await this.getConfirmedTransactions();
+    console.log(`Found ${transactions.length} transactions.`);
+
     const currentHeight = await this.getBlockHeight();
-    console.log(`Found ${transactions.length} transactions. Current block height: ${currentHeight}`);
+    console.log(`Current block height: ${currentHeight}`);
 
     // Filter and sort transactions
     const validTxs = await Promise.all(
-        transactions.map(async (tx) => ({
-          tx,
-          isValid: await this.isValidBootstrapTransaction(tx),
-        }))
+      transactions.map(async (tx) => ({
+        tx,
+        isValid: await this.isValidBootstrapTransaction(tx),
+      }))
     );
 
     const filteredTxs = validTxs
-        .filter(
-            ({ tx, isValid }) =>
-                isValid && tx.status.block_height <= currentHeight && currentHeight - tx.status.block_height + 1 >= this.minConfirmations
-        )
-        .map(({ tx }) => tx)
-        .sort((a, b) => {
-          if (a.status.block_height !== b.status.block_height) {
-            return a.status.block_height - b.status.block_height;
-          }
-          return (a.status.txIndex || 0) - (b.status.txIndex || 0);
-        });
+      .filter(
+        ({ tx, isValid }) =>
+          isValid && tx.status.block_height <= currentHeight && currentHeight - tx.status.block_height + 1 >= this.minConfirmations
+      )
+      .map(({ tx }) => tx)
+      .sort((a, b) => {
+        if (a.status.block_height !== b.status.block_height) {
+          return a.status.block_height - b.status.block_height;
+        }
+        return (a.status.txIndex || 0) - (b.status.txIndex || 0);
+      });
 
     console.log(`Found ${filteredTxs.length} valid transactions with ${this.minConfirmations}+ confirmations.`);
 
@@ -358,8 +362,8 @@ export class GenesisGenerator {
       const { imuachainAddressHex: imuaAddressHex, validatorAddress } = opReturnData;
 
       const { version, hash } = toVersionAndHash(
-          tx.vin[0].prevout.scriptpubkey_address,
-          this.getNetworkFromAddress(tx.vin[0].prevout.scriptpubkey_address)
+        tx.vin[0].prevout.scriptpubkey_address,
+        this.getNetworkFromAddress(tx.vin[0].prevout.scriptpubkey_address)
       );
       console.log(`the underlying hash of address has length ${hash.length}`);
 
@@ -417,7 +421,7 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
     asset_basic_info: {
       name: BTC_CONFIG.NAME,
       symbol: BTC_CONFIG.SYMBOL,
-      address: BTC_CONFIG.VIRTUAL_ADDRESS,
+      address: BTC_CONFIG.VIRTUAL_ADDRESS.toLowerCase(),
       decimals: BTC_CONFIG.DECIMALS.toString(),
       layer_zero_chain_id: CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID,
       imua_chain_index: '0',
@@ -593,7 +597,7 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
         {
           name: BTC_CONFIG.SYMBOL,
           chain_id: BTC_CONFIG.CHAIN_ID,
-          contract_address: BTC_CONFIG.VIRTUAL_ADDRESS,
+          contract_address: BTC_CONFIG.VIRTUAL_ADDRESS.toLowerCase(),
           active: true,
           asset_id: btcAssetId,
           decimal: BTC_CONFIG.DECIMALS,
@@ -644,17 +648,21 @@ export async function generateBootstrapGenesis(): Promise<void> {
   const bootstrapContract = new ethers.Contract(config.bootstrapContractAddress, bootstrapAbi.abi, provider);
 
   const generator = new GenesisGenerator(
-      config.btcVaultAddress,
-      config.btcEsploraBaseUrl,
-      bootstrapContract,
-      config.minConfirmations,
-      config.minAmount
+    config.btcVaultAddress,
+    config.btcEsploraBaseUrl,
+    bootstrapContract,
+    config.minConfirmations,
+    config.minAmount
   );
 
   const stakes = await generator.generateGenesisStakes();
   const genesisState = await generateGenesisState(stakes, generator);
 
-  await fs.promises.writeFile(config.genesisOutputPath, JSON.stringify(genesisState, null, 2));
+  // Use environment variable if set, otherwise fall back to config
+  const outputPath = process.env.BITCOIN_GENESIS_OUTPUT_PATH || config.genesisOutputPath;
+  const resolvedPath = path.isAbsolute(outputPath) ? outputPath : path.resolve(outputPath);
 
-  console.log(`Generated genesis state with ${stakes.length} valid stakes - Written to ${config.genesisOutputPath}`);
+  await fs.promises.writeFile(resolvedPath, JSON.stringify(genesisState, null, 2));
+
+  console.log(`Generated genesis state with ${stakes.length} valid stakes - Written to ${resolvedPath}`);
 }
