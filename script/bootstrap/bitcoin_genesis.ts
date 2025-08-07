@@ -297,19 +297,20 @@ export class GenesisGenerator {
       return false;
     }
 
-    // Check address mapping consistency
+    // Check address mapping consistency - Bitcoin address to imuachain address is 1-1 binding
     const senderAddress = tx.vin[0].prevout.scriptpubkey_address;
     if (this.addressMappings.has(senderAddress)) {
       const existingImuachainAddress = this.addressMappings.get(senderAddress);
       if (existingImuachainAddress !== imuachainAddressHex) {
-        console.log(`Inconsistent imuachain address for Bitcoin address ${senderAddress} in tx ${tx.txid}`);
-        console.log(`Previous: ${existingImuachainAddress}, Current: ${imuachainAddressHex}`);
+        console.log(`Rejecting tx ${tx.txid}: Bitcoin address ${senderAddress} already bound to different imuachain address (${existingImuachainAddress} vs ${imuachainAddressHex})`);
         return false;
       }
+      // Mapping already exists and is consistent, transaction is valid
+    } else {
+      // Store the first mapping for this Bitcoin address
+      this.addressMappings.set(senderAddress, imuachainAddressHex);
+      console.log(`Established new address binding: ${senderAddress} -> ${imuachainAddressHex} in tx ${tx.txid}`);
     }
-
-    // Store the mapping for later use
-    this.addressMappings.set(senderAddress, imuachainAddressHex);
 
     return true;
   }
@@ -317,10 +318,9 @@ export class GenesisGenerator {
   public async generateGenesisStakes(): Promise<BootstrapStake[]> {
     console.log(`Fetching transactions for vault address ${this.vaultAddress}...`);
     const transactions = await this.getConfirmedTransactions();
-    console.log(`Found ${transactions.length} transactions.`);
 
     const currentHeight = await this.getBlockHeight();
-    console.log(`Current block height: ${currentHeight}`);
+    console.log(`Found ${transactions.length} transactions, current block height: ${currentHeight}`);
 
     // Filter and sort transactions
     const validTxs = await Promise.all(
@@ -354,15 +354,25 @@ export class GenesisGenerator {
 
       if (!vaultOutput || !opReturnOutput) continue;
 
-      // Parse OP_RETURN data using the private method
+      // Parse OP_RETURN data to get validator address
       const opReturnData = this.parseOpReturnData(opReturnOutput.scriptpubkey);
       if (!opReturnData) continue;
 
-      const { imuachainAddressHex: imuaAddressHex, validatorAddress } = opReturnData;
+      const { validatorAddress } = opReturnData;
+
+      // Use the consistent imuachain address from our validated mapping
+      // This ensures we use the first (earliest) imuachain address for each Bitcoin sender
+      const senderAddress = tx.vin[0].prevout.scriptpubkey_address;
+      const consistentImuachainAddress = this.addressMappings.get(senderAddress);
+
+      if (!consistentImuachainAddress) {
+        console.error(`Error: No mapping found for Bitcoin address ${senderAddress} in tx ${tx.txid}`);
+        continue;
+      }
 
       const { version, hash } = toVersionAndHash(
-        tx.vin[0].prevout.scriptpubkey_address,
-        this.getNetworkFromAddress(tx.vin[0].prevout.scriptpubkey_address)
+        senderAddress,
+        this.getNetworkFromAddress(senderAddress)
       );
       console.log(`the underlying hash of address has length ${hash.length}`);
 
@@ -370,8 +380,8 @@ export class GenesisGenerator {
         txid: tx.txid,
         blockHeight: tx.status.block_height,
         txIndex: tx.status.txIndex || 0,
-        stakerAddress: imuaAddressHex, // Use imuachain address from OP_RETURN as staker address per protocol
-        imuachainAddress: imuaAddressHex,
+        stakerAddress: consistentImuachainAddress, // Imuachain address from validated mapping (ensures 1-1 binding)
+        imuachainAddress: consistentImuachainAddress,
         validatorAddress: validatorAddress,
         amount: vaultOutput.value,
         timestamp: tx.status.block_time,
@@ -659,6 +669,5 @@ export async function generateBootstrapGenesis(): Promise<void> {
 
   await fs.promises.writeFile(config.genesisOutputPath, JSON.stringify(genesisState, null, 2));
 
-  console.log(`Generated genesis state with ${stakes.length} valid stakes`);
-  console.log(`Written to ${config.genesisOutputPath}`);
+  console.log(`Generated genesis state with ${stakes.length} valid stakes, written to ${config.genesisOutputPath}`);
 }
