@@ -322,26 +322,27 @@ export class GenesisGenerator {
     const currentHeight = await this.getBlockHeight();
     console.log(`Found ${transactions.length} transactions, current block height: ${currentHeight}`);
 
-    // Filter and sort transactions
-    const validTxs = await Promise.all(
-      transactions.map(async (tx) => ({
-        tx,
-        isValid: await this.isValidBootstrapTransaction(tx),
-      }))
-    );
+    // Sort transactions first to ensure earliest transactions are processed first
+    const sortedTxs = transactions.sort((a, b) => {
+      if (a.status.block_height !== b.status.block_height) {
+        return a.status.block_height - b.status.block_height;
+      }
+      return (a.status.txIndex || 0) - (b.status.txIndex || 0);
+    });
+
+    // Process transactions sequentially to preserve earliest address mappings
+    const validTxs: { tx: BTCTransaction; isValid: boolean }[] = [];
+    for (const tx of sortedTxs) {
+      const isValid = await this.isValidBootstrapTransaction(tx);
+      validTxs.push({ tx, isValid });
+    }
 
     const filteredTxs = validTxs
       .filter(
         ({ tx, isValid }) =>
           isValid && tx.status.block_height <= currentHeight && currentHeight - tx.status.block_height + 1 >= this.minConfirmations
       )
-      .map(({ tx }) => tx)
-      .sort((a, b) => {
-        if (a.status.block_height !== b.status.block_height) {
-          return a.status.block_height - b.status.block_height;
-        }
-        return (a.status.txIndex || 0) - (b.status.txIndex || 0);
-      });
+      .map(({ tx }) => tx);
 
     console.log(`Found ${filteredTxs.length} valid transactions with ${this.minConfirmations}+ confirmations.`);
 
