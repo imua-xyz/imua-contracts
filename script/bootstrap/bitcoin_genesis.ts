@@ -619,10 +619,10 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
         {
           token_id: oracleTokenId,
           start_round_id: '1',
-          start_base_block: '1', // Start from genesis block
+          start_base_block: '20', // Start from genesis block
           interval: '30', // 30 blocks interval for price updates
           end_block: '0', // 0 means no end block (perpetual)
-          rule_id: '1', // Rule ID for BTC price feed
+          rule_id: '2', // Rule ID for BTC price feed
         },
       ],
     },
