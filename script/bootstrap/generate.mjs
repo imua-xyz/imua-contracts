@@ -780,7 +780,7 @@ async function updateGenesisFile() {
       const operatorInfo = await myContract.methods.validators(opAddressIm).call();
       const operator_info = {
         earnings_addr: opAddressIm,
-        // approve_addr unset
+        // approve_addr set to opAddressIm
         approve_addr: opAddressIm,
         operator_meta_info: operatorInfo.name,
         client_chain_earnings_addr: {
