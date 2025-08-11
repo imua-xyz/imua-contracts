@@ -409,23 +409,76 @@ class GenesisStateMerger {
       }
     }
 
-    // Merge other oracle data at module level
-    if (additional.prices_list) {
-      if (!result.prices_list) result.prices_list = [];
-      result.prices_list = result.prices_list.concat(additional.prices_list);
-    }
-
-    // Merge other oracle params
-    if (additional.params) {
-      if (!result.params) result.params = {};
-      for (const [key, value] of Object.entries(additional.params)) {
-        if (key !== 'tokens') { // tokens are handled above
-          result.params[key] = value;
+    // Merge token_feeders
+    if (additional.params?.token_feeders) {
+      if (!result.params.token_feeders) result.params.token_feeders = [];
+      
+      for (const feeder of additional.params.token_feeders) {
+        // Check for existing feeder by token_id
+        const existingIndex = result.params.token_feeders.findIndex(f => f.token_id === feeder.token_id);
+        
+        if (existingIndex >= 0) {
+          if (this.conflictResolution === 'bitcoin_priority') {
+            result.params.token_feeders[existingIndex] = feeder;
+            console.log(`🔄 Replaced token_feeder for token_id ${feeder.token_id} with Bitcoin priority`);
+          } else {
+            console.log(`🔄 Keeping existing token_feeder for token_id ${feeder.token_id} with ${this.conflictResolution}`);
+          }
+        } else {
+          result.params.token_feeders.push(feeder);
+          console.log(`➕ Added token_feeder for token_id ${feeder.token_id}`);
         }
       }
     }
 
-    console.log(`🔍 Oracle merge result: ${result.params.tokens.length} tokens total`);
+    // Merge prices_list
+    if (additional.prices_list) {
+      if (!result.prices_list) result.prices_list = [];
+      
+      for (const priceEntry of additional.prices_list) {
+        // Check for existing price entry by token_id
+        const existingIndex = result.prices_list.findIndex(p => p.token_id === priceEntry.token_id);
+        
+        if (existingIndex >= 0) {
+          if (this.conflictResolution === 'bitcoin_priority') {
+            result.prices_list[existingIndex] = priceEntry;
+            console.log(`🔄 Replaced prices_list for token_id ${priceEntry.token_id} with Bitcoin priority`);
+          } else {
+            // For EVM priority, we might want to merge price_list arrays
+            if (priceEntry.price_list && Array.isArray(priceEntry.price_list)) {
+              if (!result.prices_list[existingIndex].price_list) {
+                result.prices_list[existingIndex].price_list = [];
+              }
+              result.prices_list[existingIndex].price_list = result.prices_list[existingIndex].price_list.concat(priceEntry.price_list);
+              console.log(`🔄 Merged price_list for token_id ${priceEntry.token_id} with ${this.conflictResolution}`);
+            }
+          }
+        } else {
+          result.prices_list.push(priceEntry);
+          console.log(`➕ Added prices_list entry for token_id ${priceEntry.token_id}`);
+        }
+      }
+    }
+
+    // Merge other oracle params (excluding tokens, token_feeders which are handled above)
+    if (additional.params) {
+      if (!result.params) result.params = {};
+      for (const [key, value] of Object.entries(additional.params)) {
+        if (key !== 'tokens' && key !== 'token_feeders') { // tokens and token_feeders are handled above
+          if (Array.isArray(value)) {
+            // For arrays, concatenate them
+            if (!result.params[key]) result.params[key] = [];
+            result.params[key] = result.params[key].concat(value);
+            console.log(`🔄 Merged oracle params array ${key}: added ${value.length} entries`);
+          } else {
+            result.params[key] = value;
+            console.log(`🔄 Set oracle params ${key}`);
+          }
+        }
+      }
+    }
+
+    console.log(`🔍 Oracle merge result: ${result.params.tokens.length} tokens, ${result.params.token_feeders?.length || 0} feeders, ${result.prices_list?.length || 0} price entries`);
     return result;
   }
 

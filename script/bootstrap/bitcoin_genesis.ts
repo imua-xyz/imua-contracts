@@ -302,7 +302,9 @@ export class GenesisGenerator {
     if (this.addressMappings.has(senderAddress)) {
       const existingImuachainAddress = this.addressMappings.get(senderAddress);
       if (existingImuachainAddress !== imuachainAddressHex) {
-        console.log(`Rejecting tx ${tx.txid}: Bitcoin address ${senderAddress} already bound to different imuachain address (${existingImuachainAddress} vs ${imuachainAddressHex})`);
+        console.log(
+          `Rejecting tx ${tx.txid}: Bitcoin address ${senderAddress} already bound to different imuachain address (${existingImuachainAddress} vs ${imuachainAddressHex})`
+        );
         return false;
       }
       // Mapping already exists and is consistent, transaction is valid
@@ -371,10 +373,7 @@ export class GenesisGenerator {
         continue;
       }
 
-      const { version, hash } = toVersionAndHash(
-        senderAddress,
-        this.getNetworkFromAddress(senderAddress)
-      );
+      const { version, hash } = toVersionAndHash(senderAddress, this.getNetworkFromAddress(senderAddress));
       console.log(`the underlying hash of address has length ${hash.length}`);
 
       stakes.push({
@@ -601,6 +600,9 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
   };
 
   // Generate oracle state
+  const oracleTokenId = '4'; // BTC token ID in oracle system
+  const currentBtcPriceWithDecimals = Math.floor(config.btcPriceUsd * Math.pow(10, BTC_CONFIG.DECIMALS)).toString(); // Convert to price with 8 decimals
+
   const oracleState: OracleState = {
     params: {
       tokens: [
@@ -613,7 +615,30 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
           decimal: BTC_CONFIG.DECIMALS,
         },
       ],
+      token_feeders: [
+        {
+          token_id: oracleTokenId,
+          start_round_id: '1',
+          start_base_block: '1', // Start from genesis block
+          interval: '30', // 30 blocks interval for price updates
+          end_block: '0', // 0 means no end block (perpetual)
+          rule_id: '1', // Rule ID for BTC price feed
+        },
+      ],
     },
+    prices_list: [
+      {
+        next_round_id: '1',
+        price_list: [
+          {
+            decimal: BTC_CONFIG.DECIMALS,
+            price: currentBtcPriceWithDecimals,
+            round_id: '0', // Genesis price round
+          },
+        ],
+        token_id: oracleTokenId,
+      },
+    ],
   };
 
   // Combine all states into app state
