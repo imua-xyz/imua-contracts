@@ -606,7 +606,8 @@ export class XRPGenesisGenerator {
         imuachainAddress: memoData.imuachainAddress,
         validatorAddress: memoData.validatorAddress,
         amount: amount,
-        timestamp: tx.date,
+        // XRPL timestamp is Ripple epoch; convert to Unix epoch
+        timestamp: tx.date > 0 ? tx.date + 946684800 : 0,
       });
     }
 
