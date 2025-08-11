@@ -550,10 +550,10 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
 
   for (const [validator, validatorStakeList] of validatorStakes.entries()) {
     const totalStake = validatorStakeList.reduce((sum, stake) => sum + stake.amount, 0);
-    // Convert BTC to USD value and then to power units
-    const usdValue = totalStake * config.btcPriceUsd;
-    // Convert to integer power (e.g., 1 USD = 1000000 power units)
-    const power = Math.floor(usdValue * 1000000);
+    // Calculate power: totalStake (Satoshi) * btcPriceUsd / 100000000 = USD value
+    // USD value is the power, avoid precision loss by doing multiplication first
+    const usdValueSatoshi = totalStake * config.btcPriceUsd; // USD value in Satoshi scale
+    const power = Math.floor(usdValueSatoshi / 100000000); // Convert from Satoshi scale to BTC scale (USD)
 
     // Get cached validator info to retrieve consensus public key
     let publicKey = validator; // fallback to validator address
