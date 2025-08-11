@@ -278,7 +278,7 @@ export class GenesisGenerator {
     const opReturnOutputs = tx.vout.filter((output) => output.scriptpubkey_type === 'op_return');
     if (opReturnOutputs.length !== 1) {
       console.log(`Invalid number of OP_RETURN outputs in tx ${tx.txid}`);
-       return false;
+      return false;
     }
 
     const opReturnOutput = opReturnOutputs[0];
@@ -298,19 +298,22 @@ export class GenesisGenerator {
       return false;
     }
 
-    // Check address mapping consistency
+    // Check address mapping consistency - Bitcoin address to imuachain address is 1-1 binding
     const senderAddress = tx.vin[0].prevout.scriptpubkey_address;
     if (this.addressMappings.has(senderAddress)) {
       const existingImuachainAddress = this.addressMappings.get(senderAddress);
       if (existingImuachainAddress !== imuachainAddressHex) {
-        console.log(`Inconsistent imuachain address for Bitcoin address ${senderAddress} in tx ${tx.txid}`);
-        console.log(`Previous: ${existingImuachainAddress}, Current: ${imuachainAddressHex}`);
+        console.log(
+          `Rejecting tx ${tx.txid}: Bitcoin address ${senderAddress} already bound to different imuachain address (${existingImuachainAddress} vs ${imuachainAddressHex})`
+        );
         return false;
       }
+      // Mapping already exists and is consistent, transaction is valid
+    } else {
+      // Store the first mapping for this Bitcoin address
+      this.addressMappings.set(senderAddress, imuachainAddressHex);
+      console.log(`Established new address binding: ${senderAddress} -> ${imuachainAddressHex} in tx ${tx.txid}`);
     }
-
-    // Store the mapping for later use
-    this.addressMappings.set(senderAddress, imuachainAddressHex);
 
     return true;
   }
@@ -318,31 +321,31 @@ export class GenesisGenerator {
   public async generateGenesisStakes(): Promise<BootstrapStake[]> {
     console.log(`Fetching transactions for vault address ${this.vaultAddress}...`);
     const transactions = await this.getConfirmedTransactions();
-    console.log(`Found ${transactions.length} transactions.`);
 
     const currentHeight = await this.getBlockHeight();
-    console.log(`Current block height: ${currentHeight}`);
+    console.log(`Found ${transactions.length} transactions, current block height: ${currentHeight}`);
 
-    // Filter and sort transactions
-    const validTxs = await Promise.all(
-      transactions.map(async (tx) => ({
-        tx,
-        isValid: await this.isValidBootstrapTransaction(tx),
-      }))
-    );
+    // Sort transactions first to ensure earliest transactions are processed first
+    const sortedTxs = transactions.sort((a, b) => {
+      if (a.status.block_height !== b.status.block_height) {
+        return a.status.block_height - b.status.block_height;
+      }
+      return (a.status.txIndex || 0) - (b.status.txIndex || 0);
+    });
+
+    // Process transactions sequentially to preserve earliest address mappings
+    const validTxs: { tx: BTCTransaction; isValid: boolean }[] = [];
+    for (const tx of sortedTxs) {
+      const isValid = await this.isValidBootstrapTransaction(tx);
+      validTxs.push({ tx, isValid });
+    }
 
     const filteredTxs = validTxs
       .filter(
         ({ tx, isValid }) =>
           isValid && tx.status.block_height <= currentHeight && currentHeight - tx.status.block_height + 1 >= this.minConfirmations
       )
-      .map(({ tx }) => tx)
-      .sort((a, b) => {
-        if (a.status.block_height !== b.status.block_height) {
-          return a.status.block_height - b.status.block_height;
-        }
-        return (a.status.txIndex || 0) - (b.status.txIndex || 0);
-      });
+      .map(({ tx }) => tx);
 
     console.log(`Found ${filteredTxs.length} valid transactions with ${this.minConfirmations}+ confirmations.`);
 
@@ -355,24 +358,31 @@ export class GenesisGenerator {
 
       if (!vaultOutput || !opReturnOutput) continue;
 
-      // Parse OP_RETURN data using the private method
+      // Parse OP_RETURN data to get validator address
       const opReturnData = this.parseOpReturnData(opReturnOutput.scriptpubkey);
       if (!opReturnData) continue;
 
-      const { imuachainAddressHex: imuaAddressHex, validatorAddress } = opReturnData;
+      const { validatorAddress } = opReturnData;
 
-      const { version, hash } = toVersionAndHash(
-        tx.vin[0].prevout.scriptpubkey_address,
-        this.getNetworkFromAddress(tx.vin[0].prevout.scriptpubkey_address)
-      );
+      // Use the consistent imuachain address from our validated mapping
+      // This ensures we use the first (earliest) imuachain address for each Bitcoin sender
+      const senderAddress = tx.vin[0].prevout.scriptpubkey_address;
+      const consistentImuachainAddress = this.addressMappings.get(senderAddress);
+
+      if (!consistentImuachainAddress) {
+        console.error(`Error: No mapping found for Bitcoin address ${senderAddress} in tx ${tx.txid}`);
+        continue;
+      }
+
+      const { version, hash } = toVersionAndHash(senderAddress, this.getNetworkFromAddress(senderAddress));
       console.log(`the underlying hash of address has length ${hash.length}`);
 
       stakes.push({
         txid: tx.txid,
         blockHeight: tx.status.block_height,
         txIndex: tx.status.txIndex || 0,
-        stakerAddress: imuaAddressHex, // Use imuachain address from OP_RETURN as staker address per protocol
-        imuachainAddress: imuaAddressHex,
+        stakerAddress: consistentImuachainAddress, // Imuachain address from validated mapping (ensures 1-1 binding)
+        imuachainAddress: consistentImuachainAddress,
         validatorAddress: validatorAddress,
         amount: vaultOutput.value,
         timestamp: tx.status.block_time,
@@ -540,10 +550,10 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
 
   for (const [validator, validatorStakeList] of validatorStakes.entries()) {
     const totalStake = validatorStakeList.reduce((sum, stake) => sum + stake.amount, 0);
-    // Convert BTC to USD value and then to power units
-    const usdValue = totalStake * config.btcPriceUsd;
-    // Convert to integer power (e.g., 1 USD = 1000000 power units)
-    const power = Math.floor(usdValue * 1000000);
+    // Calculate power: totalStake (Satoshi) * btcPriceUsd / 100000000 = USD value
+    // USD value is the power, avoid precision loss by doing multiplication first
+    const usdValueSatoshi = totalStake * config.btcPriceUsd; // USD value in Satoshi scale
+    const power = Math.floor(usdValueSatoshi / 100000000); // Convert from Satoshi scale to BTC scale (USD)
 
     // Get cached validator info to retrieve consensus public key
     let publicKey = validator; // fallback to validator address
@@ -591,6 +601,9 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
   };
 
   // Generate oracle state
+  const oracleTokenId = '4'; // BTC token ID in oracle system
+  const currentBtcPriceWithDecimals = Math.floor(config.btcPriceUsd * Math.pow(10, BTC_CONFIG.DECIMALS)).toString(); // Convert to price with 8 decimals
+
   const oracleState: OracleState = {
     params: {
       tokens: [
@@ -603,7 +616,30 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
           decimal: BTC_CONFIG.DECIMALS,
         },
       ],
+      token_feeders: [
+        {
+          token_id: oracleTokenId,
+          start_round_id: '1',
+          start_base_block: '20', // Start from genesis block
+          interval: '30', // 30 blocks interval for price updates
+          end_block: '0', // 0 means no end block (perpetual)
+          rule_id: '2', // Rule ID for BTC price feed
+        },
+      ],
     },
+    prices_list: [
+      {
+        next_round_id: '1',
+        price_list: [
+          {
+            decimal: BTC_CONFIG.DECIMALS,
+            price: currentBtcPriceWithDecimals,
+            round_id: '0', // Genesis price round
+          },
+        ],
+        token_id: oracleTokenId,
+      },
+    ],
   };
 
   // Combine all states into app state
@@ -643,7 +679,7 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
   return genesisState;
 }
 
-export async function generateBootstrapGenesis(): Promise<void> {
+  export async function generateBootstrapGenesis(): Promise<void> {
   const provider = new ethers.JsonRpcProvider(config.rpcUrl);
   const bootstrapContract = new ethers.Contract(config.bootstrapContractAddress, bootstrapAbi.abi, provider);
 
@@ -659,9 +695,11 @@ export async function generateBootstrapGenesis(): Promise<void> {
   const genesisState = await generateGenesisState(stakes, generator);
 
   // Use environment variable if set, otherwise fall back to config
-  const outputPath = process.env.BITCOIN_GENESIS_OUTPUT_PATH || config.genesisOutputPath;
+  const outputPath = process.env.BTC_GENESIS_OUTPUT_PATH || config.genesisOutputPath;
   const resolvedPath = path.isAbsolute(outputPath) ? outputPath : path.resolve(outputPath);
 
+  // Ensure directory exists
+  await fs.promises.mkdir(path.dirname(resolvedPath), { recursive: true });
   await fs.promises.writeFile(resolvedPath, JSON.stringify(genesisState, null, 2));
 
   console.log(`Generated genesis state with ${stakes.length} valid stakes - Written to ${resolvedPath}`);

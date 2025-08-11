@@ -1,58 +1,76 @@
-import { Client } from 'xrpl';
-import { decodeAccountID } from 'ripple-address-codec';
-import fs from 'fs';
-import path from 'path';
-import { ethers } from 'ethers';
-import { fromBech32 } from '@cosmjs/encoding';
-import config from './config';
-import bootstrapAbi from '../../out/Bootstrap.sol/Bootstrap.json';
-import { XRP_CONFIG, XRP_CHAIN_CONFIG } from './config';
+import { Client } from "xrpl";
+import { decodeAccountID } from "ripple-address-codec";
+import fs from "fs";
+import path from "path";
+import { ethers } from "ethers";
+import { fromBech32 } from "@cosmjs/encoding";
+import config from "./config";
+import bootstrapAbi from "../../out/Bootstrap.sol/Bootstrap.json";
+import { XRP_CONFIG, XRP_CHAIN_CONFIG } from "./config";
 import {
-  GenesisState, AppState, AssetsState, DelegationState,
-  DogfoodState, Validator, OracleState, ClientChain, Token
-} from './types';
+  GenesisState,
+  AppState,
+  AssetsState,
+  DelegationState,
+  DogfoodState,
+  Validator,
+  OracleState,
+  ClientChain,
+  Token,
+} from "./types";
 
 interface BootstrapStake {
-  hash: string;              // XRP transaction hash
-  ledgerIndex: number;       // Ledger sequence number
-  transactionIndex: number;  // Transaction index in ledger
-  xrpAddress: string;        // Staker's XRP address (hex format)
-  imuachainAddress: string;  // Corresponding Imuachain address
-  validatorAddress: string;  // Target validator address
-  amount: number;            // Stake amount in drops (1 XRP = 1,000,000 drops)
-  timestamp: number;         // Transaction timestamp
+  hash: string; // XRP transaction hash
+  ledgerIndex: number; // Ledger sequence number
+  transactionIndex: number; // Transaction index in ledger
+  xrpAddress: string; // Staker's XRP address (hex format)
+  imuachainAddress: string; // Corresponding Imuachain address
+  validatorAddress: string; // Target validator address
+  amount: number; // Stake amount in drops (1 XRP = 1,000,000 drops)
+  timestamp: number; // Transaction timestamp
+}
+
+interface ParsedMemoData {
+  imuachainAddress: string;
+  validatorAddress: string;
+}
+
+interface XRPMemo {
+  MemoType?: string;
+  MemoData?: string;
+  MemoFormat?: string;
 }
 
 interface XRPTransaction {
   hash: string;
   ledger_index: number;
   date: number;
+  validated: boolean;
   tx: {
     TransactionType: string;
-    Account: string;           // Sender address
-    Destination?: string;      // Destination address (for Payment)
-    Amount: string | {         // Amount (string for XRP, object for tokens)
-      currency: string;
-      value: string;
-      issuer: string;
-    };
-    Fee: string;              // Transaction fee in drops
-    Sequence: number;         // Account sequence number
-    Memos?: Array<{           // Memo field for validator info
-      Memo: {
-        MemoType?: string;
-        MemoData?: string;
-        MemoFormat?: string;
-      };
+    Account: string; // Sender address
+    Destination?: string; // Destination address (for Payment)
+    Amount:
+      | string
+      | {
+          // Amount (string for XRP, object for tokens)
+          currency: string;
+          value: string;
+          issuer: string;
+        };
+    Fee: string; // Transaction fee in drops
+    Sequence: number; // Account sequence number
+    Memos?: Array<{
+      // Memo field for validator info
+      Memo: XRPMemo;
     }>;
-    DestinationTag?: number;  // Optional destination tag
+    DestinationTag?: number; // Optional destination tag
   };
   meta: {
     TransactionResult: string;
     TransactionIndex: number;
     delivered_amount?: string;
   };
-  validated: boolean;
 }
 
 /**
@@ -83,13 +101,13 @@ export class XRPGenesisGenerator {
 
     // Validate configuration
     if (!this.vaultAddress) {
-      throw new Error('Vault address is required');
+      throw new Error("Vault address is required");
     }
     if (!rpcUrl) {
-      throw new Error('XRP RPC URL is required');
+      throw new Error("XRP RPC URL is required");
     }
     if (this.minConfirmations < 1) {
-      throw new Error('Minimum confirmations must be at least 1');
+      throw new Error("Minimum confirmations must be at least 1");
     }
   }
 
@@ -125,7 +143,9 @@ export class XRPGenesisGenerator {
   /**
    * Get transaction details by hash
    */
-  private async getTransactionDetails(hash: string): Promise<XRPTransaction | null> {
+  private async getTransactionDetails(
+    hash: string
+  ): Promise<XRPTransaction | null> {
     try {
       if (!this.client.isConnected()) {
         await this.client.connect();
@@ -141,7 +161,7 @@ export class XRPGenesisGenerator {
       if (response?.result && response.result.validated) {
         const result = response.result as any;
         return {
-          hash: result.hash || '',
+          hash: result.hash || "",
           ledger_index: result.ledger_index || 0,
           date: result.date || -1,
           tx: {
@@ -155,11 +175,11 @@ export class XRPGenesisGenerator {
             DestinationTag: result.DestinationTag,
           },
           meta: {
-            TransactionResult: result.meta?.TransactionResult || 'tesSUCCESS',
+            TransactionResult: result.meta?.TransactionResult || "tesSUCCESS",
             TransactionIndex: result.meta?.TransactionIndex || 0,
             delivered_amount: result.meta?.delivered_amount,
           },
-          validated: result.validated || false
+          validated: result.validated || false,
         };
       }
       return null;
@@ -225,14 +245,14 @@ export class XRPGenesisGenerator {
               DestinationTag: tx_json.DestinationTag,
             },
             meta: {
-              TransactionResult: txData.meta?.TransactionResult || 'tesSUCCESS',
+              TransactionResult: txData.meta?.TransactionResult || "tesSUCCESS",
               TransactionIndex: txData.meta?.TransactionIndex || 0,
               delivered_amount: txData.meta?.delivered_amount,
             },
             validated: txData.validated,
           };
 
-          if (tx.tx.TransactionType === 'Payment') {
+          if (tx.tx.TransactionType === "Payment") {
             allTxs.push(tx);
           }
         }
@@ -244,7 +264,7 @@ export class XRPGenesisGenerator {
         marker = result.marker;
       }
     } catch (error) {
-      console.error('Error fetching vault transactions:', error);
+      console.error("Error fetching vault transactions:", error);
       throw error;
     }
 
@@ -258,18 +278,30 @@ export class XRPGenesisGenerator {
     try {
       // Check if we already have cached info for this validator
       if (!this.validatorInfoCache.has(validatorAddr)) {
-        const validatorInfo = await this.bootstrapContract.validators(validatorAddr);
+        const validatorInfo = await this.bootstrapContract.validators(
+          validatorAddr
+        );
         this.validatorInfoCache.set(validatorAddr, validatorInfo);
       }
 
       const validatorInfo = this.validatorInfoCache.get(validatorAddr);
-      return validatorInfo && validatorInfo.name && validatorInfo.name.length > 0;
+      return (
+        validatorInfo && validatorInfo.name && validatorInfo.name.length > 0
+      );
     } catch (error: any) {
-      if (error.code === 'ECONNREFUSED' || error.message.includes('JsonRpcProvider')) {
-        console.warn(`⚠️ RPC connection failed for validator ${validatorAddr}, assuming not registered`);
+      if (
+        error.code === "ECONNREFUSED" ||
+        error.message.includes("JsonRpcProvider")
+      ) {
+        console.warn(
+          `⚠️ RPC connection failed for validator ${validatorAddr}, assuming not registered`
+        );
         return false; // Assume not registered when RPC is unavailable
       }
-      console.error(`Error checking validator registration for ${validatorAddr}:`, error);
+      console.error(
+        `Error checking validator registration for ${validatorAddr}:`,
+        error
+      );
       return false;
     }
   }
@@ -280,7 +312,7 @@ export class XRPGenesisGenerator {
   private isValidValidatorAddress(address: string): boolean {
     try {
       const { prefix, data } = fromBech32(address);
-      return prefix === 'im' && data.length === 20;
+      return prefix === "im" && data.length === 20;
     } catch {
       return false;
     }
@@ -292,10 +324,99 @@ export class XRPGenesisGenerator {
   private xrpAddressToHex(xrpAddress: string): string {
     try {
       const accountId = decodeAccountID(xrpAddress);
-      return '0x' + Buffer.from(accountId).toString('hex');
+      return "0x" + Buffer.from(accountId).toString("hex");
     } catch (error) {
-      console.error(`Error converting XRP address ${xrpAddress} to hex:`, error);
+      console.error(
+        `Error converting XRP address ${xrpAddress} to hex:`,
+        error
+      );
       throw error;
+    }
+  }
+
+  /**
+   * Validate memo format before parsing
+   * @param memos Array of memo objects to validate
+   * @returns true if memos have valid structure
+   */
+  private validateMemoFormat(memos: Array<{ Memo: XRPMemo }>): boolean {
+    return memos.every(
+      ({ Memo }) =>
+        Memo?.MemoType &&
+        Memo?.MemoData &&
+        typeof Memo.MemoType === "string" &&
+        typeof Memo.MemoData === "string"
+    );
+  }
+
+  /**
+   * Parse and validate address data from memo buffer
+   * @param buffer Buffer containing memo data
+   * @returns ParsedMemoData object or null if invalid
+   */
+  private parseAddressesFromBuffer(buffer: Buffer): ParsedMemoData | null {
+    // Validate minimum length (41 bytes validator + 20 bytes ethereum address)
+    if (buffer.length < 61) {
+      console.log(
+        `Memo data too short: ${buffer.length} bytes, expected at least 61`
+      );
+      return null;
+    }
+
+    try {
+      // Extract last 41 bytes as validator address
+      const validatorBytes = buffer.subarray(-41);
+      const validatorAddress = validatorBytes.toString("utf8");
+
+      // Validate validator address (must be 41 characters bech32 format)
+      if (
+        !this.isValidValidatorAddress(validatorAddress) ||
+        validatorAddress.length !== 41
+      ) {
+        console.log(`Invalid validator address format: ${validatorAddress}`);
+        return null;
+      }
+
+      // Extract remaining bytes as ethereum address
+      const ethBytes = buffer.subarray(0, -41);
+
+      if (ethBytes.length === 40) {
+        // 40 bytes UTF8 encoded hex string
+        const ethAddressString = ethBytes.toString("utf8");
+
+        // Validate hex format
+        if (!/^[0-9a-fA-F]{40}$/.test(ethAddressString)) {
+          console.log(`Invalid hex format for address: ${ethAddressString}`);
+          return null;
+        }
+
+        const imuachainAddressHex = "0x" + ethAddressString;
+
+        // Validate ethereum address format
+        if (!ethers.isAddress(imuachainAddressHex)) {
+          console.log(
+            `Invalid imuachain address format: ${imuachainAddressHex}`
+          );
+          return null;
+        }
+
+        return {
+          imuachainAddress: imuachainAddressHex,
+          validatorAddress: validatorAddress,
+        };
+      } else {
+        console.log(
+          `Invalid ethereum address length: ${ethBytes.length}, expected: 40 bytes`
+        );
+        return null;
+      }
+    } catch (error) {
+      console.log(
+        `Failed to parse address data: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+      return null;
     }
   }
 
@@ -304,67 +425,41 @@ export class XRPGenesisGenerator {
    * Validates MemoType must be "Description" (hex: 4465736372697074696F6E)
    * Format: memoData is binary data with last 41 bytes as validator address
    */
-  private parseMemoData(memos: Array<{ Memo: any }>): { imuachainAddress: string; validatorAddress: string } | null {
+  private parseMemoData(
+    memos: Array<{ Memo: XRPMemo }>
+  ): ParsedMemoData | null {
+    // Validate memo format first
+    if (!this.validateMemoFormat(memos)) {
+      console.log("Invalid memo format detected");
+      return null;
+    }
+
     try {
       for (const memo of memos) {
-        if (!memo.Memo || !memo.Memo.MemoData || !memo.Memo.MemoType) {
-          console.log('Memo missing required fields');
-          continue;
-        }
-
-        // Validate MemoType is "Description"
+        // Validate MemoType is "Description" (hex: 4465736372697074696F6E)
         if (memo.Memo.MemoType !== "4465736372697074696F6E") {
-          console.log(`Invalid MemoType: ${memo.Memo.MemoType}, expected: 4465736372697074696F6E`);
+          console.log(
+            `Invalid MemoType: ${memo.Memo.MemoType}, expected: 4465736372697074696F6E`
+          );
           continue;
         }
 
-        const memoData = memo.Memo.MemoData;
-        const buffer = Buffer.from(memoData, 'hex');
+        const buffer = Buffer.from(memo.Memo.MemoData!, "hex");
+        const result = this.parseAddressesFromBuffer(buffer);
 
-        // Use 41 character validator address to determine data format
-        if (buffer.length >= 41) {
-          // Extract last 41 bytes as validator address
-          const validatorBytes = buffer.slice(-41);
-          const validatorAddress = validatorBytes.toString('utf8');
-
-          // Validate validator address first (41 characters)
-          if (this.isValidValidatorAddress(validatorAddress) && validatorAddress.length === 41) {
-            // Extract remaining bytes as ethereum address
-            const ethBytes = buffer.slice(0, -41);
-
-            if (ethBytes.length === 40) {
-              // 40 bytes UTF8 encoded hex string
-              const ethAddressString = ethBytes.toString('utf8');
-
-              // Validate hex format
-              if (/^[0-9a-fA-F]{40}$/.test(ethAddressString)) {
-                const imuachainAddressHex = '0x' + ethAddressString;
-
-                // Validate ethereum address format
-                if (ethers.isAddress(imuachainAddressHex)) {
-                  return {
-                    imuachainAddress: imuachainAddressHex,
-                    validatorAddress: validatorAddress
-                  };
-                } else {
-                  console.log(`Invalid imuachain address format: ${imuachainAddressHex}`);
-                }
-              } else {
-                console.log(`Invalid hex format for address: ${ethAddressString}`);
-              }
-            } else {
-              console.log(`Invalid ethereum address length: ${ethBytes.length}, expected: 40 bytes`);
-            }
-          } else {
-            console.log(`Invalid validator address format: ${validatorAddress}`);
-          }
-        } else {
-          console.log(`Invalid memo data length: ${buffer.length}, expected at least 41 bytes`);
+        if (result) {
+          return result;
         }
       }
+
+      console.log("No valid memo data found in transaction");
       return null;
     } catch (error) {
-      console.error('Error parsing memo data:', error);
+      console.error(
+        `Error parsing memo data: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
       return null;
     }
   }
@@ -373,7 +468,9 @@ export class XRPGenesisGenerator {
    * Validate if transaction is a valid bootstrap stake
    * Implements the same validation rules as monitor.xrp.ts
    */
-  private async isValidBootstrapTransaction(tx: XRPTransaction): Promise<boolean> {
+  private async isValidBootstrapTransaction(
+    tx: XRPTransaction
+  ): Promise<boolean> {
     // Must be validated
     if (!tx.validated) {
       console.log(`Transaction ${tx.hash} is not validated`);
@@ -381,14 +478,18 @@ export class XRPGenesisGenerator {
     }
 
     // Must be a Payment transaction
-    if (tx.tx.TransactionType !== 'Payment') {
-      console.log(`Invalid transaction type in tx ${tx.hash}: ${tx.tx.TransactionType}`);
+    if (tx.tx.TransactionType !== "Payment") {
+      console.log(
+        `Invalid transaction type in tx ${tx.hash}: ${tx.tx.TransactionType}`
+      );
       return false;
     }
 
     // Must be successful
-    if (tx.meta.TransactionResult !== 'tesSUCCESS') {
-      console.log(`Transaction ${tx.hash} failed with result: ${tx.meta.TransactionResult}`);
+    if (tx.meta.TransactionResult !== "tesSUCCESS") {
+      console.log(
+        `Transaction ${tx.hash} failed with result: ${tx.meta.TransactionResult}`
+      );
       return false;
     }
 
@@ -406,12 +507,14 @@ export class XRPGenesisGenerator {
 
     // Check DestinationTag (must be 9999)
     if (tx.tx.DestinationTag !== 9999) {
-      console.log(`Invalid DestinationTag in tx ${tx.hash}: ${tx.tx.DestinationTag}`);
+      console.log(
+        `Invalid DestinationTag in tx ${tx.hash}: ${tx.tx.DestinationTag}`
+      );
       return false;
     }
 
     // Must be XRP payment (not token)
-    if (typeof tx.tx.Amount !== 'string') {
+    if (typeof tx.tx.Amount !== "string") {
       console.log(`Non-XRP payment in tx ${tx.hash}`);
       return false;
     }
@@ -419,7 +522,9 @@ export class XRPGenesisGenerator {
     // Check the minimum amount
     const amount = parseInt(tx.tx.Amount);
     if (amount < this.minAmount) {
-      console.log(`Amount ${amount} below minimum ${this.minAmount} in tx ${tx.hash}`);
+      console.log(
+        `Amount ${amount} below minimum ${this.minAmount} in tx ${tx.hash}`
+      );
       return false;
     }
 
@@ -437,10 +542,14 @@ export class XRPGenesisGenerator {
     }
 
     // Check if the validator is registered
-    const isRegistered = await this.isValidatorRegistered(memoData.validatorAddress);
+    const isRegistered = await this.isValidatorRegistered(
+      memoData.validatorAddress
+    );
     if (!isRegistered) {
-      console.log(`Validator ${memoData.validatorAddress} not registered in tx ${tx.hash}`);
-      return false;
+      console.log(
+        `Validator ${memoData.validatorAddress} not registered in tx ${tx.hash}`
+      );
+      // return false;
     }
 
     // Check address mapping consistency
@@ -448,7 +557,9 @@ export class XRPGenesisGenerator {
     if (this.addressMappings.has(senderAddress)) {
       const existingImuachainAddress = this.addressMappings.get(senderAddress);
       if (existingImuachainAddress !== memoData.imuachainAddress) {
-        console.log(`Inconsistent imuachain address for XRP address ${senderAddress} in tx ${tx.hash}\n  Previous: ${existingImuachainAddress}, Current: ${memoData.imuachainAddress}`);
+        console.log(
+          `Inconsistent imuachain address for XRP address ${senderAddress} in tx ${tx.hash}\n  Previous: ${existingImuachainAddress}, Current: ${memoData.imuachainAddress}`
+        );
         return false;
       }
     }
@@ -465,21 +576,24 @@ export class XRPGenesisGenerator {
   public async generateGenesisStakes(): Promise<BootstrapStake[]> {
     const transactions = await this.getVaultTransactions();
     const currentLedgerIndex = await this.getCurrentLedgerIndex();
-    console.log(`Fetching transactions for vault address ${this.vaultAddress}... Found ${transactions.length} transactions. Current ledger index: ${currentLedgerIndex}`);
+    console.log(
+      `Fetching transactions for vault address ${this.vaultAddress}... Found ${transactions.length} transactions. Current ledger index: ${currentLedgerIndex}`
+    );
 
     // Filter and validate transactions
     const validTxs = await Promise.all(
-      transactions.map(async tx => ({
+      transactions.map(async (tx) => ({
         tx,
-        isValid: await this.isValidBootstrapTransaction(tx)
+        isValid: await this.isValidBootstrapTransaction(tx),
       }))
     );
 
     const filteredTxs = validTxs
-      .filter(({ tx, isValid }) =>
-        isValid &&
-        tx.ledger_index <= currentLedgerIndex &&
-        (currentLedgerIndex - tx.ledger_index + 1) >= this.minConfirmations
+      .filter(
+        ({ tx, isValid }) =>
+          isValid &&
+          tx.ledger_index <= currentLedgerIndex &&
+          currentLedgerIndex - tx.ledger_index + 1 >= this.minConfirmations
       )
       .map(({ tx }) => tx)
       .sort((a, b) => {
@@ -490,7 +604,9 @@ export class XRPGenesisGenerator {
         return a.meta.TransactionIndex - b.meta.TransactionIndex;
       });
 
-    console.log(`Found ${filteredTxs.length} valid transactions with ${this.minConfirmations}+ confirmations.`);
+    console.log(
+      `Found ${filteredTxs.length} valid transactions with ${this.minConfirmations}+ confirmations.`
+    );
 
     // Convert to BootstrapStake objects
     const stakes: BootstrapStake[] = [];
@@ -508,7 +624,7 @@ export class XRPGenesisGenerator {
         imuachainAddress: memoData.imuachainAddress,
         validatorAddress: memoData.validatorAddress,
         amount: amount,
-        timestamp: tx.date
+        timestamp: tx.date,
       });
     }
 
@@ -529,7 +645,10 @@ export class XRPGenesisGenerator {
 /**
  * Generate genesis state from XRP bootstrap stakes
  */
-export async function generateXRPGenesisState(stakes: BootstrapStake[], generator?: XRPGenesisGenerator): Promise<GenesisState> {
+export async function generateXRPGenesisState(
+  stakes: BootstrapStake[],
+  generator?: XRPGenesisGenerator
+): Promise<GenesisState> {
   // Calculate total staked amount
   const totalStaked = stakes.reduce((sum, stake) => sum + stake.amount, 0);
 
@@ -537,12 +656,14 @@ export async function generateXRPGenesisState(stakes: BootstrapStake[], generato
   const genesisTime = new Date().toISOString();
 
   // Asset ID for XRP
-  const xrpAssetId = XRP_CONFIG.VIRTUAL_ADDRESS.toLowerCase() + '_0x' +
-                    XRP_CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID.toString(16);
+  const xrpAssetId =
+    XRP_CONFIG.VIRTUAL_ADDRESS.toLowerCase() +
+    "_0x" +
+    XRP_CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID.toString(16);
 
   // Group stakes by validator
   const validatorStakes = new Map<string, BootstrapStake[]>();
-  stakes.forEach(stake => {
+  stakes.forEach((stake) => {
     if (!validatorStakes.has(stake.validatorAddress)) {
       validatorStakes.set(stake.validatorAddress, []);
     }
@@ -555,7 +676,7 @@ export async function generateXRPGenesisState(stakes: BootstrapStake[], generato
     meta_info: XRP_CHAIN_CONFIG.META_INFO,
     finalization_blocks: XRP_CHAIN_CONFIG.FINALIZATION_BLOCKS,
     layer_zero_chain_id: XRP_CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID,
-    address_length: XRP_CHAIN_CONFIG.ADDRESS_LENGTH
+    address_length: XRP_CHAIN_CONFIG.ADDRESS_LENGTH,
   };
 
   // Create XRP token
@@ -567,16 +688,19 @@ export async function generateXRPGenesisState(stakes: BootstrapStake[], generato
       decimals: XRP_CONFIG.DECIMALS.toString(),
       layer_zero_chain_id: XRP_CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID,
       imua_chain_index: "0",
-      meta_info: XRP_CONFIG.META_INFO
+      meta_info: XRP_CONFIG.META_INFO,
     },
-    staking_total_amount: totalStaked.toString()
+    staking_total_amount: totalStaked.toString(),
   };
 
   // Group deposits by staker_id
   const depositsByStaker = new Map<string, Map<string, number>>();
 
   for (const stake of stakes) {
-    const stakerId = stake.xrpAddress + '_0x' + XRP_CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID.toString(16);
+    const stakerId =
+      stake.xrpAddress +
+      "_0x" +
+      XRP_CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID.toString(16);
 
     if (!depositsByStaker.has(stakerId)) {
       depositsByStaker.set(stakerId, new Map<string, number>());
@@ -588,46 +712,53 @@ export async function generateXRPGenesisState(stakes: BootstrapStake[], generato
   }
 
   // Generate deposits array
-  const deposits = Array.from(depositsByStaker.entries()).map(([stakerId, assetMap]) => ({
-    staker: stakerId,
-    deposits: Array.from(assetMap.entries()).map(([assetId, amount]) => ({
-      asset_id: assetId,
-      info: {
-        total_deposit_amount: amount.toString(),
-        withdrawable_amount: "0", // All stakes must be delegated
-        pending_undelegation_amount: "0"
-      }
-    }))
-  }));
+  const deposits = Array.from(depositsByStaker.entries()).map(
+    ([stakerId, assetMap]) => ({
+      staker: stakerId,
+      deposits: Array.from(assetMap.entries()).map(([assetId, amount]) => ({
+        asset_id: assetId,
+        info: {
+          total_deposit_amount: amount.toString(),
+          withdrawable_amount: "0", // All stakes must be delegated
+          pending_undelegation_amount: "0",
+        },
+      })),
+    })
+  );
 
   // Generate assets state
   const assetsState: AssetsState = {
     params: {
       gateways: [
-        "0x0000000000000000000000000000000000000902" // XRP Gateway address
-      ]
+        "0x0000000000000000000000000000000000000902", // XRP Gateway address
+      ],
     },
     client_chains: [xrpChain],
     tokens: [xrpToken],
     deposits: deposits,
-    operator_assets: []
+    operator_assets: [],
   };
 
   // Generate operator assets
   for (const [validator, validatorStakeList] of validatorStakes.entries()) {
-    const totalAmount = validatorStakeList.reduce((sum, stake) => sum + stake.amount, 0);
+    const totalAmount = validatorStakeList.reduce(
+      (sum, stake) => sum + stake.amount,
+      0
+    );
 
     assetsState.operator_assets.push({
       operator: validator,
-      assets_state: [{
-        asset_id: xrpAssetId,
-        info: {
-          total_amount: totalAmount.toString(),
-          pending_undelegation_amount: "0",
-          total_share: totalAmount.toString(),
-          operator_share: "0" // Operators don't have their own stake in bootstrap
-        }
-      }]
+      assets_state: [
+        {
+          asset_id: xrpAssetId,
+          info: {
+            total_amount: totalAmount.toString(),
+            pending_undelegation_amount: "0",
+            total_share: totalAmount.toString(),
+            operator_share: "0", // Operators don't have their own stake in bootstrap
+          },
+        },
+      ],
     });
   }
 
@@ -635,14 +766,17 @@ export async function generateXRPGenesisState(stakes: BootstrapStake[], generato
   const delegationState: DelegationState = {
     associations: [], // No associations for XRP
     delegation_states: [],
-    stakers_by_operator: []
+    stakers_by_operator: [],
   };
 
   // Map to collect stakers by operator
   const stakersByOperator = new Map<string, Set<string>>();
 
   for (const stake of stakes) {
-    const stakerId = stake.xrpAddress + '_0x' + XRP_CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID.toString(16);
+    const stakerId =
+      stake.xrpAddress +
+      "_0x" +
+      XRP_CHAIN_CONFIG.LAYER_ZERO_CHAIN_ID.toString(16);
 
     // Add delegation state
     const key = `${stakerId}/${xrpAssetId}/${stake.validatorAddress}`;
@@ -650,8 +784,8 @@ export async function generateXRPGenesisState(stakes: BootstrapStake[], generato
       key: key,
       states: {
         undelegatable_share: stake.amount.toString(),
-        wait_undelegation_amount: "0"
-      }
+        wait_undelegation_amount: "0",
+      },
     });
 
     // Collect stakers by operator
@@ -666,26 +800,30 @@ export async function generateXRPGenesisState(stakes: BootstrapStake[], generato
   for (const [key, stakers] of stakersByOperator.entries()) {
     delegationState.stakers_by_operator.push({
       key: key,
-      stakers: Array.from(stakers)
+      stakers: Array.from(stakers),
     });
   }
 
   // Sort arrays for deterministic output
   delegationState.delegation_states.sort((a, b) => a.key.localeCompare(b.key));
-  delegationState.stakers_by_operator.sort((a, b) => a.key.localeCompare(b.key));
+  delegationState.stakers_by_operator.sort((a, b) =>
+    a.key.localeCompare(b.key)
+  );
 
   // Calculate validator power based on stake and XRP price
   let validators: Validator[] = [];
   let totalPower = 0;
 
   for (const [validator, validatorStakeList] of validatorStakes.entries()) {
-    const totalStake = validatorStakeList.reduce((sum, stake) => sum + stake.amount, 0);
+    const totalStake = validatorStakeList.reduce(
+      (sum, stake) => sum + stake.amount,
+      0
+    );
     // Convert XRP drops to XRP (1 XRP = 1,000,000 drops)
     const xrpAmount = totalStake / 1000000;
-    // Convert XRP to USD value and then to power units
+    // Convert XRP to USD value and then to power units(USD value is the power)
     const usdValue = xrpAmount * config.xrpPriceUsd;
-    // Convert to integer power (e.g., 1 USD = 1000000 power units)
-    const power = Math.floor(usdValue * 1000000);
+    const power = Math.floor(usdValue);
 
     // Get cached validator info to retrieve consensus public key
     let publicKey = validator; // fallback to validator address
@@ -694,7 +832,9 @@ export async function generateXRPGenesisState(stakes: BootstrapStake[], generato
       if (validatorInfo && validatorInfo.consensusPublicKey) {
         publicKey = validatorInfo.consensusPublicKey;
       } else {
-        console.warn(`No consensus public key found for validator ${validator}, using validator address`);
+        console.warn(
+          `No consensus public key found for validator ${validator}, using validator address`
+        );
       }
     }
 
@@ -720,30 +860,63 @@ export async function generateXRPGenesisState(stakes: BootstrapStake[], generato
   validators = validators.slice(0, config.maxValidators);
 
   // Recalculate total power after limiting validators
-  totalPower = validators.reduce((sum, validator) => sum + parseInt(validator.power), 0);
+  totalPower = validators.reduce(
+    (sum, validator) => sum + parseInt(validator.power),
+    0
+  );
 
   // Generate dogfood state
   const dogfoodState: DogfoodState = {
     params: {
       asset_ids: [xrpAssetId],
-      max_validators: config.maxValidators
+      max_validators: config.maxValidators,
     },
     val_set: validators,
-    last_total_power: totalPower.toString()
+    last_total_power: totalPower.toString(),
   };
 
   // Generate oracle state
+  const oracleTokenId = "5"; // XRP token ID in oracle system
+  const currentXrpPriceWithDecimals = Math.floor(
+    config.xrpPriceUsd * Math.pow(10, 8)
+  ).toString(); // Convert to price with 8 decimals
+
   const oracleState: OracleState = {
     params: {
-      tokens: [{
-        name: XRP_CONFIG.SYMBOL,
-        chain_id: XRP_CONFIG.CHAIN_ID,
-        contract_address: XRP_CONFIG.VIRTUAL_ADDRESS.toLowerCase(),
-        active: true,
-        asset_id: xrpAssetId,
-        decimal: XRP_CONFIG.DECIMALS
-      }]
-    }
+      tokens: [
+        {
+          name: XRP_CONFIG.SYMBOL,
+          chain_id: XRP_CONFIG.CHAIN_ID,
+          contract_address: XRP_CONFIG.VIRTUAL_ADDRESS.toLowerCase(),
+          active: true,
+          asset_id: xrpAssetId,
+          decimal: XRP_CONFIG.DECIMALS,
+        },
+      ],
+      token_feeders: [
+        {
+          token_id: oracleTokenId,
+          start_round_id: "1",
+          start_base_block: "20", // Start from genesis block
+          interval: "30", // 30 blocks interval for price updates
+          end_block: "0", // 0 means no end block (perpetual)
+          rule_id: "2", // Rule ID for XRP price feed
+        },
+      ],
+    },
+    prices_list: [
+      {
+        next_round_id: "1",
+        price_list: [
+          {
+            decimal: 8,
+            price: currentXrpPriceWithDecimals,
+            round_id: "0", // Genesis price round
+          },
+        ],
+        token_id: oracleTokenId,
+      },
+    ],
   };
 
   // Combine all states into app state
@@ -751,7 +924,7 @@ export async function generateXRPGenesisState(stakes: BootstrapStake[], generato
     assets: assetsState,
     delegation: delegationState,
     dogfood: dogfoodState,
-    oracle: oracleState
+    oracle: oracleState,
   };
 
   // Construct the full genesis state
@@ -762,24 +935,22 @@ export async function generateXRPGenesisState(stakes: BootstrapStake[], generato
     consensus_params: {
       block: {
         max_bytes: "22020096",
-        max_gas: "-1"
+        max_gas: "-1",
       },
       evidence: {
         max_age_num_blocks: "100000",
         max_age_duration: "172800000000000",
-        max_bytes: "1048576"
+        max_bytes: "1048576",
       },
       validator: {
-        pub_key_types: [
-          "ed25519"
-        ]
+        pub_key_types: ["ed25519"],
       },
       version: {
-        app: "0"
-      }
+        app: "0",
+      },
     },
     app_hash: "",
-    app_state: appState
+    app_state: appState,
   };
 
   return genesisState;
@@ -807,8 +978,11 @@ export async function generateXRPBootstrapGenesis(): Promise<void> {
   const stakes = await generator.generateGenesisStakes();
   const genesisState = await generateXRPGenesisState(stakes, generator);
 
-  const outputPath = process.env.XRP_GENESIS_OUTPUT_PATH || config.genesisOutputPath;
-  const resolvedPath = path.isAbsolute(outputPath) ? outputPath : path.resolve(outputPath);
+  const outputPath =
+    process.env.XRP_GENESIS_OUTPUT_PATH || config.genesisOutputPath;
+  const resolvedPath = path.isAbsolute(outputPath)
+    ? outputPath
+    : path.resolve(outputPath);
 
   // Ensure directory exists
   const dir = path.dirname(resolvedPath);
@@ -819,5 +993,7 @@ export async function generateXRPBootstrapGenesis(): Promise<void> {
     JSON.stringify(genesisState, null, 2)
   );
 
-  console.log(`Generated XRP genesis state with ${stakes.length} valid stakes - Written to ${resolvedPath}`);
+  console.log(
+    `Generated XRP genesis state with ${stakes.length} valid stakes - Written to ${resolvedPath}`
+  );
 }

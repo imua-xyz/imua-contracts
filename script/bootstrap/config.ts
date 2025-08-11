@@ -61,7 +61,7 @@ const config: Config = {
   minAmount: parseInt(process.env.MIN_AMOUNT || '546'), // satoshis
   bootstrapContractAddress: process.env.BOOTSTRAP_CONTRACT_ADDRESS || '',
   rpcUrl: process.env.CLIENT_CHAIN_RPC || 'http://localhost:8545',
-  genesisOutputPath: process.env.GENESIS_OUTPUT_PATH || path.join(__dirname, '../../../genesis/bootstrap_stakes.json'),
+  genesisOutputPath: process.env.GENESIS_OUTPUT_PATH || path.join(__dirname, '../../genesis/temp_bootstrap_genesis.json'),
   maxValidators: parseInt(process.env.MAX_VALIDATORS || '100'),
   btcPriceUsd: parseFloat(process.env.BTC_PRICE_USD || '50000'),
   // XRP configuration
