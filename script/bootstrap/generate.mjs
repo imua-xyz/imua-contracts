@@ -391,6 +391,7 @@ async function updateGenesisFile() {
     const staker_infos = [];
     let slashProportions = [];
     let staker_index_counter = 0;
+    let nst_version = 1;
     for (let i = 0; i < depositorsCount; i++) {
       const stakerAddress = await myContract.methods.depositors(i).call();
       const depositsByStaker = [];
@@ -418,24 +419,7 @@ async function updateGenesisFile() {
           for (let k = 0; k < pubKeyCount; k++) {
             const pubKey = await myContract.methods.stakerToPubkeyIDs(stakerAddress, k).call();
             pubKeys.push(pubKey);
-            const validatorInfo = {
-              validator_pubkey: pubKey,
-              version: 1,
-              deposit_amount: depositValue,
-            };
-            validatorInfos.push(validatorInfo);
           }
-          if (validatorInfos.length == 0) {
-            throw new Error('No pubkeys found for the staker.');
-          }
-          const staker_info = {
-            staker_addr: stakerAddress.toLowerCase(),
-            staker_index: staker_index_counter,
-            validator_list: validatorInfos,
-            balance_list: [], // filled later.
-            withdraw_version: 0,
-          };
-          staker_index_counter += 1;
           const validatorStates = (await api.beacon.getStateValidators(
             { stateId: stateRoot, validatorIds: pubKeys.map(pubKey => parseInt(pubKey, 16)) }
           )).value();
@@ -517,6 +501,13 @@ async function updateGenesisFile() {
                 );
               }
             }
+            const validatorInfo = {
+              validator_pubkey: pubKeys[k],
+              version: nst_version,
+              deposit_amount: effectiveBalance,
+            };
+            nst_version++;
+            validatorInfos.push(validatorInfo);
             totalEffectiveBalance = totalEffectiveBalance.plus(effectiveBalance);
             let new_balance = {
               round_id: 0,
@@ -531,9 +522,20 @@ async function updateGenesisFile() {
               new_balance = balances[balances.length - 1];
               new_balance.index += 1;
             }
-            new_balance.balance += web3.utils.fromWei(effectiveBalance.toFixed(), "ether");
+            new_balance.balance = Number(new Decimal(new_balance.balance)
+              .plus(new Decimal(web3.utils.fromWei(effectiveBalance.toFixed(), "gwei")))
+              .toFixed());
             balances.push(new_balance);
           }
+          //staker_infos.validator_list = validatorInfos;
+        const staker_info = {
+            staker_addr: stakerAddress.toLowerCase(),
+            staker_index: staker_index_counter,
+            validator_list: validatorInfos,
+            balance_list: [], // filled later.
+            withdraw_version: 0,
+          };
+          staker_index_counter += 1;
           // now we have the totalEffectiveBalance across all validator pubkeys for this staker
           // we will compare it with the depositValue. ideally, they should be equal. however,
           // a deposit proof may not have been submitted or the validator might have been
@@ -615,6 +617,17 @@ async function updateGenesisFile() {
               }
             }
           }
+          let new_balance = {
+            round_id: 0,
+            block: height,
+            index: 0,
+            balance: Number(totalEffectiveBalance.toFixed()),
+            change: "ACTION_SLASH_REFUND"
+          };
+          if (balances.length > 0) {
+            new_balance.index += 1;
+          }
+          balances.push(new_balance);
           staker_info.balance_list = balances;
           if (!totalEffectiveBalance.isZero()) {
             staker_infos.push(staker_info);
@@ -630,7 +643,6 @@ async function updateGenesisFile() {
           }
         };
         depositsByStaker.push(depositByStakerForAsset);
-        // break;
       }
       // sort for determinism
       depositsByStaker.sort((a, b) => {
@@ -1144,7 +1156,18 @@ async function updateGenesisFile() {
       genesisJSON.app_state.oracle.staker_infos_assets = [{
         chain_id: clientChainInfo.layer_zero_chain_id,
         staker_infos: staker_infos,
-        nst_version_info: {}
+        nst_version_info: {
+          version: {
+            version: nst_version,
+            deposit_amount: 1,// placeholder
+          },
+          feed_version: {
+            version: nst_version,
+            deposit_amount: 1,// placeholder
+          },
+          withdraw_version: 0,
+          feed_withdraw_version: 0,
+        }
       }];
     }
 
