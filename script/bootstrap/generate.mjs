@@ -63,6 +63,7 @@ const VIRTUAL_STAKED_ETH_ADDR = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 import dotenv from 'dotenv';
 dotenv.config();
 import { decode } from 'bech32';
+
 import { promises as fs } from 'fs';
 import Web3 from 'web3';
 import Decimal from 'decimal.js';
@@ -392,6 +393,7 @@ async function updateGenesisFile() {
     let slashProportions = [];
     let staker_index_counter = 0;
     let nst_version = 0;
+    let total_deposit_amount = ZERO_DECIMAL;
     for (let i = 0; i < depositorsCount; i++) {
       const stakerAddress = await myContract.methods.depositors(i).call();
       const depositsByStaker = [];
@@ -536,6 +538,7 @@ async function updateGenesisFile() {
             withdraw_version: 0,
           };
           staker_index_counter += 1;
+          total_deposit_amount = total_deposit_amount.plus(totalEffectiveBalance.div('1e9'));
           // now we have the totalEffectiveBalance across all validator pubkeys for this staker
           // we will compare it with the depositValue. ideally, they should be equal. however,
           // a deposit proof may not have been submitted or the validator might have been
@@ -616,18 +619,6 @@ async function updateGenesisFile() {
                 });
               }
             }
-
-            let new_balance = {
-              round_id: 0,
-              block: height,
-              index: 0,
-              balance: Number(totalEffectiveBalance.div('1e9').toFixed()),
-              change: "ACTION_SLASH_REFUND"
-            };
-            if (balances.length > 0) {
-              new_balance.index += 1;
-            }
-            balances.push(new_balance);
           }
           staker_info.balance_list = balances;
           if (!totalEffectiveBalance.isZero()) {
@@ -1161,11 +1152,11 @@ async function updateGenesisFile() {
         nst_version_info: {
           version: {
             version: nst_version,
-            deposit_amount: 1,// placeholder
+            deposit_amount: total_deposit_amount,
           },
           feed_version: {
             version: nst_version,
-            deposit_amount: 1,// placeholder
+            deposit_amount: total_deposit_amount,
           },
           withdraw_version: 0,
           feed_withdraw_version: 0,
