@@ -12,7 +12,7 @@ const clientChainInfo = {
 // this must be in the same order as whitelistTokens
 const tokenMetaInfos = [
   'Imuachain Holesky ETH', // named as exoETH
-  'Staked ETH',
+  'Staked ETH'
 ];
 // this must be in the same order as whitelistTokens
 // they are provided because the symbol may not match what we are using from the price feeder.
@@ -391,7 +391,7 @@ async function updateGenesisFile() {
     const staker_infos = [];
     let slashProportions = [];
     let staker_index_counter = 0;
-    let nst_version = 1;
+    let nst_version = 0;
     for (let i = 0; i < depositorsCount; i++) {
       const stakerAddress = await myContract.methods.depositors(i).call();
       const depositsByStaker = [];
@@ -447,7 +447,7 @@ async function updateGenesisFile() {
             // even if max is 16, this will still hold
             if (effectiveBalance.gt(maxEffectiveBalance)) {
               throw new Error(
-                `The effective balance of ${effectiveBalance} is greater than the maximum effective balance.`
+                `The effective balance of ${effectiveBalance} is greater than the maximum effective balance ${maxEffectiveBalance}.`
               );
             }
             if (validator.status == "pending_initialized") {
@@ -501,12 +501,12 @@ async function updateGenesisFile() {
                 );
               }
             }
+            nst_version++;
             const validatorInfo = {
               validator_pubkey: pubKeys[k],
               version: nst_version,
-              deposit_amount: effectiveBalance,
+              deposit_amount: effectiveBalance.div('1e9'),
             };
-            nst_version++;
             validatorInfos.push(validatorInfo);
             totalEffectiveBalance = totalEffectiveBalance.plus(effectiveBalance);
             let new_balance = {
@@ -616,18 +616,19 @@ async function updateGenesisFile() {
                 });
               }
             }
+
+            let new_balance = {
+              round_id: 0,
+              block: height,
+              index: 0,
+              balance: Number(totalEffectiveBalance.div('1e9').toFixed()),
+              change: "ACTION_SLASH_REFUND"
+            };
+            if (balances.length > 0) {
+              new_balance.index += 1;
+            }
+            balances.push(new_balance);
           }
-          let new_balance = {
-            round_id: 0,
-            block: height,
-            index: 0,
-            balance: Number(totalEffectiveBalance.toFixed()),
-            change: "ACTION_SLASH_REFUND"
-          };
-          if (balances.length > 0) {
-            new_balance.index += 1;
-          }
-          balances.push(new_balance);
           staker_info.balance_list = balances;
           if (!totalEffectiveBalance.isZero()) {
             staker_infos.push(staker_info);
