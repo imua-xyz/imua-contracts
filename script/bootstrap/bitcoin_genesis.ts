@@ -53,6 +53,7 @@ export class GenesisGenerator {
   private readonly minAmount: number; // in satoshis
   private readonly bootstrapContract: ethers.Contract;
   private addressMappings: Map<string, string> = new Map(); // bitcoin -> imuachain
+  private reverseMappings: Map<string, string> = new Map(); // imuachain -> bitcoin (for bidirectional 1-1 binding)
   private validatorInfoCache: Map<string, any> = new Map(); // validator address -> validator info
 
   constructor(
@@ -62,7 +63,7 @@ export class GenesisGenerator {
     minConfirmations: number = 6,
     minAmount: number = 1000000
   ) {
-    this.vaultAddress = vaultAddress;
+    this.vaultAddress = vaultAddress.toLowerCase();
     this.baseUrl = baseUrl;
     this.bootstrapContract = bootstrapContract;
     this.minConfirmations = minConfirmations;
@@ -178,7 +179,7 @@ export class GenesisGenerator {
     }
 
     // Extract imuachain and validator addresses
-    const imuachainAddressHex = '0x' + hexOpReturnData.slice(0, 40);
+    const imuachainAddressHex = ('0x' + hexOpReturnData.slice(0, 40)).toLowerCase();
     const validatorAddressHex = hexOpReturnData.slice(40);
 
     try {
@@ -261,13 +262,13 @@ export class GenesisGenerator {
     }
 
     // Check if it's from vault (should not be)
-    const isFromVault = tx.vin.some((input) => input.prevout.scriptpubkey_address === this.vaultAddress);
+    const isFromVault = tx.vin.some((input) => input.prevout.scriptpubkey_address.toLowerCase() === this.vaultAddress);
     if (isFromVault) {
       return false;
     }
 
     // Check vault output
-    const vaultOutputs = tx.vout.filter((output) => output.scriptpubkey_address === this.vaultAddress && output.value >= this.minAmount);
+    const vaultOutputs = tx.vout.filter((output) => output.scriptpubkey_address?.toLowerCase() === this.vaultAddress && output.value >= this.minAmount);
     if (vaultOutputs.length !== 1) {
       console.log(`Invalid number of vault outputs in tx ${tx.txid}`);
       return false;
@@ -297,8 +298,11 @@ export class GenesisGenerator {
       return false;
     }
 
-    // Check address mapping consistency - Bitcoin address to imuachain address is 1-1 binding
-    const senderAddress = tx.vin[0].prevout.scriptpubkey_address;
+    // Check bidirectional address mapping consistency - Bitcoin address to imuachain address is 1-1 binding
+    // Normalize Bitcoin address to lowercase for consistent comparison (imuachainAddressHex is already lowercase)
+    const senderAddress = tx.vin[0].prevout.scriptpubkey_address.toLowerCase();
+    
+    // Check forward mapping: Bitcoin -> Imuachain
     if (this.addressMappings.has(senderAddress)) {
       const existingImuachainAddress = this.addressMappings.get(senderAddress);
       if (existingImuachainAddress !== imuachainAddressHex) {
@@ -307,11 +311,26 @@ export class GenesisGenerator {
         );
         return false;
       }
-      // Mapping already exists and is consistent, transaction is valid
-    } else {
-      // Store the first mapping for this Bitcoin address
+      // Forward mapping already exists and is consistent
+    }
+    
+    // Check reverse mapping: Imuachain -> Bitcoin  
+    if (this.reverseMappings.has(imuachainAddressHex)) {
+      const existingBitcoinAddress = this.reverseMappings.get(imuachainAddressHex);
+      if (existingBitcoinAddress !== senderAddress) {
+        console.log(
+          `Rejecting tx ${tx.txid}: Imuachain address ${imuachainAddressHex} already bound to different Bitcoin address (${existingBitcoinAddress} vs ${senderAddress})`
+        );
+        return false;
+      }
+      // Reverse mapping already exists and is consistent
+    }
+    
+    // If no existing mappings or all mappings are consistent, establish new mappings if needed
+    if (!this.addressMappings.has(senderAddress)) {
       this.addressMappings.set(senderAddress, imuachainAddressHex);
-      console.log(`Established new address binding: ${senderAddress} -> ${imuachainAddressHex} in tx ${tx.txid}`);
+      this.reverseMappings.set(imuachainAddressHex, senderAddress);
+      console.log(`Established new bidirectional address binding: ${senderAddress} <-> ${imuachainAddressHex} in tx ${tx.txid}`);
     }
 
     return true;
@@ -351,7 +370,7 @@ export class GenesisGenerator {
     // Convert to BootstrapStake objects
     const stakes: BootstrapStake[] = [];
     for (const tx of filteredTxs) {
-      const vaultOutput = tx.vout.find((output) => output.scriptpubkey_address === this.vaultAddress);
+      const vaultOutput = tx.vout.find((output) => output.scriptpubkey_address?.toLowerCase() === this.vaultAddress);
 
       const opReturnOutput = tx.vout.find((output) => output.scriptpubkey_type === 'op_return');
 
@@ -365,7 +384,7 @@ export class GenesisGenerator {
 
       // Use the consistent imuachain address from our validated mapping
       // This ensures we use the first (earliest) imuachain address for each Bitcoin sender
-      const senderAddress = tx.vin[0].prevout.scriptpubkey_address;
+      const senderAddress = tx.vin[0].prevout.scriptpubkey_address.toLowerCase();
       const consistentImuachainAddress = this.addressMappings.get(senderAddress);
 
       if (!consistentImuachainAddress) {
