@@ -289,6 +289,9 @@ async function updateGenesisFile() {
         if (token.tokenAddress != VIRTUAL_STAKED_ETH_ADDR) {
           throw new Error('Oracle name refers to NST token but this is LST');
         }
+        if (TokenMappingChainIDsForOracle[tokenNamesForOracle[i]] == null) {
+          throw new Error(`Missing chain_id mapping for ${tokenNamesForOracle[i]}`);
+        }
         oracleToken = {
           name: tokenNamesForOracle[i],
           chain_id: TokenMappingChainIDsForOracle[tokenNamesForOracle[i]],
@@ -299,6 +302,9 @@ async function updateGenesisFile() {
         };
         oracleTokenFeeder.rule_id = "3";
       } else {
+        if (TokenMappingChainIDsForOracle[tokenNamesForOracle[i]] == null) {
+          throw new Error(`Missing chain_id mapping for ${tokenNamesForOracle[i]}`);
+       	}
         if (token.tokenAddress == VIRTUAL_STAKED_ETH_ADDR) {
           throw new Error('Oracle name refers to LST token but this is NST');
         }
