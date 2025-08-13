@@ -12,6 +12,8 @@ import {
   AppState,
   AssetsState,
   DelegationState,
+  OperatorState, 
+  OperatorAssetUsdValue,
   DogfoodState,
   Validator,
   OracleState,
@@ -374,7 +376,7 @@ export class XRPGenesisGenerator {
           return null;
         }
 
-        const imuachainAddressHex = "0x" + ethAddressString;
+        const imuachainAddressHex = ("0x" + ethAddressString).toLowerCase();
 
         // Validate ethereum address format
         if (!ethers.isAddress(imuachainAddressHex)) {
@@ -537,18 +539,30 @@ export class XRPGenesisGenerator {
     }
 
     // Check address mapping consistency (1-1 binding rule)
-    const senderAddress = tx.tx.Account;
+    const senderAddress = tx.tx.Account.toLowerCase();
+    const imuachainAddress = memoData.imuachainAddress.toLowerCase();
+    
     if (this.addressMappings.has(senderAddress)) {
       const existingImuachainAddress = this.addressMappings.get(senderAddress);
-      if (existingImuachainAddress !== memoData.imuachainAddress) {
+      if (existingImuachainAddress !== imuachainAddress) {
         console.log(
-          `Inconsistent imuachain address for XRP address ${senderAddress} in tx ${tx.hash}\n  Previous: ${existingImuachainAddress}, Current: ${memoData.imuachainAddress}`
+          `Inconsistent imuachain address for XRP address ${senderAddress} in tx ${tx.hash}\n  Previous: ${existingImuachainAddress}, Current: ${imuachainAddress}`
         );
         return { isValid: false };
       }
     } else {
+      // Check if this imuachain address is already mapped to another XRP address
+      for (const [existingXrpAddr, existingImuaAddr] of this.addressMappings.entries()) {
+        if (existingImuaAddr === imuachainAddress && existingXrpAddr !== senderAddress) {
+          console.log(
+            `Imuachain address ${imuachainAddress} is already mapped to XRP address ${existingXrpAddr}, cannot map to ${senderAddress} in tx ${tx.hash}`
+          );
+          return { isValid: false };
+        }
+      }
+      
       // Store the mapping for the first time
-      this.addressMappings.set(senderAddress, memoData.imuachainAddress);
+      this.addressMappings.set(senderAddress, imuachainAddress);
     }
 
     return { isValid: true, memoData };
@@ -602,8 +616,8 @@ export class XRPGenesisGenerator {
         hash: tx.hash,
         ledgerIndex: tx.ledger_index,
         transactionIndex: tx.meta.TransactionIndex,
-        stakerAddress: memoData.imuachainAddress, // Use imuachainAddress as staker address
-        imuachainAddress: memoData.imuachainAddress,
+        stakerAddress: memoData.imuachainAddress.toLowerCase(), // Use imuachainAddress as staker address
+        imuachainAddress: memoData.imuachainAddress.toLowerCase(),
         validatorAddress: memoData.validatorAddress,
         amount: amount,
         // XRPL timestamp is Ripple epoch; convert to Unix epoch
@@ -847,7 +861,28 @@ export async function generateXRPGenesisState(
     (sum, validator) => sum + parseInt(validator.power),
     0
   );
+  // Generate operator state
+  const operatorAssetUsdValues: OperatorAssetUsdValue[] = [];
+  for (const [validator, validatorStakeList] of validatorStakes.entries()) {
+    const totalStake = validatorStakeList.reduce((sum, stake) => sum + stake.amount, 0);
+  
+    // Convert XRP drops to XRP (1 XRP = 1,000,000 drops)
+    const xrpAmount = totalStake / 1000000;
+    // Convert XRP to USD value and then to power units(USD value is the power)
+    const usdValue = Math.floor(xrpAmount * config.xrpPriceUsd);
+    // epoch=day :epoch/validator/asset_id
+    const key = `day/${validator}/${xrpAssetId}`;
+    operatorAssetUsdValues.push({
+      key: key,
+      value: {
+        amount: usdValue.toString(),
+      },
+    });
+  }
 
+  const operatorState: OperatorState = {
+    operator_asset_usd_values: operatorAssetUsdValues,
+  };
   // Generate dogfood state
   const dogfoodState: DogfoodState = {
     params: {
