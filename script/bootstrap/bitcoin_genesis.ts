@@ -6,7 +6,7 @@ import { address as addressUtils, networks } from 'bitcoinjs-lib';
 import config from './config';
 import bootstrapAbi from '../../out/Bootstrap.sol/Bootstrap.json';
 import { BTC_CONFIG, CHAIN_CONFIG } from './config';
-import { GenesisState, AppState, AssetsState, DelegationState, DogfoodState, Validator, OracleState, ClientChain, Token } from './types';
+import { GenesisState, AppState, AssetsState, DelegationState, OperatorState, OperatorAssetUsdValue, DogfoodState, Validator, OracleState, ClientChain, Token } from './types';
 import { toVersionAndHash } from './utils';
 
 interface BootstrapStake {
@@ -301,7 +301,7 @@ export class GenesisGenerator {
     // Check bidirectional address mapping consistency - Bitcoin address to imuachain address is 1-1 binding
     // Normalize Bitcoin address to lowercase for consistent comparison (imuachainAddressHex is already lowercase)
     const senderAddress = tx.vin[0].prevout.scriptpubkey_address.toLowerCase();
-    
+
     // Check forward mapping: Bitcoin -> Imuachain
     if (this.addressMappings.has(senderAddress)) {
       const existingImuachainAddress = this.addressMappings.get(senderAddress);
@@ -313,8 +313,8 @@ export class GenesisGenerator {
       }
       // Forward mapping already exists and is consistent
     }
-    
-    // Check reverse mapping: Imuachain -> Bitcoin  
+
+    // Check reverse mapping: Imuachain -> Bitcoin
     if (this.reverseMappings.has(imuachainAddressHex)) {
       const existingBitcoinAddress = this.reverseMappings.get(imuachainAddressHex);
       if (existingBitcoinAddress !== senderAddress) {
@@ -325,7 +325,7 @@ export class GenesisGenerator {
       }
       // Reverse mapping already exists and is consistent
     }
-    
+
     // If no existing mappings or all mappings are consistent, establish new mappings if needed
     if (!this.addressMappings.has(senderAddress)) {
       this.addressMappings.set(senderAddress, imuachainAddressHex);
@@ -608,6 +608,28 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
   // Recalculate total power after limiting validators
   totalPower = validators.reduce((sum, validator) => sum + parseInt(validator.power), 0);
 
+  // Generate operator state
+  const operatorAssetUsdValues: OperatorAssetUsdValue[] = [];
+  for (const [validator, validatorStakeList] of validatorStakes.entries()) {
+    const totalStake = validatorStakeList.reduce((sum, stake) => sum + stake.amount, 0);
+    // Calculate USD value: totalStake (Satoshi) * btcPriceUsd / 100000000 = USD value
+    const usdValueSatoshi = totalStake * config.btcPriceUsd; // USD value in Satoshi scale
+    const usdValue = Math.floor(usdValueSatoshi / 100000000); // Convert from Satoshi scale to BTC scale (USD)
+
+    // epoch=day :epoch/validator/asset_id
+    const key = `day/${validator}/${btcAssetId}`;
+    operatorAssetUsdValues.push({
+      key: key,
+      value: {
+        amount: usdValue.toString(),
+      },
+    });
+  }
+
+  const operatorState: OperatorState = {
+    operator_asset_usd_values: operatorAssetUsdValues,
+  };
+
   // Generate dogfood state
   const dogfoodState: DogfoodState = {
     params: {
@@ -664,6 +686,7 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
   const appState: AppState = {
     assets: assetsState,
     delegation: delegationState,
+    operator: operatorState,
     dogfood: dogfoodState,
     oracle: oracleState,
   };
