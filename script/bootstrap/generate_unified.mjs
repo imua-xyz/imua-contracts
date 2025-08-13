@@ -276,6 +276,35 @@ class GenesisStateMerger {
       result.deposits = result.deposits.concat(additional.deposits);
     }
 
+    // Merge operator_assets - Bitcoin genesis format with smart merge for same operator
+    if (additional.operator_assets) {
+      if (!result.operator_assets) result.operator_assets = [];
+      
+      for (const operatorAsset of additional.operator_assets) {
+        const existingIndex = result.operator_assets.findIndex(
+          (existing) => existing.operator === operatorAsset.operator
+        );
+        
+        if (existingIndex >= 0) {
+          // Same operator found, merge assets_state arrays (different chains have different asset_ids)
+          const existingAssetsState = result.operator_assets[existingIndex].assets_state || [];
+          const additionalAssetsState = operatorAsset.assets_state || [];
+          
+          // Since different chains have different asset_ids, simply concatenate the arrays
+          const mergedAssetsState = existingAssetsState.concat(additionalAssetsState);
+          
+          result.operator_assets[existingIndex].assets_state = mergedAssetsState;
+          console.log(`🔄 Merged operator_assets for operator ${operatorAsset.operator}: ${existingAssetsState.length} + ${additionalAssetsState.length} = ${mergedAssetsState.length} total assets`);
+        } else {
+          // New operator, add it directly
+          result.operator_assets.push(operatorAsset);
+          console.log(`➕ Added new operator ${operatorAsset.operator} with ${operatorAsset.assets_state?.length || 0} assets`);
+        }
+      }
+      
+      console.log(`🔄 Total operator_assets entries: ${result.operator_assets.length}`);
+    }
+
     return result;
   }
 
@@ -294,10 +323,17 @@ class GenesisStateMerger {
       result.associations = result.associations.concat(additional.associations);
     }
 
-    // Merge stakersByOperator
+    // Merge stakersByOperator (camelCase)
     if (additional.stakersByOperator) {
       if (!result.stakersByOperator) result.stakersByOperator = [];
       result.stakersByOperator = result.stakersByOperator.concat(additional.stakersByOperator);
+    }
+
+    // Merge stakers_by_operator (snake_case) - Bitcoin genesis format
+    if (additional.stakers_by_operator) {
+      if (!result.stakers_by_operator) result.stakers_by_operator = [];
+      result.stakers_by_operator = result.stakers_by_operator.concat(additional.stakers_by_operator);
+      console.log(`🔄 Merged ${additional.stakers_by_operator.length} stakers_by_operator entries`);
     }
 
     return result;
