@@ -558,6 +558,54 @@ contract UTXOGateway is
     }
 
     /**
+     * @notice Bootstrap historical data for genesis initialization
+     * @dev Imports bootstrap phase data without executing precompile interfaces
+     * @param clientChainId The client chain ID
+     * @param bootstrapData Array of bootstrap entries containing address mappings and transaction data
+     */
+    function bootstrapHistoricalData(
+        ClientChainID clientChainId,
+        BootstrapEntry[] calldata bootstrapData
+    ) external onlyOwner whenNotPaused {
+        if (bootstrapData.length == 0) {
+            revert Errors.ZeroAmount();
+        }
+
+        // Ensure no data has been processed for this chain yet (only for initial bootstrap)
+        if (inboundNonce[clientChainId] != 0) {
+            revert Errors.InvalidClientChain();
+        }
+
+        uint64 currentNonce = 0;
+        
+        for (uint256 i = 0; i < bootstrapData.length; i++) {
+            BootstrapEntry calldata entry = bootstrapData[i];
+            
+            // Validate entry data
+            if (entry.clientAddress.length == 0 || entry.imuachainAddress == address(0)) {
+                revert Errors.ZeroAddress();
+            }
+            
+            currentNonce++;
+            
+            // Set nonce mappings to maintain consistency with UTXO-restaking order
+            inboundNonce[clientChainId] = currentNonce;
+            clientTxIdToNonce[clientChainId][entry.clientTxId] = currentNonce;
+            nonceToClientTxId[clientChainId][currentNonce] = entry.clientTxId;
+            
+            // Register address mapping if not already registered
+            if (
+                inboundRegistry[clientChainId][entry.clientAddress] == address(0) &&
+                outboundRegistry[clientChainId][entry.imuachainAddress].length == 0
+            ) {
+                _registerAddress(clientChainId, entry.clientAddress, entry.imuachainAddress);
+            }
+        }
+
+        emit BootstrapCompleted(clientChainId, bootstrapData.length, currentNonce);
+    }
+
+    /**
      * @notice Checks if consensus is required for a stake message.
      * @return True if count of authorized witnesses is greater than or equal to REQUIRED_PROOFS, false otherwise.
      */

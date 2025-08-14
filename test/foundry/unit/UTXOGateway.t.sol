@@ -129,6 +129,7 @@ contract UTXOGatewayTest is Test {
         UTXOGatewayStorage.ClientChainID indexed clientChainId, uint64 indexed requestNonce, bytes32 indexed pegOutTxId
     );
 
+    event BootstrapCompleted(UTXOGatewayStorage.ClientChainID indexed clientChainId, uint256 entriesCount, uint64 finalNonce);
     event ConsensusActivated(uint256 requiredProofs, uint256 authorizedWitnessCount);
     event ConsensusDeactivated(uint256 requiredProofs, uint256 authorizedWitnessCount);
     event MinProofsUpdated(uint256 indexed oldNumber, uint256 indexed newNumber);
@@ -1772,6 +1773,225 @@ contract UTXOGatewayTest is Test {
         vm.startPrank(owner);
         gateway.updateRequiredProofs(gateway.authorizedWitnessCount() + 1);
         vm.stopPrank();
+    }
+
+    // Bootstrap Historical Data Tests
+    
+    function test_BootstrapHistoricalData_Success() public {
+        UTXOGatewayStorage.BootstrapEntry[] memory bootstrapData = new UTXOGatewayStorage.BootstrapEntry[](2);
+        
+        bootstrapData[0] = UTXOGatewayStorage.BootstrapEntry({
+            clientAddress: bytes("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"),
+            imuachainAddress: address(0x100),
+            clientTxId: bytes32(uint256(1001))
+        });
+        
+        bootstrapData[1] = UTXOGatewayStorage.BootstrapEntry({
+            clientAddress: bytes("1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2"),
+            imuachainAddress: address(0x200),
+            clientTxId: bytes32(uint256(1002))
+        });
+
+        vm.prank(owner);
+        vm.expectEmit(true, false, false, true);
+        emit BootstrapCompleted(UTXOGatewayStorage.ClientChainID.BITCOIN, 2, 2);
+        
+        gateway.bootstrapHistoricalData(UTXOGatewayStorage.ClientChainID.BITCOIN, bootstrapData);
+
+        // Verify nonce mappings
+        assertEq(gateway.inboundNonce(UTXOGatewayStorage.ClientChainID.BITCOIN), 2);
+        assertEq(gateway.clientTxIdToNonce(UTXOGatewayStorage.ClientChainID.BITCOIN, bytes32(uint256(1001))), 1);
+        assertEq(gateway.clientTxIdToNonce(UTXOGatewayStorage.ClientChainID.BITCOIN, bytes32(uint256(1002))), 2);
+        assertEq(gateway.nonceToClientTxId(UTXOGatewayStorage.ClientChainID.BITCOIN, 1), bytes32(uint256(1001)));
+        assertEq(gateway.nonceToClientTxId(UTXOGatewayStorage.ClientChainID.BITCOIN, 2), bytes32(uint256(1002)));
+
+        // Verify address registrations
+        assertEq(gateway.getImuachainAddress(UTXOGatewayStorage.ClientChainID.BITCOIN, bytes("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")), address(0x100));
+        assertEq(gateway.getImuachainAddress(UTXOGatewayStorage.ClientChainID.BITCOIN, bytes("1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2")), address(0x200));
+        assertEq(gateway.getClientAddress(UTXOGatewayStorage.ClientChainID.BITCOIN, address(0x100)), bytes("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"));
+        assertEq(gateway.getClientAddress(UTXOGatewayStorage.ClientChainID.BITCOIN, address(0x200)), bytes("1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2"));
+    }
+
+    function test_BootstrapHistoricalData_SingleEntry() public {
+        UTXOGatewayStorage.BootstrapEntry[] memory bootstrapData = new UTXOGatewayStorage.BootstrapEntry[](1);
+        
+        bootstrapData[0] = UTXOGatewayStorage.BootstrapEntry({
+            clientAddress: bytes("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"),
+            imuachainAddress: address(0x100),
+            clientTxId: bytes32(uint256(1001))
+        });
+
+        vm.prank(owner);
+        vm.expectEmit(true, false, false, true);
+        emit BootstrapCompleted(UTXOGatewayStorage.ClientChainID.BITCOIN, 1, 1);
+        
+        gateway.bootstrapHistoricalData(UTXOGatewayStorage.ClientChainID.BITCOIN, bootstrapData);
+
+        // Verify single entry
+        assertEq(gateway.inboundNonce(UTXOGatewayStorage.ClientChainID.BITCOIN), 1);
+        assertEq(gateway.clientTxIdToNonce(UTXOGatewayStorage.ClientChainID.BITCOIN, bytes32(uint256(1001))), 1);
+        assertEq(gateway.nonceToClientTxId(UTXOGatewayStorage.ClientChainID.BITCOIN, 1), bytes32(uint256(1001)));
+        assertEq(gateway.getImuachainAddress(UTXOGatewayStorage.ClientChainID.BITCOIN, bytes("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")), address(0x100));
+    }
+
+    function test_BootstrapHistoricalData_SkipAlreadyRegisteredAddresses() public {
+        // This test verifies that bootstrapHistoricalData handles mixed scenarios
+        // where some addresses are already registered and some are new
+        UTXOGatewayStorage.BootstrapEntry[] memory bootstrapData = new UTXOGatewayStorage.BootstrapEntry[](3);
+        
+        // Entry 1: New address pair
+        bootstrapData[0] = UTXOGatewayStorage.BootstrapEntry({
+            clientAddress: bytes("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"),
+            imuachainAddress: address(0x100),
+            clientTxId: bytes32(uint256(1001))
+        });
+        
+        // Entry 2: Same client address, same Imuachain address (should be skipped for registration)
+        bootstrapData[1] = UTXOGatewayStorage.BootstrapEntry({
+            clientAddress: bytes("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"),
+            imuachainAddress: address(0x100),
+            clientTxId: bytes32(uint256(1002))
+        });
+        
+        // Entry 3: Different address pair
+        bootstrapData[2] = UTXOGatewayStorage.BootstrapEntry({
+            clientAddress: bytes("1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2"),
+            imuachainAddress: address(0x200),
+            clientTxId: bytes32(uint256(1003))
+        });
+
+        vm.prank(owner);
+        vm.expectEmit(true, false, false, true);
+        emit BootstrapCompleted(UTXOGatewayStorage.ClientChainID.BITCOIN, 3, 3);
+        
+        gateway.bootstrapHistoricalData(UTXOGatewayStorage.ClientChainID.BITCOIN, bootstrapData);
+
+        // Verify all entries are processed with correct nonce mappings
+        assertEq(gateway.inboundNonce(UTXOGatewayStorage.ClientChainID.BITCOIN), 3);
+        assertEq(gateway.clientTxIdToNonce(UTXOGatewayStorage.ClientChainID.BITCOIN, bytes32(uint256(1001))), 1);
+        assertEq(gateway.clientTxIdToNonce(UTXOGatewayStorage.ClientChainID.BITCOIN, bytes32(uint256(1002))), 2);
+        assertEq(gateway.clientTxIdToNonce(UTXOGatewayStorage.ClientChainID.BITCOIN, bytes32(uint256(1003))), 3);
+        
+        // Verify address registrations - both new addresses should be registered
+        assertEq(gateway.getImuachainAddress(UTXOGatewayStorage.ClientChainID.BITCOIN, bytes("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")), address(0x100));
+        assertEq(gateway.getImuachainAddress(UTXOGatewayStorage.ClientChainID.BITCOIN, bytes("1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2")), address(0x200));
+        assertEq(gateway.getClientAddress(UTXOGatewayStorage.ClientChainID.BITCOIN, address(0x100)), bytes("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"));
+        assertEq(gateway.getClientAddress(UTXOGatewayStorage.ClientChainID.BITCOIN, address(0x200)), bytes("1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2"));
+    }
+
+    function test_BootstrapHistoricalData_RevertNotOwner() public {
+        UTXOGatewayStorage.BootstrapEntry[] memory bootstrapData = new UTXOGatewayStorage.BootstrapEntry[](1);
+        
+        bootstrapData[0] = UTXOGatewayStorage.BootstrapEntry({
+            clientAddress: bytes("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"),
+            imuachainAddress: address(0x100),
+            clientTxId: bytes32(uint256(1001))
+        });
+
+        vm.prank(user);
+        vm.expectRevert("Ownable: caller is not the owner");
+        gateway.bootstrapHistoricalData(UTXOGatewayStorage.ClientChainID.BITCOIN, bootstrapData);
+    }
+
+    function test_BootstrapHistoricalData_RevertWhenPaused() public {
+        UTXOGatewayStorage.BootstrapEntry[] memory bootstrapData = new UTXOGatewayStorage.BootstrapEntry[](1);
+        
+        bootstrapData[0] = UTXOGatewayStorage.BootstrapEntry({
+            clientAddress: bytes("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"),
+            imuachainAddress: address(0x100),
+            clientTxId: bytes32(uint256(1001))
+        });
+
+        vm.startPrank(owner);
+        gateway.pause();
+        
+        vm.expectRevert("Pausable: paused");
+        gateway.bootstrapHistoricalData(UTXOGatewayStorage.ClientChainID.BITCOIN, bootstrapData);
+        vm.stopPrank();
+    }
+
+    function test_BootstrapHistoricalData_RevertEmptyData() public {
+        UTXOGatewayStorage.BootstrapEntry[] memory bootstrapData = new UTXOGatewayStorage.BootstrapEntry[](0);
+
+        vm.prank(owner);
+        vm.expectRevert(Errors.ZeroAmount.selector);
+        gateway.bootstrapHistoricalData(UTXOGatewayStorage.ClientChainID.BITCOIN, bootstrapData);
+    }
+
+    function test_BootstrapHistoricalData_RevertEmptyClientAddress() public {
+        UTXOGatewayStorage.BootstrapEntry[] memory bootstrapData = new UTXOGatewayStorage.BootstrapEntry[](1);
+        
+        bootstrapData[0] = UTXOGatewayStorage.BootstrapEntry({
+            clientAddress: bytes(""), // Empty client address
+            imuachainAddress: address(0x100),
+            clientTxId: bytes32(uint256(1001))
+        });
+
+        vm.prank(owner);
+        vm.expectRevert(Errors.ZeroAddress.selector);
+        gateway.bootstrapHistoricalData(UTXOGatewayStorage.ClientChainID.BITCOIN, bootstrapData);
+    }
+
+    function test_BootstrapHistoricalData_RevertZeroImuachainAddress() public {
+        UTXOGatewayStorage.BootstrapEntry[] memory bootstrapData = new UTXOGatewayStorage.BootstrapEntry[](1);
+        
+        bootstrapData[0] = UTXOGatewayStorage.BootstrapEntry({
+            clientAddress: bytes("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"),
+            imuachainAddress: address(0), // Zero address
+            clientTxId: bytes32(uint256(1001))
+        });
+
+        vm.prank(owner);
+        vm.expectRevert(Errors.ZeroAddress.selector);
+        gateway.bootstrapHistoricalData(UTXOGatewayStorage.ClientChainID.BITCOIN, bootstrapData);
+    }
+
+    function test_BootstrapHistoricalData_RevertDataAlreadyProcessed() public {
+        // First, process some data to set inboundNonce > 0
+        _mockRegisterAddress(address(0x100), bytes("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"));
+        
+        UTXOGatewayStorage.BootstrapEntry[] memory bootstrapData = new UTXOGatewayStorage.BootstrapEntry[](1);
+        
+        bootstrapData[0] = UTXOGatewayStorage.BootstrapEntry({
+            clientAddress: bytes("1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2"),
+            imuachainAddress: address(0x200),
+            clientTxId: bytes32(uint256(1002))
+        });
+
+        vm.prank(owner);
+        vm.expectRevert(Errors.InvalidClientChain.selector);
+        gateway.bootstrapHistoricalData(UTXOGatewayStorage.ClientChainID.BITCOIN, bootstrapData);
+    }
+
+    function test_BootstrapHistoricalData_LargeDataSet() public {
+        uint256 entryCount = 10;
+        UTXOGatewayStorage.BootstrapEntry[] memory bootstrapData = new UTXOGatewayStorage.BootstrapEntry[](entryCount);
+        
+        // Create multiple bootstrap entries
+        for (uint256 i = 0; i < entryCount; i++) {
+            bootstrapData[i] = UTXOGatewayStorage.BootstrapEntry({
+                clientAddress: abi.encodePacked("client_address_", i),
+                imuachainAddress: address(uint160(0x1000 + i)),
+                clientTxId: bytes32(uint256(2000 + i))
+            });
+        }
+
+        vm.prank(owner);
+        vm.expectEmit(true, false, false, true);
+        emit BootstrapCompleted(UTXOGatewayStorage.ClientChainID.BITCOIN, entryCount, uint64(entryCount));
+        
+        gateway.bootstrapHistoricalData(UTXOGatewayStorage.ClientChainID.BITCOIN, bootstrapData);
+
+        // Verify final nonce
+        assertEq(gateway.inboundNonce(UTXOGatewayStorage.ClientChainID.BITCOIN), entryCount);
+        
+        // Verify first and last entries
+        assertEq(gateway.clientTxIdToNonce(UTXOGatewayStorage.ClientChainID.BITCOIN, bytes32(uint256(2000))), 1);
+        assertEq(gateway.clientTxIdToNonce(UTXOGatewayStorage.ClientChainID.BITCOIN, bytes32(uint256(2000 + entryCount - 1))), entryCount);
+        
+        // Verify address mappings for first and last entries
+        assertEq(gateway.getImuachainAddress(UTXOGatewayStorage.ClientChainID.BITCOIN, abi.encodePacked("client_address_", uint256(0))), address(uint160(0x1000)));
+        assertEq(gateway.getImuachainAddress(UTXOGatewayStorage.ClientChainID.BITCOIN, abi.encodePacked("client_address_", entryCount - 1)), address(uint160(0x1000 + entryCount - 1)));
     }
 
 }
