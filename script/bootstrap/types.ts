@@ -196,9 +196,11 @@ export interface PriceInfo {
   price: string;
   round_id: string;
 }
+
 export interface OperatorState {
   operator_asset_usd_values: OperatorAssetUsdValue[];
 }
+
 export interface OperatorAssetUsdValue {
   key: string;
   value: {

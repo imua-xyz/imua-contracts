@@ -302,6 +302,7 @@ export class GenesisGenerator {
     // Check bidirectional address mapping consistency - Bitcoin address to imuachain address is 1-1 binding
     // Normalize Bitcoin address to lowercase for consistent comparison (imuachainAddressHex is already lowercase)
     const senderAddress = tx.vin[0].prevout.scriptpubkey_address.toLowerCase();
+
     // Check forward mapping: Bitcoin -> Imuachain
     if (this.addressMappings.has(senderAddress)) {
       const existingImuachainAddress = this.addressMappings.get(senderAddress);
@@ -313,6 +314,7 @@ export class GenesisGenerator {
       }
       // Forward mapping already exists and is consistent
     }
+
     // Check reverse mapping: Imuachain -> Bitcoin
     if (this.reverseMappings.has(imuachainAddressHex)) {
       const existingBitcoinAddress = this.reverseMappings.get(imuachainAddressHex);
@@ -324,6 +326,7 @@ export class GenesisGenerator {
       }
       // Reverse mapping already exists and is consistent
     }
+
     // If no existing mappings or all mappings are consistent, establish new mappings if needed
     if (!this.addressMappings.has(senderAddress)) {
       this.addressMappings.set(senderAddress, imuachainAddressHex);
@@ -532,13 +535,22 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
 
     // Add delegation state
     const key = `${stakerId}/${btcAssetId}/${stake.validatorAddress}`;
-    delegationState.delegation_states.push({
-      key: key,
-      states: {
-        undelegatable_share: stake.amount.toString(),
-        wait_undelegation_amount: '0',
-      },
-    });
+
+    // Check if the key already exist, if exist, then add up the amount, otherwise create a new entry
+    const existingState = delegationState.delegation_states.find((state) => state.key === key);
+    if (existingState) {
+      existingState.states.undelegatable_share = (BigInt(existingState.states.undelegatable_share) + BigInt(stake.amount)).toString();
+    }
+    else {
+      // Create new delegation state entry  
+      delegationState.delegation_states.push({
+        key: key,
+        states: {
+          undelegatable_share: stake.amount.toString(),
+          wait_undelegation_amount: '0',
+        },
+      });
+    }
 
     // Collect stakers by operator
     const mapKey = `${stake.validatorAddress}/${btcAssetId}`;
@@ -613,6 +625,7 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
     // Calculate USD value: totalStake (Satoshi) * btcPriceUsd / 100000000 = USD value
     const usdValueSatoshi = totalStake * config.btcPriceUsd; // USD value in Satoshi scale
     const usdValue = Math.floor(usdValueSatoshi / 100000000); // Convert from Satoshi scale to BTC scale (USD)
+
     // epoch=day :epoch/validator/asset_id
     const key = `day/${validator}/${btcAssetId}`;
     operatorAssetUsdValues.push({
@@ -622,9 +635,11 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
       },
     });
   }
+
   const operatorState: OperatorState = {
     operator_asset_usd_values: operatorAssetUsdValues,
   };
+
   // Generate dogfood state
   const dogfoodState: DogfoodState = {
     params: {

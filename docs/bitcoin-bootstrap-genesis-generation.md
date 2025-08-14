@@ -46,7 +46,7 @@ The genesis state is generated with the following modules:
 
 - **Client Chain**: Bitcoin chain configuration
   - Name: "Bitcoin"
-  - Layer Zero Chain ID: 101 (configurable)
+  - Layer Zero Chain ID: 1 (configurable)
   - Finalization blocks: 6 (configurable)
 
 - **Tokens**: BTC token configuration

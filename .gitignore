@@ -1,7 +1,7 @@
 # Compiler files
 cache/
 out/
-
+genesis/
 # Ignores development broadcast logs
 **/broadcast
 /broadcast/*/31337/

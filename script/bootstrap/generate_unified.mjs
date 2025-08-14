@@ -111,11 +111,7 @@ class ConfigManager {
   mergeConfig(base, override) {
     const result = { ...base };
     for (const [key, value] of Object.entries(override)) {
-      if (
-        typeof value === "object" &&
-        value !== null &&
-        !Array.isArray(value)
-      ) {
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
         result[key] = this.mergeConfig(result[key] || {}, value);
       } else {
         result[key] = value;
@@ -188,19 +184,13 @@ class GenesisStateMerger {
         result.app_state = {};
       }
 
-      for (const [module, moduleState] of Object.entries(
-        additional.app_state
-      )) {
+      for (const [module, moduleState] of Object.entries(additional.app_state)) {
         if (!result.app_state[module]) {
           // New module, add it directly
           result.app_state[module] = moduleState;
         } else {
           // Module exists, merge it
-          result.app_state[module] = this.mergeModule(
-            result.app_state[module],
-            moduleState,
-            module
-          );
+          result.app_state[module] = this.mergeModule(result.app_state[module], moduleState, module);
         }
       }
     }
@@ -224,13 +214,13 @@ class GenesisStateMerger {
     const result = safeDeepCopy(baseModule);
 
     switch (moduleName) {
-      case "assets":
+      case 'assets':
         return this.mergeAssetsModule(result, additionalModule);
-      case "delegation":
+      case 'delegation':
         return this.mergeDelegationModule(result, additionalModule);
-      case "dogfood":
+      case 'dogfood':
         return this.mergeDogfoodModule(result, additionalModule);
-      case "oracle":
+      case 'oracle':
         return this.mergeOracleModule(result, additionalModule);
       default:
         return this.mergeSimple(result, additionalModule);
@@ -293,6 +283,7 @@ class GenesisStateMerger {
       if (!result.deposits) result.deposits = [];
       result.deposits = result.deposits.concat(additional.deposits);
     }
+
     // Merge operator_assets - Bitcoin genesis format with smart merge for same operator
     if (additional.operator_assets) {
       if (!result.operator_assets) result.operator_assets = [];
@@ -300,12 +291,15 @@ class GenesisStateMerger {
         const existingIndex = result.operator_assets.findIndex(
           (existing) => existing.operator === operatorAsset.operator
         );
+
         if (existingIndex >= 0) {
           // Same operator found, merge assets_state arrays (different chains have different asset_ids)
           const existingAssetsState = result.operator_assets[existingIndex].assets_state || [];
           const additionalAssetsState = operatorAsset.assets_state || [];
+
           // Since different chains have different asset_ids, simply concatenate the arrays
           const mergedAssetsState = existingAssetsState.concat(additionalAssetsState);
+
           result.operator_assets[existingIndex].assets_state = mergedAssetsState;
           console.log(`🔄 Merged operator_assets for operator ${operatorAsset.operator}: ${existingAssetsState.length} + ${additionalAssetsState.length} = ${mergedAssetsState.length} total assets`);
         } else {
@@ -314,6 +308,7 @@ class GenesisStateMerger {
           console.log(`➕ Added new operator ${operatorAsset.operator} with ${operatorAsset.assets_state?.length || 0} assets`);
         }
       }
+
       console.log(`🔄 Total operator_assets entries: ${result.operator_assets.length}`);
     }
 
@@ -340,11 +335,18 @@ class GenesisStateMerger {
       if (!result.stakersByOperator) result.stakersByOperator = [];
       result.stakersByOperator = result.stakersByOperator.concat(additional.stakersByOperator);
     }
+
     // Merge stakers_by_operator (snake_case) - Bitcoin genesis format
     if (additional.stakers_by_operator) {
       if (!result.stakers_by_operator) result.stakers_by_operator = [];
       result.stakers_by_operator = result.stakers_by_operator.concat(additional.stakers_by_operator);
       console.log(`🔄 Merged ${additional.stakers_by_operator.length} stakers_by_operator entries`);
+    }
+
+    if (additional.delegation_states) {
+      if (!result.delegation_states) result.delegation_states = [];
+      result.delegation_states = result.delegation_states.concat(additional.delegation_states);
+      console.log(`🔄 Merged ${additional.delegation_states.length} delegation_states entries`);
     }
 
     return result;
@@ -415,6 +417,7 @@ class GenesisStateMerger {
       result.val_set.sort((a, b) => {
         const powerA = BigInt(a.power || "0");
         const powerB = BigInt(b.power || "0");
+
         if (powerA === powerB) {
           return a.public_key.localeCompare(b.public_key);
         }
@@ -444,6 +447,7 @@ class GenesisStateMerger {
     // Initialize result.params if needed
     if (!result.params) result.params = {};
     if (!result.params.tokens) result.params.tokens = [];
+
     // Merge tokens (oracle tokens are different from assets tokens)
     if (additionalTokens.length > 0) {
       for (const token of additionalTokens) {
@@ -481,19 +485,14 @@ class GenesisStateMerger {
       if (!result.params.token_feeders) result.params.token_feeders = [];
       for (const feeder of additional.params.token_feeders) {
         // Check for existing feeder by token_id
-        const existingIndex = result.params.token_feeders.findIndex(
-          (f) => f.token_id === feeder.token_id
-        );
+        const existingIndex = result.params.token_feeders.findIndex(f => f.token_id === feeder.token_id);
+
         if (existingIndex >= 0) {
-          if (this.conflictResolution === "bitcoin_priority") {
+          if (this.conflictResolution === 'bitcoin_priority') {
             result.params.token_feeders[existingIndex] = feeder;
-            console.log(
-              `🔄 Replaced token_feeder for token_id ${feeder.token_id} with Bitcoin priority`
-            );
+            console.log(`🔄 Replaced token_feeder for token_id ${feeder.token_id} with Bitcoin priority`);
           } else {
-            console.log(
-              `🔄 Keeping existing token_feeder for token_id ${feeder.token_id} with ${this.conflictResolution}`
-            );
+            console.log(`🔄 Keeping existing token_feeder for token_id ${feeder.token_id} with ${this.conflictResolution}`);
           }
         } else {
           result.params.token_feeders.push(feeder);
@@ -501,6 +500,7 @@ class GenesisStateMerger {
         }
       }
     }
+    
     // Merge prices_list
     if (additional.prices_list) {
       if (!result.prices_list) result.prices_list = [];
@@ -815,7 +815,6 @@ class ScriptRunner {
    */
   async runWithTsx(scriptPath, functionName = null) {
     const { spawn } = await import("child_process");
-
     return new Promise((resolve, reject) => {
       let args;
       if (functionName) {
@@ -1060,9 +1059,7 @@ class UnifiedGenesisGenerator {
     let missingModules = 0;
     for (const module of uniqueModules) {
       if (!genesis.app_state[module]) {
-        console.warn(
-          `⚠ Warning: Expected module '${module}' not found in genesis app_state`
-        );
+        console.warn(`⚠ Warning: Expected module '${module}' not found in genesis app_state`);
         missingModules++;
       }
     }
@@ -1089,6 +1086,7 @@ class UnifiedGenesisGenerator {
       : path.resolve(outputConfig.path);
     await fs.writeFile(resolvedPath, content, "utf8");
   }
+
   async fileExists(filePath) {
     try {
       await fs.access(filePath);
@@ -1130,21 +1128,15 @@ class UnifiedGenesisGenerator {
       for (const chain of chainLoaders) {
         if (chain.enabled) {
           const filePath = process.env[chain.envPathKey] || chain.defaultPath;
-          const resolvedPath = path.isAbsolute(filePath)
-            ? filePath
-            : path.resolve(filePath);
+          const resolvedPath = path.isAbsolute(filePath) ? filePath : path.resolve(filePath);
 
           if (await this.fileExists(resolvedPath)) {
-            const content = await fs.readFile(resolvedPath, "utf8");
+            const content = await fs.readFile(resolvedPath, 'utf8');
             const genesis = JSON.parse(content);
             genesisStates.push(genesis);
-            console.log(
-              `📄 Loading ${chain.name} genesis from: ${resolvedPath} ✓`
-            );
+            console.log(`📄 Loading ${chain.name} genesis from: ${resolvedPath} ✓`);
           } else {
-            console.warn(
-              `⚠ ${chain.name} genesis file not found: ${resolvedPath}`
-            );
+            console.warn(`⚠ ${chain.name} genesis file not found: ${resolvedPath}`);
           }
         }
       }
