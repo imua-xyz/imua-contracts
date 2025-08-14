@@ -571,6 +571,10 @@ contract UTXOGateway is
         if (bootstrapData.length == 0) {
             revert Errors.ZeroAmount();
         }
+        // Disallow bootstrapping for invalid chain id
+        if (clientChainId == ClientChainID.NONE) {
+            revert Errors.InvalidClientChain();
+        }
 
         // Ensure no data has been processed for this chain yet (only for initial bootstrap)
         if (inboundNonce[clientChainId] != 0) {
@@ -589,8 +593,10 @@ contract UTXOGateway is
 
             currentNonce++;
 
-            // Set nonce mappings to maintain consistency with UTXO-restaking order
-            inboundNonce[clientChainId] = currentNonce;
+            // Ensure clientTxId is unique; prevent overwriting within the same import
+            if (clientTxIdToNonce[clientChainId][entry.clientTxId] != 0) {
+                revert Errors.TxTagAlreadyProcessed();
+            }
             clientTxIdToNonce[clientChainId][entry.clientTxId] = currentNonce;
             nonceToClientTxId[clientChainId][currentNonce] = entry.clientTxId;
 
@@ -603,6 +609,8 @@ contract UTXOGateway is
             }
         }
 
+        // Persist final inbound nonce once
+        inboundNonce[clientChainId] = currentNonce;
         emit BootstrapCompleted(clientChainId, bootstrapData.length, currentNonce);
     }
 
