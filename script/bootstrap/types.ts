@@ -29,6 +29,7 @@ export interface ConsensusParams {
 export interface AppState {
   assets: AssetsState;
   delegation: DelegationState;
+  operator: OperatorState;
   dogfood: DogfoodState;
   oracle: OracleState;
   // Add other modules as needed
@@ -131,8 +132,10 @@ export interface Validator {
 export interface OracleState {
   params: {
     tokens: OracleToken[];
+    token_feeders: OracleTokenFeeder[];
     // Add other oracle params as needed
   };
+  prices_list: PriceEntry[];
   staker_infos_assets?: StakerInfoAsset[];
   staker_list_assets?: StakerListAsset[];
 }
@@ -171,4 +174,36 @@ export interface StakerListAsset {
   staker_list: {
     staker_addrs: string[];
   };
-} 
+}
+
+export interface OracleTokenFeeder {
+  token_id: string;
+  start_round_id: string;
+  start_base_block: string;
+  interval: string;
+  end_block: string;
+  rule_id: string;
+}
+
+export interface PriceEntry {
+  next_round_id: string;
+  price_list: PriceInfo[];
+  token_id: string;
+}
+
+export interface PriceInfo {
+  decimal: number;
+  price: string;
+  round_id: string;
+}
+
+export interface OperatorState {
+  operator_asset_usd_values: OperatorAssetUsdValue[];
+}
+
+export interface OperatorAssetUsdValue {
+  key: string;
+  value: {
+    amount: string;
+  };
+}
