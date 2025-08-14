@@ -534,13 +534,21 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
 
     // Add delegation state
     const key = `${stakerId}/${btcAssetId}/${stake.validatorAddress}`;
-    delegationState.delegation_states.push({
-      key: key,
-      states: {
-        undelegatable_share: stake.amount.toString(),
-        wait_undelegation_amount: '0',
-      },
-    });
+    // Check if the key already exist, if exist, then add up the amount, otherwise create a new entry
+    const existingState = delegationState.delegation_states.find((state) => state.key === key);
+    if (existingState) {
+      existingState.states.undelegatable_share = (BigInt(existingState.states.undelegatable_share) + BigInt(stake.amount)).toString();
+    }
+    else {
+      // Create new delegation state entry  
+      delegationState.delegation_states.push({
+        key: key,
+        states: {
+          undelegatable_share: stake.amount.toString(),
+          wait_undelegation_amount: '0',
+        },
+      });
+    }
 
     // Collect stakers by operator
     const mapKey = `${stake.validatorAddress}/${btcAssetId}`;

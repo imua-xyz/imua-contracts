@@ -279,20 +279,20 @@ class GenesisStateMerger {
     // Merge operator_assets - Bitcoin genesis format with smart merge for same operator
     if (additional.operator_assets) {
       if (!result.operator_assets) result.operator_assets = [];
-      
+
       for (const operatorAsset of additional.operator_assets) {
         const existingIndex = result.operator_assets.findIndex(
           (existing) => existing.operator === operatorAsset.operator
         );
-        
+
         if (existingIndex >= 0) {
           // Same operator found, merge assets_state arrays (different chains have different asset_ids)
           const existingAssetsState = result.operator_assets[existingIndex].assets_state || [];
           const additionalAssetsState = operatorAsset.assets_state || [];
-          
+
           // Since different chains have different asset_ids, simply concatenate the arrays
           const mergedAssetsState = existingAssetsState.concat(additionalAssetsState);
-          
+
           result.operator_assets[existingIndex].assets_state = mergedAssetsState;
           console.log(`🔄 Merged operator_assets for operator ${operatorAsset.operator}: ${existingAssetsState.length} + ${additionalAssetsState.length} = ${mergedAssetsState.length} total assets`);
         } else {
@@ -301,7 +301,7 @@ class GenesisStateMerger {
           console.log(`➕ Added new operator ${operatorAsset.operator} with ${operatorAsset.assets_state?.length || 0} assets`);
         }
       }
-      
+
       console.log(`🔄 Total operator_assets entries: ${result.operator_assets.length}`);
     }
 
@@ -336,6 +336,12 @@ class GenesisStateMerger {
       console.log(`🔄 Merged ${additional.stakers_by_operator.length} stakers_by_operator entries`);
     }
 
+    if (additional.delegation_states) {
+      if (!result.delegation_states) result.delegation_states = [];
+      result.delegation_states = result.delegation_states.concat(additional.delegation_states);
+      console.log(`🔄 Merged ${additional.delegation_states.length} delegation_states entries`);
+    }
+
     return result;
   }
 
@@ -355,7 +361,7 @@ class GenesisStateMerger {
           const existingPower = BigInt(result.val_set[existingIndex].power || '0');
           const additionalPower = BigInt(validator.power || '0');
           const totalPower = existingPower + additionalPower;
-          
+
           result.val_set[existingIndex].power = totalPower.toString();
           console.log(`🔄 Merged validator with public_key ${validator.public_key}: ${existingPower} + ${additionalPower} = ${totalPower}`);
         } else {
@@ -373,10 +379,10 @@ class GenesisStateMerger {
         // Store original asset_ids before merging
         const originalAssetIds = result.params.asset_ids || [];
         const additionalAssetIds = additional.params.asset_ids || [];
-        
+
         // Merge params fields (this might overwrite asset_ids)
         result.params = { ...result.params, ...additional.params };
-        
+
         // Special handling for asset_ids array - merge and deduplicate
         if (originalAssetIds.length > 0 || additionalAssetIds.length > 0) {
           const combinedAssetIds = [...originalAssetIds, ...additionalAssetIds];
@@ -410,7 +416,7 @@ class GenesisStateMerger {
 
   mergeOracleModule(base, additional) {
     const result = { ...base };
-    
+
     const baseTokens = base.params?.tokens || [];
     const additionalTokens = additional.params?.tokens || [];
     console.log(`🔍 Oracle merge: base tokens ${baseTokens.length}, additional tokens ${additionalTokens.length}`);
@@ -423,9 +429,9 @@ class GenesisStateMerger {
     if (additionalTokens.length > 0) {
       for (const token of additionalTokens) {
         // Use more specific matching: name + chain_id + contract_address for uniqueness
-        const existingIndex = result.params.tokens.findIndex((t) => 
-          t.name === token.name && 
-          t.chain_id === token.chain_id && 
+        const existingIndex = result.params.tokens.findIndex((t) =>
+          t.name === token.name &&
+          t.chain_id === token.chain_id &&
           t.contract_address === token.contract_address
         );
 
@@ -448,11 +454,11 @@ class GenesisStateMerger {
     // Merge token_feeders
     if (additional.params?.token_feeders) {
       if (!result.params.token_feeders) result.params.token_feeders = [];
-      
+
       for (const feeder of additional.params.token_feeders) {
         // Check for existing feeder by token_id
         const existingIndex = result.params.token_feeders.findIndex(f => f.token_id === feeder.token_id);
-        
+
         if (existingIndex >= 0) {
           if (this.conflictResolution === 'bitcoin_priority') {
             result.params.token_feeders[existingIndex] = feeder;
@@ -470,11 +476,11 @@ class GenesisStateMerger {
     // Merge prices_list
     if (additional.prices_list) {
       if (!result.prices_list) result.prices_list = [];
-      
+
       for (const priceEntry of additional.prices_list) {
         // Check for existing price entry by token_id
         const existingIndex = result.prices_list.findIndex(p => p.token_id === priceEntry.token_id);
-        
+
         if (existingIndex >= 0) {
           if (this.conflictResolution === 'bitcoin_priority') {
             result.prices_list[existingIndex] = priceEntry;
