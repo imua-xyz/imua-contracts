@@ -50,8 +50,7 @@ async function bootstrapInBatches(
     const gateway = UTXOGateway.attach(contractAddress).connect(signer);
 
     // Check initial nonce
-    // Use stable getter, then subtract 1 for the current nonce
-    const initialNonce = (await gateway.nextInboundNonce(clientChainId)).sub(1);
+    const initialNonce = await gateway.inboundNonce(clientChainId);
     console.log(`Initial inbound nonce: ${initialNonce.toString()}`);
 
     const totalBatches = Math.ceil(allBootstrapData.length / BATCH_SIZE);
@@ -67,7 +66,7 @@ async function bootstrapInBatches(
 
         try {
             // Get current nonce before transaction
-            const currentNonce = (await gateway.nextInboundNonce(clientChainId)).sub(1);
+            const currentNonce = await gateway.inboundNonce(clientChainId);
             console.log(`Current nonce before batch: ${currentNonce.toString()}`);
 
             // Estimate gas for the batch
@@ -90,7 +89,7 @@ async function bootstrapInBatches(
             processedEntries += batch.length;
 
             // Verify nonce increment
-            const newNonce = (await gateway.nextInboundNonce(clientChainId)).sub(1);
+            const newNonce = await gateway.inboundNonce(clientChainId);
             console.log(`New nonce after batch: ${newNonce.toString()}`);
 
             // Check for bootstrap events
@@ -137,7 +136,7 @@ async function bootstrapInBatches(
     }
 
     // Final verification
-    const finalNonce = (await gateway.nextInboundNonce(clientChainId)).sub(1);
+    const finalNonce = await gateway.inboundNonce(clientChainId);
     const expectedNonce = initialNonce.add(allBootstrapData.length);
 
     console.log(`\n=== Bootstrap Completed ===`);
