@@ -12,7 +12,7 @@ import {
   AppState,
   AssetsState,
   DelegationState,
-  OperatorState, 
+  OperatorState,
   OperatorAssetUsdValue,
   DogfoodState,
   Validator,
@@ -541,7 +541,7 @@ export class XRPGenesisGenerator {
     // Check address mapping consistency (1-1 binding rule)
     const senderAddress = tx.tx.Account.toLowerCase();
     const imuachainAddress = memoData.imuachainAddress.toLowerCase();
-    
+
     if (this.addressMappings.has(senderAddress)) {
       const existingImuachainAddress = this.addressMappings.get(senderAddress);
       if (existingImuachainAddress !== imuachainAddress) {
@@ -560,7 +560,7 @@ export class XRPGenesisGenerator {
           return { isValid: false };
         }
       }
-      
+
       // Store the mapping for the first time
       this.addressMappings.set(senderAddress, imuachainAddress);
     }
@@ -865,7 +865,7 @@ export async function generateXRPGenesisState(
   const operatorAssetUsdValues: OperatorAssetUsdValue[] = [];
   for (const [validator, validatorStakeList] of validatorStakes.entries()) {
     const totalStake = validatorStakeList.reduce((sum, stake) => sum + stake.amount, 0);
-  
+
     // Convert XRP drops to XRP (1 XRP = 1,000,000 drops)
     const xrpAmount = totalStake / 1000000;
     // Convert XRP to USD value and then to power units(USD value is the power)
@@ -901,6 +901,12 @@ export async function generateXRPGenesisState(
 
   const oracleState: OracleState = {
     params: {
+      chains: [
+        {
+          name: "XRP Ledger",
+          desc: "XRP Ledger blockchain"
+        }
+      ],
       tokens: [
         {
           name: XRP_CONFIG.SYMBOL,
@@ -908,7 +914,7 @@ export async function generateXRPGenesisState(
           contract_address: XRP_CONFIG.VIRTUAL_ADDRESS.toLowerCase(),
           active: true,
           asset_id: xrpAssetId,
-          decimal: XRP_CONFIG.DECIMALS,
+          decimal: 8,
         },
       ],
       token_feeders: [
@@ -941,6 +947,7 @@ export async function generateXRPGenesisState(
   const appState: AppState = {
     assets: assetsState,
     delegation: delegationState,
+    operator: operatorState,
     dogfood: dogfoodState,
     oracle: oracleState,
   };

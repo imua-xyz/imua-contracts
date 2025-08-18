@@ -542,7 +542,7 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
       existingState.states.undelegatable_share = (BigInt(existingState.states.undelegatable_share) + BigInt(stake.amount)).toString();
     }
     else {
-      // Create new delegation state entry  
+      // Create new delegation state entry
       delegationState.delegation_states.push({
         key: key,
         states: {
@@ -656,6 +656,12 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
 
   const oracleState: OracleState = {
     params: {
+      chains: [
+        {
+          name: "Bitcoin",
+          desc: "Bitcoin blockchain"
+        }
+      ],
       tokens: [
         {
           name: BTC_CONFIG.SYMBOL,
