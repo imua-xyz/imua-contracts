@@ -1,4 +1,6 @@
-const { ethers } = require("hardhat");
+const { ethers, BigNumber } = require("hardhat");
+const fs = require("fs");
+const path = require("path");
 
 /**
  * Bootstrap historical data in batches to avoid gas limit issues
@@ -42,61 +44,55 @@ async function bootstrapInBatches(
     console.log(`Starting bootstrap for client chain ${clientChainId}`);
     console.log(`Total entries: ${allBootstrapData.length}`);
     console.log(`Batch size: ${BATCH_SIZE}`);
-    
+
     // Get contract instance
-    const UTXOGateway = await ethers.getContractFactory("UTXOGateway");
+    const UTXOGateway = await ethers.getContractFactory('UTXOGateway');
     const gateway = UTXOGateway.attach(contractAddress).connect(signer);
-    
+
     // Check initial nonce
-    const initialNonce = await gateway.inboundNonce(clientChainId);
-    console.log(`Initial inbound nonce: ${initialNonce}`);
-    
+    // Use stable getter, then subtract 1 for the current nonce
+    const initialNonce = (await gateway.nextInboundNonce(clientChainId)).sub(1);
+    console.log(`Initial inbound nonce: ${initialNonce.toString()}`);
+
     const totalBatches = Math.ceil(allBootstrapData.length / BATCH_SIZE);
     let processedEntries = 0;
-    
+
     for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
         const startIndex = batchIndex * BATCH_SIZE;
         const endIndex = Math.min(startIndex + BATCH_SIZE, allBootstrapData.length);
         const batch = allBootstrapData.slice(startIndex, endIndex);
-        
+
         console.log(`\n--- Processing Batch ${batchIndex + 1}/${totalBatches} ---`);
         console.log(`Entries: ${startIndex + 1} to ${endIndex} (${batch.length} entries)`);
-        
+
         try {
             // Get current nonce before transaction
-            const currentNonce = await gateway.inboundNonce(clientChainId);
-            console.log(`Current nonce before batch: ${currentNonce}`);
-            
+            const currentNonce = (await gateway.nextInboundNonce(clientChainId)).sub(1);
+            console.log(`Current nonce before batch: ${currentNonce.toString()}`);
+
             // Estimate gas for the batch
-            const gasEstimate = await gateway.estimateGas.bootstrapHistoricalData(
-                clientChainId,
-                batch
-            );
+            const gasEstimate = await gateway.estimateGas.bootstrapHistoricalData(clientChainId, batch);
             console.log(`Estimated gas: ${gasEstimate.toString()}`);
-            
+
             // Execute bootstrap batch
-            const tx = await gateway.bootstrapHistoricalData(
-                clientChainId,
-                batch,
-                {
-                    gasLimit: Math.floor(Number(gasEstimate) * 1.2) // 20% buffer
-                }
-            );
-            
+            const tx = await gateway.bootstrapHistoricalData(clientChainId, batch, {
+                gasLimit: Math.floor(Number(gasEstimate) * 1.2), // 20% buffer
+            });
+
             console.log(`Transaction submitted: ${tx.hash}`);
-            
+
             // Wait for confirmation
             const receipt = await tx.wait();
             console.log(`Transaction confirmed in block: ${receipt!.blockNumber}`);
             console.log(`Gas used: ${receipt!.gasUsed.toString()}`);
-            
+
             // Update processed count
             processedEntries += batch.length;
-            
+
             // Verify nonce increment
-            const newNonce = await gateway.inboundNonce(clientChainId);
-            console.log(`New nonce after batch: ${newNonce}`);
-            
+            const newNonce = (await gateway.nextInboundNonce(clientChainId)).sub(1);
+            console.log(`New nonce after batch: ${newNonce.toString()}`);
+
             // Check for bootstrap events
             const bootstrapEvents = receipt!.logs.filter((log: any) => {
                 try {
@@ -106,99 +102,127 @@ async function bootstrapInBatches(
                     return false;
                 }
             });
-            
+
             if (bootstrapEvents.length > 0) {
                 const event = gateway.interface.parseLog(bootstrapEvents[0]);
                 console.log(`Bootstrap event: ${event!.args.entriesCount} entries, final nonce: ${event!.args.finalNonce}`);
             }
-            
+
             console.log(`Batch ${batchIndex + 1} completed successfully!`);
             console.log(`Progress: ${processedEntries}/${allBootstrapData.length} entries processed`);
-            
+
         } catch (error: any) {
             console.error(`Error processing batch ${batchIndex + 1}:`, error.message);
-            
+
             // Check if it's a revert with specific error
-            if (error.message.includes("TxTagAlreadyProcessed")) {
-                console.error("Some transactions already processed. Check for duplicate clientTxIds.");
+            if (error.message.includes('TxTagAlreadyProcessed')) {
+                console.error('Some transactions already processed. Check for duplicate clientTxIds.');
                 return false;
             }
-            
+
             // For gas-related errors, suggest reducing batch size
-            if (error.message.includes("out of gas") || error.message.includes("gas limit")) {
-                console.error("Gas limit exceeded. Consider reducing BATCH_SIZE.");
+            if (error.message.includes('out of gas') || error.message.includes('gas limit')) {
+                console.error('Gas limit exceeded. Consider reducing BATCH_SIZE.');
                 return false;
             }
-            
+
             throw error; // Re-throw for other errors
         }
-        
+
         // Add delay between batches to avoid nonce issues
         if (batchIndex < totalBatches - 1) {
             console.log(`Waiting ${DELAY_BETWEEN_BATCHES}ms before next batch...`);
-            await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
+            await new Promise((resolve) => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
         }
     }
-    
+
     // Final verification
-    const finalNonce = await gateway.inboundNonce(clientChainId);
+    const finalNonce = (await gateway.nextInboundNonce(clientChainId)).sub(1);
     const expectedNonce = initialNonce.add(allBootstrapData.length);
-    
+
     console.log(`\n=== Bootstrap Completed ===`);
-    console.log(`Initial nonce: ${initialNonce}`);
-    console.log(`Final nonce: ${finalNonce}`);
-    console.log(`Expected nonce: ${expectedNonce}`);
+    console.log(`Initial nonce: ${initialNonce.toString()}`);
+    console.log(`Final nonce: ${finalNonce.toString()}`);
+    console.log(`Expected nonce: ${expectedNonce.toString()}`);
     console.log(`Total entries processed: ${processedEntries}`);
-    
+
     if (finalNonce.eq(expectedNonce)) {
-        console.log("✅ Bootstrap verification successful!");
+        console.log('✅ Bootstrap verification successful!');
         return true;
     } else {
-        console.log("❌ Bootstrap verification failed - nonce mismatch!");
+        console.log('❌ Bootstrap verification failed - nonce mismatch!');
         return false;
     }
 }
 
 /**
- * Example usage function
+ * Main function to load and import bootstrap data
  */
 async function main(): Promise<void> {
-    // Example bootstrap data structure
-    const exampleBootstrapData: BootstrapEntry[] = [
-        {
-            clientTxId: "0x1234567890123456789012345678901234567890123456789012345678901234",
-            clientAddress: "0x1234567890123456789012345678901234567890", // Example address bytes
-            imuachainAddress: "0xAbcD1234567890123456789012345678901234567890"
-        },
-        // Add more entries...
-    ];
-    
     try {
         // Get deployer/owner account
         const [deployer] = await ethers.getSigners();
         console.log("Deployer address:", deployer.address);
-        
-        // Contract address - replace with actual deployed address
-        const contractAddress = "0x..."; // TODO: Replace with actual contract address
-        
+
+        // Load bootstrap data from genesis folder
+        const bootstrapData = await loadBootstrapData();
+
+        // Validate the loaded data
+        if (!validateBootstrapData(bootstrapData)) {
+            console.error("Bootstrap data validation failed!");
+            process.exit(1);
+        }
+
+        // Contract address - get from environment or prompt user
+        const contractAddress = process.env.UTXO_GATEWAY_CONTRACT_ADDRESS;
+        if (!contractAddress) {
+            console.error("UTXO_GATEWAY_CONTRACT_ADDRESS environment variable not set");
+            console.error("Please set the contract address before running this script");
+            process.exit(1);
+        }
+
+        console.log(`Using UTXOGateway contract at: ${contractAddress}`);
+
         // Execute bootstrap for Bitcoin chain
         const success = await bootstrapInBatches(
             contractAddress,
             ClientChainID.BITCOIN,
-            exampleBootstrapData,
+            bootstrapData,
             deployer
         );
-        
+
         if (success) {
             console.log("Bootstrap process completed successfully!");
         } else {
             console.error("Bootstrap process failed!");
             process.exit(1);
         }
-        
+
     } catch (error) {
         console.error("Bootstrap failed:", error);
         process.exit(1);
+    }
+}
+
+/**
+ * Load bootstrap data from genesis folder
+ * @param filePath - Path to the bootstrap data file (optional, defaults to genesis/bootstrap_data.json)
+ * @returns - Array of bootstrap entries
+ */
+async function loadBootstrapData(filePath?: string): Promise<BootstrapEntry[]> {
+    const defaultPath = path.join(__dirname, "../../../genesis/bootstrap_data.json");
+    const dataPath = filePath || defaultPath;
+
+    try {
+        console.log(`Loading bootstrap data from: ${dataPath}`);
+        const data = await fs.promises.readFile(dataPath, 'utf8');
+        const bootstrapData = JSON.parse(data) as BootstrapEntry[];
+
+        console.log(`Loaded ${bootstrapData.length} bootstrap entries`);
+        return bootstrapData;
+    } catch (error: any) {
+        console.error(`Failed to load bootstrap data from ${dataPath}:`, error.message);
+        throw new Error(`Bootstrap data file not found or invalid: ${dataPath}`);
     }
 }
 
@@ -212,28 +236,28 @@ function validateBootstrapData(bootstrapData: BootstrapEntry[]): boolean {
         console.error("Bootstrap data must be a non-empty array");
         return false;
     }
-    
+
     for (let i = 0; i < bootstrapData.length; i++) {
         const entry = bootstrapData[i];
-        
+
         if (!entry.clientTxId || !entry.clientAddress || !entry.imuachainAddress) {
             console.error(`Invalid entry at index ${i}: missing required fields`);
             return false;
         }
-        
+
         // Validate clientTxId format (32 bytes hex)
         if (!/^0x[a-fA-F0-9]{64}$/.test(entry.clientTxId)) {
             console.error(`Invalid clientTxId format at index ${i}: ${entry.clientTxId}`);
             return false;
         }
-        
+
         // Validate imuachainAddress format (20 bytes hex)
         if (!/^0x[a-fA-F0-9]{40}$/.test(entry.imuachainAddress)) {
             console.error(`Invalid imuachainAddress format at index ${i}: ${entry.imuachainAddress}`);
             return false;
         }
     }
-    
+
     console.log(`✅ Bootstrap data validation passed for ${bootstrapData.length} entries`);
     return true;
 }
@@ -241,6 +265,7 @@ function validateBootstrapData(bootstrapData: BootstrapEntry[]): boolean {
 // Export functions for use in other scripts
 module.exports = {
     bootstrapInBatches,
+    loadBootstrapData,
     validateBootstrapData,
     ClientChainID,
     BATCH_SIZE

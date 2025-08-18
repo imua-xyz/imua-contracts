@@ -1,5 +1,6 @@
 import axios from 'axios';
 import fs from 'fs';
+import path from 'path';
 import { ethers } from 'ethers';
 import { fromBech32, fromHex, toBech32 } from '@cosmjs/encoding';
 import { address as addressUtils, networks } from 'bitcoinjs-lib';
@@ -9,15 +10,22 @@ import { BTC_CONFIG, CHAIN_CONFIG } from './config';
 import { GenesisState, AppState, AssetsState, DelegationState, OperatorState, OperatorAssetUsdValue, DogfoodState, Validator, OracleState, ClientChain, Token } from './types';
 import { toVersionAndHash } from './utils';
 
-interface BootstrapStake {
+export interface BootstrapStake {
   txid: string;
   blockHeight: number;
   txIndex: number;
-  stakerAddress: string; // Imuachain address from OP_RETURN (formerly bitcoinAddress)
+  bitcoinAddress: string; // Bitcoin sender address (20 bytes hash)
+  stakerAddress: string; // Imuachain address from OP_RETURN
   imuachainAddress: string;
   validatorAddress: string;
   amount: number;
   timestamp: number;
+}
+
+interface BootstrapEntry {
+  clientTxId: string;
+  clientAddress: string;
+  imuachainAddress: string;
 }
 
 interface OpReturnData {
@@ -399,6 +407,7 @@ export class GenesisGenerator {
         txid: tx.txid,
         blockHeight: tx.status.block_height,
         txIndex: tx.status.txIndex || 0,
+        bitcoinAddress: senderAddress, // Bitcoin sender address (normalized to lowercase)
         stakerAddress: consistentImuachainAddress, // Imuachain address from validated mapping (ensures 1-1 binding)
         imuachainAddress: consistentImuachainAddress,
         validatorAddress: validatorAddress,
@@ -540,7 +549,7 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
       existingState.states.undelegatable_share = (BigInt(existingState.states.undelegatable_share) + BigInt(stake.amount)).toString();
     }
     else {
-      // Create new delegation state entry  
+      // Create new delegation state entry
       delegationState.delegation_states.push({
         key: key,
         states: {
@@ -728,6 +737,20 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
   return genesisState;
 }
 
+export async function exportBootstrapData(stakes: BootstrapStake[]): Promise<void> {
+  // Convert stakes to bootstrap entries
+  const bootstrapData: BootstrapEntry[] = stakes.map(stake => ({
+    clientTxId: `0x${stake.txid}`, // Ensure 0x prefix
+    clientAddress: stake.bitcoinAddress, // Bitcoin sender address
+    imuachainAddress: stake.imuachainAddress
+  }));
+
+  // Use hardcoded path that matches importBootstrapData.ts expectation
+  const bootstrapDataPath = path.join(__dirname, '../../../genesis/bootstrap_data.json');
+  await fs.promises.writeFile(bootstrapDataPath, JSON.stringify(bootstrapData, null, 2));
+  console.log(`Exported ${bootstrapData.length} bootstrap entries to ${bootstrapDataPath}`);
+}
+
 export async function generateBootstrapGenesis(): Promise<void> {
   const provider = new ethers.JsonRpcProvider(config.rpcUrl);
   const bootstrapContract = new ethers.Contract(config.bootstrapContractAddress, bootstrapAbi.abi, provider);
@@ -743,7 +766,10 @@ export async function generateBootstrapGenesis(): Promise<void> {
   const stakes = await generator.generateGenesisStakes();
   const genesisState = await generateGenesisState(stakes, generator);
 
+  // Export genesis state
   await fs.promises.writeFile(config.genesisOutputPath, JSON.stringify(genesisState, null, 2));
-
   console.log(`Generated genesis state with ${stakes.length} valid stakes, written to ${config.genesisOutputPath}`);
+
+  // Export bootstrap data for UTXOGateway
+  await exportBootstrapData(stakes);
 }
