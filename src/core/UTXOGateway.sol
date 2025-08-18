@@ -560,6 +560,7 @@ contract UTXOGateway is
     /**
      * @notice Bootstrap historical data for genesis initialization
      * @dev Imports bootstrap phase data without executing precompile interfaces
+     * @dev Recommended to process around 250 entries per batch to avoid gas limit issues
      * @param clientChainId The client chain ID
      * @param bootstrapData Array of bootstrap entries containing address mappings and transaction data
      */
@@ -571,17 +572,14 @@ contract UTXOGateway is
         if (bootstrapData.length == 0) {
             revert Errors.ZeroAmount();
         }
+        
         // Disallow bootstrapping for invalid chain id
         if (clientChainId == ClientChainID.NONE) {
             revert Errors.InvalidClientChain();
         }
 
-        // Ensure no data has been processed for this chain yet (only for initial bootstrap)
-        if (inboundNonce[clientChainId] != 0) {
-            revert Errors.UnexpectedInboundNonce(0, inboundNonce[clientChainId]);
-        }
-
-        uint64 currentNonce = 0;
+        // Start from current nonce to allow multiple batch imports
+        uint64 currentNonce = inboundNonce[clientChainId];
 
         for (uint256 i = 0; i < bootstrapData.length; i++) {
             BootstrapEntry calldata entry = bootstrapData[i];

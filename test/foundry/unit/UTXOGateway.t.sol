@@ -1985,21 +1985,39 @@ contract UTXOGatewayTest is Test {
         gateway.bootstrapHistoricalData(UTXOGatewayStorage.ClientChainID.BITCOIN, bootstrapData);
     }
 
-    function test_BootstrapHistoricalData_RevertDataAlreadyProcessed() public {
-        // First, process some data to set inboundNonce > 0
-        _mockRegisterAddress(address(0x100), bytes("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"));
+    function test_BootstrapHistoricalData_MultipleBatchesAllowed() public {
+        // First, process some initial data to set inboundNonce > 0
+        UTXOGatewayStorage.BootstrapEntry[] memory firstBatch = new UTXOGatewayStorage.BootstrapEntry[](1);
+        firstBatch[0] = UTXOGatewayStorage.BootstrapEntry({
+            clientAddress: bytes("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"),
+            imuachainAddress: address(0x100),
+            clientTxId: bytes32(uint256(1001))
+        });
 
-        UTXOGatewayStorage.BootstrapEntry[] memory bootstrapData = new UTXOGatewayStorage.BootstrapEntry[](1);
+        vm.prank(owner);
+        gateway.bootstrapHistoricalData(UTXOGatewayStorage.ClientChainID.BITCOIN, firstBatch);
+        
+        // Verify first batch processed
+        assertEq(gateway.inboundNonce(UTXOGatewayStorage.ClientChainID.BITCOIN), 1);
 
-        bootstrapData[0] = UTXOGatewayStorage.BootstrapEntry({
+        // Now process a second batch - this should work with the new logic
+        UTXOGatewayStorage.BootstrapEntry[] memory secondBatch = new UTXOGatewayStorage.BootstrapEntry[](1);
+        secondBatch[0] = UTXOGatewayStorage.BootstrapEntry({
             clientAddress: bytes("1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2"),
             imuachainAddress: address(0x200),
             clientTxId: bytes32(uint256(1002))
         });
 
         vm.prank(owner);
-        vm.expectRevert(abi.encodeWithSelector(Errors.UnexpectedInboundNonce.selector, 0, 1));
-        gateway.bootstrapHistoricalData(UTXOGatewayStorage.ClientChainID.BITCOIN, bootstrapData);
+        vm.expectEmit(true, false, false, true);
+        emit BootstrapCompleted(UTXOGatewayStorage.ClientChainID.BITCOIN, 1, uint64(2));
+        
+        gateway.bootstrapHistoricalData(UTXOGatewayStorage.ClientChainID.BITCOIN, secondBatch);
+        
+        // Verify both batches processed correctly
+        assertEq(gateway.inboundNonce(UTXOGatewayStorage.ClientChainID.BITCOIN), 2);
+        assertEq(gateway.clientTxIdToNonce(UTXOGatewayStorage.ClientChainID.BITCOIN, bytes32(uint256(1001))), 1);
+        assertEq(gateway.clientTxIdToNonce(UTXOGatewayStorage.ClientChainID.BITCOIN, bytes32(uint256(1002))), 2);
     }
 
     function test_BootstrapHistoricalData_LargeDataSet() public {
@@ -2045,5 +2063,6 @@ contract UTXOGatewayTest is Test {
             address(uint160(0x1000 + entryCount - 1))
         );
     }
+
 
 }
