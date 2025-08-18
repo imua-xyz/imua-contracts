@@ -572,7 +572,7 @@ contract UTXOGateway is
         if (bootstrapData.length == 0) {
             revert Errors.ZeroAmount();
         }
-        
+
         // Disallow bootstrapping for invalid chain id
         if (clientChainId == ClientChainID.NONE) {
             revert Errors.InvalidClientChain();

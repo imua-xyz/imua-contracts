@@ -1996,7 +1996,7 @@ contract UTXOGatewayTest is Test {
 
         vm.prank(owner);
         gateway.bootstrapHistoricalData(UTXOGatewayStorage.ClientChainID.BITCOIN, firstBatch);
-        
+
         // Verify first batch processed
         assertEq(gateway.inboundNonce(UTXOGatewayStorage.ClientChainID.BITCOIN), 1);
 
@@ -2011,9 +2011,9 @@ contract UTXOGatewayTest is Test {
         vm.prank(owner);
         vm.expectEmit(true, false, false, true);
         emit BootstrapCompleted(UTXOGatewayStorage.ClientChainID.BITCOIN, 1, uint64(2));
-        
+
         gateway.bootstrapHistoricalData(UTXOGatewayStorage.ClientChainID.BITCOIN, secondBatch);
-        
+
         // Verify both batches processed correctly
         assertEq(gateway.inboundNonce(UTXOGatewayStorage.ClientChainID.BITCOIN), 2);
         assertEq(gateway.clientTxIdToNonce(UTXOGatewayStorage.ClientChainID.BITCOIN, bytes32(uint256(1001))), 1);
@@ -2063,6 +2063,5 @@ contract UTXOGatewayTest is Test {
             address(uint160(0x1000 + entryCount - 1))
         );
     }
-
 
 }
