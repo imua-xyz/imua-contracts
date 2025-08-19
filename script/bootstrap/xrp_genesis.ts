@@ -53,13 +53,13 @@ interface XRPTransaction {
     Account: string; // Sender address
     Destination?: string; // Destination address (for Payment)
     Amount:
-      | string
-      | {
-          // Amount (string for XRP, object for tokens)
-          currency: string;
-          value: string;
-          issuer: string;
-        };
+    | string
+    | {
+      // Amount (string for XRP, object for tokens)
+      currency: string;
+      value: string;
+      issuer: string;
+    };
     Fee: string; // Transaction fee in drops
     Sequence: number; // Account sequence number
     Memos?: Array<{
@@ -398,8 +398,7 @@ export class XRPGenesisGenerator {
       }
     } catch (error) {
       console.log(
-        `Failed to parse address data: ${
-          error instanceof Error ? error.message : "Unknown error"
+        `Failed to parse address data: ${error instanceof Error ? error.message : "Unknown error"
         }`
       );
       return null;
@@ -442,8 +441,7 @@ export class XRPGenesisGenerator {
       return null;
     } catch (error) {
       console.error(
-        `Error parsing memo data: ${
-          error instanceof Error ? error.message : "Unknown error"
+        `Error parsing memo data: ${error instanceof Error ? error.message : "Unknown error"
         }`
       );
       return null;
@@ -777,13 +775,21 @@ export async function generateXRPGenesisState(
 
     // Add delegation state
     const key = `${stakerId}/${xrpAssetId}/${stake.validatorAddress}`;
-    delegationState.delegation_states.push({
-      key: key,
-      states: {
-        undelegatable_share: stake.amount.toString(),
-        wait_undelegation_amount: "0",
-      },
-    });
+    // Check if the key already exist, if exist, then add up the amount, otherwise create a new entry
+    const existingState = delegationState.delegation_states.find((state) => state.key === key);
+    if (existingState) {
+      existingState.states.undelegatable_share = (BigInt(existingState.states.undelegatable_share) + BigInt(stake.amount)).toString();
+    }
+    else {
+      // Create new delegation state entry
+      delegationState.delegation_states.push({
+        key: key,
+        states: {
+          undelegatable_share: stake.amount.toString(),
+          wait_undelegation_amount: "0",
+        },
+      });
+    }
 
     // Collect stakers by operator
     const mapKey = `${stake.validatorAddress}/${xrpAssetId}`;
@@ -996,8 +1002,8 @@ export async function generateXRPBootstrapGenesis(): Promise<void> {
     config.xrpVaultAddress,
     config.xrpRpcUrl, // XRP Ledger RPC endpoint
     bootstrapContract,
-    config.minConfirmations,
-    config.minAmount // in drops
+    config.xrpMinConfirmations,
+    config.xrpMinAmount // in drops
   );
 
   const stakes = await generator.generateGenesisStakes();
