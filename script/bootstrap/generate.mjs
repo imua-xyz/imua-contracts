@@ -436,6 +436,7 @@ async function updateGenesisFile() {
           // remember that these validators are specific to the provided staker address.
           // a validator is identified by its public key (or validator index), while a staker
           // is identified by its address. each staker may have multiple validators.
+
           for (let k = 0; k < validatorStates.length; k++) {
             // we cannot drop validators even though they may be slashed. this is because
             // even after slashing, the validators will retain 16 ETH of total balance.
@@ -611,6 +612,7 @@ async function updateGenesisFile() {
               let impactedValidators = [];
               let impactedValidatorsCount =
                 await myContract.methods.getValidatorsCountForStakerToken(stakerAddress, tokenAddress).call();
+
               for (let k = 0; k < impactedValidatorsCount; k++) {
                 let impactedValidator =
                   await myContract.methods.stakerToTokenToValidators(stakerAddress, tokenAddress, k).call();
@@ -1016,11 +1018,13 @@ async function updateGenesisFile() {
       }
       return 0;
     });
+
     genesisJSON.app_state.operator.operators = operators;
     genesisJSON.app_state.operator.operator_records = operator_records;
     genesisJSON.app_state.operator.opt_states = opt_states;
     genesisJSON.app_state.operator.avs_usd_values = avs_usd_values;
     genesisJSON.app_state.operator.operator_asset_usd_values = operator_asset_usd_values;
+
     genesisJSON.app_state.operator.operator_usd_values = operator_usd_values;
     // dogfood: val_set
     validators.sort((a, b) => {
@@ -1087,6 +1091,7 @@ async function updateGenesisFile() {
             (element) => element.token === tokenAddress && element.impacted_validators.includes(operator)
           );
           let totalSlashing = ZERO_DECIMAL;
+
           for (let k = 0; k < matchingEntries.length; k++) {
             let matchingEntry = matchingEntries[k];
             let delegation = await myContract.methods.delegations(

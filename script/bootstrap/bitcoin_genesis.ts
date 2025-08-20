@@ -513,6 +513,7 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
 
     // Add delegation state
     const key = `${stakerId}/${btcAssetId}/${stake.validatorAddress}`;
+
     // Check if the key already exist, if exist, then add up the amount, otherwise create a new entry
     const existingState = delegationState.delegation_states.find((state) => state.key === key);
     if (existingState) {
@@ -632,6 +633,12 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
 
   const oracleState: OracleState = {
     params: {
+      chains: [
+        {
+          name: "Bitcoin",
+          desc: "Bitcoin blockchain"
+        }
+      ],
       tokens: [
         {
           name: BTC_CONFIG.SYMBOL,
@@ -791,9 +798,13 @@ export async function generateBootstrapGenesis(): Promise<void> {
   // Export bootstrap data for UTXOGateway
   await exportBootstrapData(stakes);
 
-  // Export genesis state
-  const genesisState = await generateGenesisState(stakes, generator);
-  await fs.promises.writeFile(config.genesisOutputPath, JSON.stringify(genesisState, null, 2));
+  // Use environment variable if set, otherwise fall back to config
+  const outputPath = process.env.BTC_GENESIS_OUTPUT_PATH || config.genesisOutputPath;
+  const resolvedPath = path.isAbsolute(outputPath) ? outputPath : path.resolve(outputPath);
 
-  console.log(`Generated genesis state with ${stakes.length} valid stakes, written to ${config.genesisOutputPath}`);
+  // Ensure directory exists
+  await fs.promises.mkdir(path.dirname(resolvedPath), { recursive: true });
+  await fs.promises.writeFile(resolvedPath, JSON.stringify(genesisState, null, 2));
+
+  console.log(`Generated genesis state with ${stakes.length} valid stakes - Written to ${resolvedPath}`);
 }

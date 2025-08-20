@@ -129,8 +129,14 @@ export interface Validator {
   power: string;
 }
 
+export interface OracleChain {
+  name: string;
+  desc: string;
+}
+
 export interface OracleState {
   params: {
+    chains: OracleChain[];
     tokens: OracleToken[];
     token_feeders: OracleTokenFeeder[];
     // Add other oracle params as needed
