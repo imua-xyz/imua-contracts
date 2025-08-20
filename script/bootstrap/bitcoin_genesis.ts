@@ -19,6 +19,7 @@ import {
   OracleState,
   ClientChain,
   Token,
+  BootstrapEntry,
 } from './types';
 import { toVersionAndHash } from './utils';
 
@@ -34,11 +35,6 @@ export interface BootstrapStake {
   timestamp: number;
 }
 
-interface BootstrapEntry {
-  clientTxId: string;
-  clientAddress: string;
-  imuachainAddress: string;
-}
 
 interface OpReturnData {
   imuachainAddressHex: string;
@@ -762,7 +758,7 @@ function determineNetworkFromAddress(address: string): networks.Network {
   return networks.bitcoin;
 }
 
-export async function exportBootstrapData(stakes: BootstrapStake[]): Promise<void> {
+export async function exportBootstrapData(stakes: BootstrapStake[], resolvedGenesisPath?: string): Promise<void> {
   // Convert stakes to bootstrap entries
   const bootstrapData: BootstrapEntry[] = stakes.map((stake) => {
     // Convert Bitcoin address string to UTF-8 bytes for the contract
@@ -775,8 +771,14 @@ export async function exportBootstrapData(stakes: BootstrapStake[]): Promise<voi
     };
   });
 
-  // Use hardcoded path that matches importBootstrapData.ts expectation
-  const bootstrapDataPath = path.join(config.genesisOutputPath, '../../genesis/btc_bootstrap_data.json');
+  // Use project root's genesis directory
+  const genesisDir = resolvedGenesisPath
+    ? path.dirname(resolvedGenesisPath)
+    : path.join(__dirname, '../../genesis');
+  const bootstrapDataPath = path.join(genesisDir, 'btc_bootstrap_data.json');
+
+  // Ensure directory exists
+  await fs.promises.mkdir(path.dirname(bootstrapDataPath), { recursive: true });
   await fs.promises.writeFile(bootstrapDataPath, JSON.stringify(bootstrapData, null, 2));
   console.log(`Exported ${bootstrapData.length} bootstrap entries to ${bootstrapDataPath}`);
 }
@@ -794,16 +796,17 @@ export async function generateBootstrapGenesis(): Promise<void> {
   );
 
   const stakes = await generator.generateGenesisStakes();
-
-  // Export bootstrap data for UTXOGateway
-  await exportBootstrapData(stakes);
+  const genesisState = await generateGenesisState(stakes, generator);
 
   // Use environment variable if set, otherwise fall back to config
   const outputPath = process.env.BTC_GENESIS_OUTPUT_PATH || config.genesisOutputPath;
   const resolvedPath = path.isAbsolute(outputPath) ? outputPath : path.resolve(outputPath);
-
-  // Ensure directory exists
   await fs.promises.mkdir(path.dirname(resolvedPath), { recursive: true });
+
+  // Export bootstrap data for UTXOGateway (using resolved path for consistency)
+  await exportBootstrapData(stakes, resolvedPath);
+
+  // Export genesis state
   await fs.promises.writeFile(resolvedPath, JSON.stringify(genesisState, null, 2));
 
   console.log(`Generated genesis state with ${stakes.length} valid stakes - Written to ${resolvedPath}`);

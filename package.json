@@ -10,6 +10,8 @@
   },
   "scripts": {
     "test": "hardhat test",
+    "genesis": "node script/bootstrap/generate_unified.mjs",
+    "importBootstrap": "ts-node script/bootstrap/importBootstrapData.ts",
     "deploy:utxogateway:localnet": "hardhat run script/hardhat/deploy-and-setup-utxogateway.script.js --network imuachain_localnet",
     "deploy:utxogateway:testnet": "hardhat run script/hardhat/deploy-and-setup-utxogateway.script.js --network imuachain_testnet"
   },
