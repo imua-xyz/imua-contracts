@@ -1,5 +1,6 @@
 import axios from 'axios';
 import fs from 'fs';
+import path from 'path';
 import { ethers } from 'ethers';
 import { fromBech32, fromHex, toBech32 } from '@cosmjs/encoding';
 import { address as addressUtils, networks } from 'bitcoinjs-lib';
@@ -534,13 +535,14 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
 
     // Add delegation state
     const key = `${stakerId}/${btcAssetId}/${stake.validatorAddress}`;
+
     // Check if the key already exist, if exist, then add up the amount, otherwise create a new entry
     const existingState = delegationState.delegation_states.find((state) => state.key === key);
     if (existingState) {
       existingState.states.undelegatable_share = (BigInt(existingState.states.undelegatable_share) + BigInt(stake.amount)).toString();
     }
     else {
-      // Create new delegation state entry  
+      // Create new delegation state entry
       delegationState.delegation_states.push({
         key: key,
         states: {
@@ -654,6 +656,12 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
 
   const oracleState: OracleState = {
     params: {
+      chains: [
+        {
+          name: "Bitcoin",
+          desc: "Bitcoin blockchain"
+        }
+      ],
       tokens: [
         {
           name: BTC_CONFIG.SYMBOL,
@@ -728,7 +736,7 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
   return genesisState;
 }
 
-export async function generateBootstrapGenesis(): Promise<void> {
+  export async function generateBootstrapGenesis(): Promise<void> {
   const provider = new ethers.JsonRpcProvider(config.rpcUrl);
   const bootstrapContract = new ethers.Contract(config.bootstrapContractAddress, bootstrapAbi.abi, provider);
 
@@ -743,7 +751,13 @@ export async function generateBootstrapGenesis(): Promise<void> {
   const stakes = await generator.generateGenesisStakes();
   const genesisState = await generateGenesisState(stakes, generator);
 
-  await fs.promises.writeFile(config.genesisOutputPath, JSON.stringify(genesisState, null, 2));
+  // Use environment variable if set, otherwise fall back to config
+  const outputPath = process.env.BTC_GENESIS_OUTPUT_PATH || config.genesisOutputPath;
+  const resolvedPath = path.isAbsolute(outputPath) ? outputPath : path.resolve(outputPath);
 
-  console.log(`Generated genesis state with ${stakes.length} valid stakes, written to ${config.genesisOutputPath}`);
+  // Ensure directory exists
+  await fs.promises.mkdir(path.dirname(resolvedPath), { recursive: true });
+  await fs.promises.writeFile(resolvedPath, JSON.stringify(genesisState, null, 2));
+
+  console.log(`Generated genesis state with ${stakes.length} valid stakes - Written to ${resolvedPath}`);
 }
