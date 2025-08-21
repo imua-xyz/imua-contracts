@@ -19,12 +19,14 @@ import {
   OracleState,
   ClientChain,
   Token,
+  BootstrapEntry,
 } from "./types";
 
 interface BootstrapStake {
   hash: string; // XRP transaction hash
   ledgerIndex: number; // Ledger sequence number
   transactionIndex: number; // Transaction index in ledger
+  xrpAddress: string; // XRP sender address (Account field)
   stakerAddress: string; // Staker address (imuachainAddress)
   imuachainAddress: string; // Corresponding Imuachain address
   validatorAddress: string; // Target validator address
@@ -614,6 +616,7 @@ export class XRPGenesisGenerator {
         hash: tx.hash,
         ledgerIndex: tx.ledger_index,
         transactionIndex: tx.meta.TransactionIndex,
+        xrpAddress: tx.tx.Account.toLowerCase(), // XRP sender address
         stakerAddress: memoData.imuachainAddress.toLowerCase(), // Use imuachainAddress as staker address
         imuachainAddress: memoData.imuachainAddress.toLowerCase(),
         validatorAddress: memoData.validatorAddress,
@@ -990,6 +993,36 @@ export async function generateXRPGenesisState(
 /**
  * Main function to generate XRP bootstrap genesis
  */
+
+/**
+ * Export XRP bootstrap data for UTXOGateway import
+ * Similar to exportBootstrapData in bitcoin_genesis.ts
+ */
+export async function exportXRPBootstrapData(stakes: BootstrapStake[], resolvedGenesisPath?: string): Promise<void> {
+  // Convert stakes to bootstrap entries
+  const bootstrapData: BootstrapEntry[] = stakes.map((stake) => {
+    // Convert XRP address to UTF-8 bytes format
+    const clientAddressBytes = ethers.hexlify(ethers.toUtf8Bytes(stake.xrpAddress));
+
+    return {
+      clientTxId: `0x${stake.hash}`, // Ensure 0x prefix for XRP transaction hash
+      clientAddress: clientAddressBytes, // XRP address as UTF-8 bytes
+      imuachainAddress: stake.imuachainAddress,
+    };
+  });
+
+  // Use project root's genesis directory
+  const genesisDir = resolvedGenesisPath
+    ? path.dirname(resolvedGenesisPath)
+    : path.join(__dirname, '../../genesis');
+  const bootstrapDataPath = path.join(genesisDir, 'xrp_bootstrap_data.json');
+
+  // Ensure directory exists
+  await fs.promises.mkdir(path.dirname(bootstrapDataPath), { recursive: true });
+  await fs.promises.writeFile(bootstrapDataPath, JSON.stringify(bootstrapData, null, 2));
+  console.log(`Exported ${bootstrapData.length} XRP bootstrap entries to ${bootstrapDataPath}`);
+}
+
 export async function generateXRPBootstrapGenesis(): Promise<void> {
   const provider = new ethers.JsonRpcProvider(config.rpcUrl);
   const bootstrapContract = new ethers.Contract(
@@ -1014,11 +1047,13 @@ export async function generateXRPBootstrapGenesis(): Promise<void> {
   const resolvedPath = path.isAbsolute(outputPath)
     ? outputPath
     : path.resolve(outputPath);
-
-  // Ensure directory exists
   const dir = path.dirname(resolvedPath);
   await fs.promises.mkdir(dir, { recursive: true });
 
+  // Export bootstrap data for XRPGateway (using resolved path for consistency)
+  await exportXRPBootstrapData(stakes, resolvedPath);
+
+  // Export genesis state
   await fs.promises.writeFile(
     resolvedPath,
     JSON.stringify(genesisState, null, 2)

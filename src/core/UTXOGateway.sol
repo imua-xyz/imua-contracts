@@ -558,6 +558,61 @@ contract UTXOGateway is
     }
 
     /**
+     * @notice Bootstrap historical data for genesis initialization
+     * @dev Imports bootstrap phase data without executing precompile interfaces
+     * @dev Recommended to process around 250 entries per batch to avoid gas limit issues
+     * @param clientChainId The client chain ID
+     * @param bootstrapData Array of bootstrap entries containing address mappings and transaction data
+     */
+    function bootstrapHistoricalData(ClientChainID clientChainId, BootstrapEntry[] calldata bootstrapData)
+        external
+        onlyOwner
+        whenNotPaused
+    {
+        if (bootstrapData.length == 0) {
+            revert Errors.ZeroAmount();
+        }
+
+        // Disallow bootstrapping for invalid chain id
+        if (clientChainId == ClientChainID.NONE) {
+            revert Errors.InvalidClientChain();
+        }
+
+        // Start from current nonce to allow multiple batch imports
+        uint64 currentNonce = inboundNonce[clientChainId];
+
+        for (uint256 i = 0; i < bootstrapData.length; i++) {
+            BootstrapEntry calldata entry = bootstrapData[i];
+
+            // Validate entry data
+            if (entry.clientAddress.length == 0 || entry.imuachainAddress == address(0)) {
+                revert Errors.ZeroAddress();
+            }
+
+            currentNonce++;
+
+            // Ensure clientTxId is unique; prevent overwriting within the same import
+            if (clientTxIdToNonce[clientChainId][entry.clientTxId] != 0) {
+                revert Errors.TxTagAlreadyProcessed();
+            }
+            clientTxIdToNonce[clientChainId][entry.clientTxId] = currentNonce;
+            nonceToClientTxId[clientChainId][currentNonce] = entry.clientTxId;
+
+            // Register address mapping if not already registered
+            if (
+                inboundRegistry[clientChainId][entry.clientAddress] == address(0)
+                    && outboundRegistry[clientChainId][entry.imuachainAddress].length == 0
+            ) {
+                _registerAddress(clientChainId, entry.clientAddress, entry.imuachainAddress);
+            }
+        }
+
+        // Persist final inbound nonce once
+        inboundNonce[clientChainId] = currentNonce;
+        emit BootstrapCompleted(clientChainId, bootstrapData.length, currentNonce);
+    }
+
+    /**
      * @notice Checks if consensus is required for a stake message.
      * @return True if count of authorized witnesses is greater than or equal to REQUIRED_PROOFS, false otherwise.
      */

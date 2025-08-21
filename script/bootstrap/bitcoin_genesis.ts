@@ -7,19 +7,34 @@ import { address as addressUtils, networks } from 'bitcoinjs-lib';
 import config from './config';
 import bootstrapAbi from '../../out/Bootstrap.sol/Bootstrap.json';
 import { BTC_CONFIG, CHAIN_CONFIG } from './config';
-import { GenesisState, AppState, AssetsState, DelegationState, OperatorState, OperatorAssetUsdValue, DogfoodState, Validator, OracleState, ClientChain, Token } from './types';
+import {
+  GenesisState,
+  AppState,
+  AssetsState,
+  DelegationState,
+  OperatorState,
+  OperatorAssetUsdValue,
+  DogfoodState,
+  Validator,
+  OracleState,
+  ClientChain,
+  Token,
+  BootstrapEntry,
+} from './types';
 import { toVersionAndHash } from './utils';
 
-interface BootstrapStake {
+export interface BootstrapStake {
   txid: string;
   blockHeight: number;
   txIndex: number;
-  stakerAddress: string; // Imuachain address from OP_RETURN (formerly bitcoinAddress)
+  bitcoinAddress: string; // Bitcoin sender address (20 bytes hash)
+  stakerAddress: string; // Imuachain address from OP_RETURN
   imuachainAddress: string;
   validatorAddress: string;
   amount: number;
   timestamp: number;
 }
+
 
 interface OpReturnData {
   imuachainAddressHex: string;
@@ -208,52 +223,8 @@ export class GenesisGenerator {
     }
   }
 
-  private getNetworkFromAddress(address: string): networks.Network {
-    // Bech32 addresses (native segwit)
-    if (address.startsWith('bc1')) {
-      return networks.bitcoin; // Mainnet
-    }
-    if (address.startsWith('tb1')) {
-      return networks.testnet; // Testnet
-    }
-    if (address.startsWith('bcrt1')) {
-      return networks.regtest; // Regtest
-    }
-
-    // Legacy addresses (Base58Check)
-    try {
-      // Try to decode the address to get the version byte
-      const decoded = addressUtils.fromBase58Check(address);
-
-      // Check version bytes for different networks
-      if (decoded.version === networks.bitcoin.pubKeyHash || decoded.version === networks.bitcoin.scriptHash) {
-        return networks.bitcoin; // Mainnet
-      }
-      if (decoded.version === networks.testnet.pubKeyHash || decoded.version === networks.testnet.scriptHash) {
-        return networks.testnet; // Testnet
-      }
-      if (decoded.version === networks.regtest.pubKeyHash || decoded.version === networks.regtest.scriptHash) {
-        return networks.regtest; // Regtest
-      }
-    } catch (error) {
-      // If decoding fails, try prefix-based detection as fallback
-      console.warn(`Failed to decode address ${address}, using prefix-based detection`);
-    }
-
-    // Fallback prefix-based detection
-    if (address.startsWith('1') || address.startsWith('3')) {
-      return networks.bitcoin; // Mainnet P2PKH/P2SH
-    }
-    if (address.startsWith('m') || address.startsWith('n') || address.startsWith('2')) {
-      return networks.testnet; // Testnet
-    }
-    if (address.startsWith('bcrt')) {
-      return networks.regtest; // Regtest
-    }
-
-    // Default to mainnet
-    console.warn(`Could not determine network for address ${address}, defaulting to mainnet`);
-    return networks.bitcoin;
+  getNetworkFromAddress(address: string): networks.Network {
+    return determineNetworkFromAddress(address);
   }
 
   private async isValidBootstrapTransaction(tx: BTCTransaction): Promise<boolean> {
@@ -269,7 +240,9 @@ export class GenesisGenerator {
     }
 
     // Check vault output
-    const vaultOutputs = tx.vout.filter((output) => output.scriptpubkey_address?.toLowerCase() === this.vaultAddress && output.value >= this.minAmount);
+    const vaultOutputs = tx.vout.filter(
+      (output) => output.scriptpubkey_address?.toLowerCase() === this.vaultAddress && output.value >= this.minAmount
+    );
     if (vaultOutputs.length !== 1) {
       console.log(`Invalid number of vault outputs in tx ${tx.txid}`);
       return false;
@@ -400,6 +373,7 @@ export class GenesisGenerator {
         txid: tx.txid,
         blockHeight: tx.status.block_height,
         txIndex: tx.status.txIndex || 0,
+        bitcoinAddress: senderAddress, // Bitcoin sender address (normalized to lowercase)
         stakerAddress: consistentImuachainAddress, // Imuachain address from validated mapping (ensures 1-1 binding)
         imuachainAddress: consistentImuachainAddress,
         validatorAddress: validatorAddress,
@@ -540,8 +514,7 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
     const existingState = delegationState.delegation_states.find((state) => state.key === key);
     if (existingState) {
       existingState.states.undelegatable_share = (BigInt(existingState.states.undelegatable_share) + BigInt(stake.amount)).toString();
-    }
-    else {
+    } else {
       // Create new delegation state entry
       delegationState.delegation_states.push({
         key: key,
@@ -736,7 +709,81 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
   return genesisState;
 }
 
-  export async function generateBootstrapGenesis(): Promise<void> {
+// Utility function to determine network from Bitcoin address
+function determineNetworkFromAddress(address: string): networks.Network {
+  // Bech32 addresses (native segwit)
+  if (address.startsWith('bc1')) {
+    return networks.bitcoin; // Mainnet
+  }
+  if (address.startsWith('tb1')) {
+    return networks.testnet; // Testnet
+  }
+  if (address.startsWith('bcrt1')) {
+    return networks.regtest; // Regtest
+  }
+
+  // Legacy addresses (Base58Check)
+  try {
+    // Try to decode the address to get the version byte
+    const decoded = addressUtils.fromBase58Check(address);
+
+    // Check version bytes for different networks
+    if (decoded.version === networks.bitcoin.pubKeyHash || decoded.version === networks.bitcoin.scriptHash) {
+      return networks.bitcoin; // Mainnet
+    }
+    if (decoded.version === networks.testnet.pubKeyHash || decoded.version === networks.testnet.scriptHash) {
+      return networks.testnet; // Testnet
+    }
+    if (decoded.version === networks.regtest.pubKeyHash || decoded.version === networks.regtest.scriptHash) {
+      return networks.regtest; // Regtest
+    }
+  } catch (error) {
+    // If decoding fails, try prefix-based detection as fallback
+    console.warn(`Failed to decode address ${address}, using prefix-based detection`);
+  }
+
+  // Fallback prefix-based detection
+  if (address.startsWith('1') || address.startsWith('3')) {
+    return networks.bitcoin; // Mainnet P2PKH/P2SH
+  }
+  if (address.startsWith('m') || address.startsWith('n') || address.startsWith('2')) {
+    return networks.testnet; // Testnet
+  }
+  if (address.startsWith('bcrt')) {
+    return networks.regtest; // Regtest
+  }
+
+  // Default to mainnet
+  console.warn(`Could not determine network for address ${address}, defaulting to mainnet`);
+  return networks.bitcoin;
+}
+
+export async function exportBootstrapData(stakes: BootstrapStake[], resolvedGenesisPath?: string): Promise<void> {
+  // Convert stakes to bootstrap entries
+  const bootstrapData: BootstrapEntry[] = stakes.map((stake) => {
+    // Convert Bitcoin address string to UTF-8 bytes for the contract
+    const clientAddressBytes = ethers.hexlify(ethers.toUtf8Bytes(stake.bitcoinAddress));
+
+    return {
+      clientTxId: `0x${stake.txid}`, // Ensure 0x prefix
+      clientAddress: clientAddressBytes, // Bitcoin address as UTF-8 bytes
+      imuachainAddress: stake.imuachainAddress,
+    };
+  });
+
+  // Use project root's genesis directory
+  const genesisDir = resolvedGenesisPath
+    ? path.dirname(resolvedGenesisPath)
+    : path.join(__dirname, '../../genesis');
+  const bootstrapDataPath = path.join(genesisDir, 'btc_bootstrap_data.json');
+
+  // Ensure directory exists
+  await fs.promises.mkdir(path.dirname(bootstrapDataPath), { recursive: true });
+  await fs.promises.writeFile(bootstrapDataPath, JSON.stringify(bootstrapData, null, 2));
+  console.log(`Exported ${bootstrapData.length} bootstrap entries to ${bootstrapDataPath}`);
+}
+
+export async function generateBootstrapGenesis(): Promise<void> {
   const provider = new ethers.JsonRpcProvider(config.rpcUrl);
   const bootstrapContract = new ethers.Contract(config.bootstrapContractAddress, bootstrapAbi.abi, provider);
 
@@ -754,9 +801,12 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
   // Use environment variable if set, otherwise fall back to config
   const outputPath = process.env.BTC_GENESIS_OUTPUT_PATH || config.genesisOutputPath;
   const resolvedPath = path.isAbsolute(outputPath) ? outputPath : path.resolve(outputPath);
-
-  // Ensure directory exists
   await fs.promises.mkdir(path.dirname(resolvedPath), { recursive: true });
+
+  // Export bootstrap data for UTXOGateway (using resolved path for consistency)
+  await exportBootstrapData(stakes, resolvedPath);
+
+  // Export genesis state
   await fs.promises.writeFile(resolvedPath, JSON.stringify(genesisState, null, 2));
 
   console.log(`Generated genesis state with ${stakes.length} valid stakes - Written to ${resolvedPath}`);
