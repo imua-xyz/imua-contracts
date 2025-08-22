@@ -296,11 +296,15 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         return isPectra;
     }
 
-    function requestWithdrawal(bytes memory pubkey, uint64 amount) payable external {
+    function requestWithdrawal(bytes memory pubkey, uint64 amount) external payable {
         address WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS = 0x00000961Ef480Eb55e80D19ad83579A64c007002;
-        if(msg.value != 1) revert("ImuaCapsule: msg.value must be 1wei");
-        if(pubkey.length != 48) revert("ImuaCapsule: pubkey length must be 48 bytes");
-        (bool success, ) = WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS.call{value: 1}(abi.encode(pubkey, amount));
+        if (msg.value != 1) {
+            revert("ImuaCapsule: msg.value must be 1wei");
+        }
+        if (pubkey.length != 48) {
+            revert("ImuaCapsule: pubkey length must be 48 bytes");
+        }
+        (bool success,) = WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS.call{value: 1}(abi.encode(pubkey, amount));
         if (!success) {
             revert("ImuaCapsule: withdrawal request failed");
         }
