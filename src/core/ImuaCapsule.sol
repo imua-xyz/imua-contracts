@@ -43,6 +43,10 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
     /// @param capsuleOwner The address of the capsule owner.
     event RestakingActivated(address indexed capsuleOwner);
 
+    /// @notice Emitted when successfully withdraw from staking pool to capsule.
+    /// @param rawData is 56 bytes data with 48 bytes pubkey and 8 bytes withdraw amount.
+    event withdrawal(bytes rawData);
+
     /// @dev Thrown when the validator container is invalid.
     /// @param pubkeyHash The validator's BLS12-381 public key hash.
     error InvalidValidatorContainer(bytes32 pubkeyHash);
@@ -290,6 +294,17 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
     /// @inheritdoc IImuaCapsule
     function isPectraMode() external view returns (bool) {
         return isPectra;
+    }
+
+    function requestWithdrawal(bytes memory pubkey, uint64 amount) payable external {
+        address WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS = 0x00000961Ef480Eb55e80D19ad83579A64c007002;
+        if(msg.value != 1) revert("ImuaCapsule: msg.value must be 1wei");
+        if(pubkey.length != 48) revert("ImuaCapsule: pubkey length must be 48 bytes");
+        (bool success, ) = WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS.call{value: 1}(abi.encode(pubkey, amount));
+        if (!success) {
+            revert("ImuaCapsule: withdrawal request failed");
+        }
+        emit withdrawal(abi.encode(pubkey, amount));
     }
 
 }
