@@ -55,8 +55,4 @@ interface INativeRestakingController is IBaseRestakingController {
     /// @param pubkey The validator's BLS public key (48 bytes)
     function requestBeaconFullWithdrawal(bytes calldata pubkey) external payable;
 
-    /// @notice Get current withdrawal fee for the caller's capsule
-    /// @return Current withdrawal fee in wei
-    function getCurrentWithdrawalFee() external view returns (uint256);
-
 }

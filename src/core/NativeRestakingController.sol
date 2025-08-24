@@ -138,6 +138,7 @@ abstract contract NativeRestakingController is
     function requestBeaconPartialWithdrawal(bytes calldata pubkey, uint256 amount)
         external
         payable
+        override
         whenNotPaused
         nonReentrant
         nativeRestakingEnabled
@@ -151,19 +152,13 @@ abstract contract NativeRestakingController is
     function requestBeaconFullWithdrawal(bytes calldata pubkey)
         external
         payable
+        override
         whenNotPaused
         nonReentrant
         nativeRestakingEnabled
     {
         IImuaCapsule capsule = _getCapsule(msg.sender);
         capsule.requestFullWithdrawal{value: msg.value}(pubkey);
-    }
-
-    /// @notice Get current withdrawal fee for the caller's capsule
-    /// @return Current withdrawal fee in wei
-    function getCurrentWithdrawalFee() external view returns (uint256) {
-        IImuaCapsule capsule = _getCapsule(msg.sender);
-        return capsule.getCurrentWithdrawalFee();
     }
 
 }

@@ -368,7 +368,6 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         // Call the beacon withdrawal precompile
         bool success = _callBeaconWithdrawalPrecompile(pubkey, amount);
         if (!success) {
-            emit BeaconWithdrawalRequestFailed(pubkey, amount, "Precompile call failed");
             revert BeaconWithdrawalPrecompileFailed(pubkey, amount);
         }
 
@@ -403,7 +402,6 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         // Call the beacon withdrawal precompile with amount = 0 for full withdrawal
         bool success = _callBeaconWithdrawalPrecompile(pubkey, 0);
         if (!success) {
-            emit BeaconWithdrawalRequestFailed(pubkey, 0, "Precompile call failed");
             revert BeaconWithdrawalPrecompileFailed(pubkey, 0);
         }
 
@@ -454,6 +452,9 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         (bool success, bytes memory data) = PectraConstants.BEACON_WITHDRAWAL_PRECOMPILE.staticcall("");
         if (success) {
             fee = uint256(bytes32(data));
+            if (fee < PectraConstants.MIN_WITHDRAWAL_FEE) {
+                fee = PectraConstants.MIN_WITHDRAWAL_FEE;
+            }
         } else {
             fee = PectraConstants.MIN_WITHDRAWAL_FEE; // Fallback to minimum fee
         }

@@ -838,17 +838,24 @@ contract Bootstrap is
     }
 
     /// @notice Request partial withdrawal from a validator via beacon chain (not supported in Bootstrap)
-    function requestBeaconPartialWithdrawal(bytes calldata, uint256) external payable {
+    function requestBeaconPartialWithdrawal(bytes calldata, uint256)
+        external
+        payable
+        override
+        whenNotPaused
+        nativeRestakingEnabled
+    {
         revert Errors.NotYetSupported();
     }
 
     /// @notice Request full withdrawal from a validator via beacon chain (not supported in Bootstrap)
-    function requestBeaconFullWithdrawal(bytes calldata) external payable {
-        revert Errors.NotYetSupported();
-    }
-
-    /// @notice Get current withdrawal fee (not supported in Bootstrap)
-    function getCurrentWithdrawalFee() external pure returns (uint256) {
+    function requestBeaconFullWithdrawal(bytes calldata)
+        external
+        payable
+        override
+        whenNotPaused
+        nativeRestakingEnabled
+    {
         revert Errors.NotYetSupported();
     }
 
