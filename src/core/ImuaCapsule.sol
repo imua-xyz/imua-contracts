@@ -418,32 +418,6 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         emit FullWithdrawalRequested(pubkey, capsuleOwner);
     }
 
-    /// @inheritdoc IImuaCapsule
-    function getValidatorWithdrawalInfo(bytes calldata pubkey)
-        external
-        view
-        returns (bool isWithdrawable, uint256 availableBalance, bool isExited)
-    {
-        if (!isPectra) {
-            return (false, 0, false);
-        }
-        if (pubkey.length != PUBKEY_LENGTH) {
-            revert InvalidValidatorPubkey(pubkey);
-        }
-
-        // Verify that the validator exists and is registered with this capsule
-        bytes32 pubkeyHash = sha256(pubkey);
-        Validator storage validator = _capsuleValidators[pubkeyHash];
-        if (validator.status == VALIDATOR_STATUS.UNREGISTERED) {
-            revert UnregisteredValidator(pubkeyHash);
-        }
-
-        // Note: EIP-7002 precompile does not support withdrawal info queries
-        // This function returns basic status based on validator registration
-        // For actual withdrawal status, monitor beacon chain events after withdrawal requests
-        return (true, 0, false);
-    }
-
     /**
      * @dev Internal function to call the beacon withdrawal precompile
      * @dev According to EIP-7002: input format is validator_pubkey (48 bytes) + amount (8 bytes)
@@ -472,7 +446,7 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
     }
 
     /// @inheritdoc IImuaCapsule
-    function getCurrentWithdrawalFee() external view returns (uint256 fee) {
+    function getCurrentWithdrawalFee() external view returns (uint256) {
         return _getCurrentWithdrawalFee();
     }
 

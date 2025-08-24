@@ -84,23 +84,11 @@ interface IImuaCapsule {
     /// @param pubkey The validator's BLS public key (48 bytes)
     function requestFullWithdrawal(bytes calldata pubkey) external payable;
 
-    /// @notice Get withdrawal information for a validator (only available in Pectra mode)
-    /// @dev Query the current status and available balance for withdrawal
-    /// @dev Only available for Type 2 validators (0x02 withdrawal credentials) in Pectra mode
-    /// @param pubkey The validator's BLS public key (48 bytes)
-    /// @return isWithdrawable Whether the validator can perform withdrawals
-    /// @return availableBalance The available balance for withdrawal in wei
-    /// @return isExited Whether the validator has exited
-    function getValidatorWithdrawalInfo(bytes calldata pubkey)
-        external
-        view
-        returns (bool isWithdrawable, uint256 availableBalance, bool isExited);
-
     /// @notice Get current withdrawal fee required for beacon withdrawal requests
     /// @dev Returns the fee required to submit a withdrawal request per EIP-7002
     /// @dev Fee is dynamic and can change between query and transaction execution
     /// @dev Use this function to avoid overpayment - excess fees are not refunded
     /// @return fee Current fee in wei (minimum 1 wei)
-    function getCurrentWithdrawalFee() external pure returns (uint256 fee);
+    function getCurrentWithdrawalFee() external view returns (uint256);
 
 }

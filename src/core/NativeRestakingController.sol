@@ -132,4 +132,38 @@ abstract contract NativeRestakingController is
         _processRequest(Action.REQUEST_WITHDRAW_NST, actionArgs, encodedRequest);
     }
 
+    /// @notice Request partial withdrawal from a validator via beacon chain (Pectra mode only)
+    /// @param pubkey The validator's BLS public key (48 bytes)
+    /// @param amount The amount to withdraw in wei
+    function requestBeaconPartialWithdrawal(bytes calldata pubkey, uint256 amount)
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+        nativeRestakingEnabled
+    {
+        IImuaCapsule capsule = _getCapsule(msg.sender);
+        capsule.requestPartialWithdrawal{value: msg.value}(pubkey, amount);
+    }
+
+    /// @notice Request full withdrawal from a validator via beacon chain (Pectra mode only)
+    /// @param pubkey The validator's BLS public key (48 bytes)
+    function requestBeaconFullWithdrawal(bytes calldata pubkey)
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+        nativeRestakingEnabled
+    {
+        IImuaCapsule capsule = _getCapsule(msg.sender);
+        capsule.requestFullWithdrawal{value: msg.value}(pubkey);
+    }
+
+    /// @notice Get current withdrawal fee for the caller's capsule
+    /// @return Current withdrawal fee in wei
+    function getCurrentWithdrawalFee() external view returns (uint256) {
+        IImuaCapsule capsule = _getCapsule(msg.sender);
+        return capsule.getCurrentWithdrawalFee();
+    }
+
 }

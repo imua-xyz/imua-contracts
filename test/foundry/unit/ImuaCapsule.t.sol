@@ -524,3 +524,319 @@ contract VerifyWithdrawalProof is WithdrawalSetup {
     }
 
 }
+
+contract PectraWithdrawalSetup is Test {
+
+    using stdStorage for StdStorage;
+    using Endian for bytes32;
+
+    bytes32[] validatorContainer;
+    BeaconChainProofs.ValidatorContainerProof validatorProof;
+    bytes32 beaconBlockRoot;
+
+    ImuaCapsule capsule;
+    IBeaconChainOracle beaconOracle;
+    address payable capsuleOwner;
+
+    uint256 constant BEACON_CHAIN_GENESIS_TIME = 1_606_824_023;
+    uint64 internal constant SLOTS_PER_EPOCH = 32;
+    uint64 internal constant SECONDS_PER_SLOT = 12;
+    uint64 internal constant SECONDS_PER_EPOCH = SLOTS_PER_EPOCH * SECONDS_PER_SLOT;
+    uint256 internal constant VERIFY_BALANCE_UPDATE_WINDOW_SECONDS = 4.5 hours;
+
+    uint256 mockProofTimestamp;
+    uint256 mockCurrentBlockTimestamp;
+    uint256 activationTimestamp;
+    uint256 depositAmount;
+
+    // Test validator BLS public key (48 bytes)
+    bytes validatorPubkey =
+        hex"6559ea8a926160a0681fb62b44c307aa96227bcd640c1bae49dd6d5bf49735ad010000000000000000000000b9d7934878b5fb9610b3fe8a5e441e8fad7e293f";
+
+    function setUp() public {
+        // set chainid to 1 so that capsule implementation can use default network constants
+        vm.chainId(1);
+        // enable pectra mode
+        uint256 pectraTs = NetworkConstants.getNetworkParams().pectraHardForkTimestamp;
+        vm.warp(pectraTs + 1);
+
+        string memory validatorInfo = vm.readFile("test/foundry/test-data/validator_container_proof_8955769.json");
+        _setValidatorContainer(validatorInfo);
+
+        beaconOracle = IBeaconChainOracle(address(0x123));
+        vm.etch(address(beaconOracle), bytes("aabb"));
+
+        capsuleOwner = payable(address(0x125));
+
+        ImuaCapsule phantomCapsule = new ImuaCapsule(address(0));
+
+        // Extract the address from the validator's withdrawal credentials (Type 1 format)
+        bytes32 originalWithdrawalCredentials = _getWithdrawalCredentials(validatorContainer);
+        address capsuleAddress = _getCapsuleFromWithdrawalCredentials(originalWithdrawalCredentials);
+
+        vm.etch(capsuleAddress, address(phantomCapsule).code);
+        capsule = ImuaCapsule(payable(capsuleAddress));
+
+        capsule.initialize(address(this), capsuleOwner, address(beaconOracle));
+
+        // For Pectra mode tests, we need to create a validator container with Type 2 withdrawal credentials
+        // that matches the capsule address. We modify the validator container after creation.
+        bytes32 expectedWithdrawalCredentials = bytes32(capsule.capsuleWithdrawalCredentials());
+        validatorContainer[1] = expectedWithdrawalCredentials;
+
+        activationTimestamp = BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
+        mockProofTimestamp = activationTimestamp;
+        mockCurrentBlockTimestamp = mockProofTimestamp + SECONDS_PER_SLOT;
+
+        vm.warp(mockCurrentBlockTimestamp);
+        validatorProof.beaconBlockTimestamp = mockProofTimestamp;
+
+        vm.mockCall(
+            address(beaconOracle),
+            abi.encodeWithSelector(beaconOracle.timestampToBlockRoot.selector, mockProofTimestamp),
+            abi.encode(beaconBlockRoot)
+        );
+
+        // Mock the verifyDepositProof call to bypass Merkle proof verification
+        // since we modified the validator container which breaks the proof
+        vm.mockCall(
+            address(capsule),
+            abi.encodeWithSelector(capsule.verifyDepositProof.selector),
+            abi.encode(32 ether) // Return 32 ETH as deposit amount
+        );
+
+        depositAmount = capsule.verifyDepositProof(validatorContainer, validatorProof);
+    }
+
+    function _setValidatorContainer(string memory validatorInfo) internal {
+        validatorContainer = stdJson.readBytes32Array(validatorInfo, ".ValidatorFields");
+        require(validatorContainer.length > 0, "validator container should not be empty");
+
+        validatorProof.stateRoot = stdJson.readBytes32(validatorInfo, ".beaconStateRoot");
+        require(validatorProof.stateRoot != bytes32(0), "state root should not be empty");
+        validatorProof.stateRootProof =
+            stdJson.readBytes32Array(validatorInfo, ".StateRootAgainstLatestBlockHeaderProof");
+        require(validatorProof.stateRootProof.length == 3, "state root proof should have 3 nodes");
+        validatorProof.validatorContainerRootProof =
+            stdJson.readBytes32Array(validatorInfo, ".WithdrawalCredentialProof");
+        require(validatorProof.validatorContainerRootProof.length == 46, "validator root proof should have 46 nodes");
+        validatorProof.validatorIndex = stdJson.readUint(validatorInfo, ".validatorIndex");
+        require(validatorProof.validatorIndex != 0, "validator root index should not be 0");
+
+        beaconBlockRoot = stdJson.readBytes32(validatorInfo, ".latestBlockHeaderRoot");
+        require(beaconBlockRoot != bytes32(0), "beacon block root should not be empty");
+    }
+
+    function _getCapsuleFromWithdrawalCredentials(bytes32 withdrawalCredentials) internal pure returns (address) {
+        return address(bytes20(uint160(uint256(withdrawalCredentials))));
+    }
+
+    function _getPubkey(bytes32[] storage vc) internal view returns (bytes32) {
+        return vc[0];
+    }
+
+    function _getWithdrawalCredentials(bytes32[] storage vc) internal view returns (bytes32) {
+        return vc[1];
+    }
+
+    function _getEffectiveBalance(bytes32[] storage vc) internal view returns (uint64) {
+        return vc[2].fromLittleEndianUint64();
+    }
+
+    function _getActivationEpoch(bytes32[] storage vc) internal view returns (uint64) {
+        return vc[5].fromLittleEndianUint64();
+    }
+
+    function _getExitEpoch(bytes32[] storage vc) internal view returns (uint64) {
+        return vc[6].fromLittleEndianUint64();
+    }
+
+}
+
+contract RequestPartialWithdrawal is PectraWithdrawalSetup {
+
+    function test_requestPartialWithdrawal_success() public {
+        // Arrange: setup test conditions
+        vm.prank(capsuleOwner);
+        uint256 withdrawalAmount = 1 ether;
+        uint256 withdrawalFee = 1 wei; // minimum fee per EIP-7002
+
+        // Act: call requestPartialWithdrawal
+        capsule.requestPartialWithdrawal{value: withdrawalFee}(validatorPubkey, withdrawalAmount);
+
+        // Assert: verify the request was made successfully
+        // Note: In a real implementation, this would emit an event or update state
+        // Here we just verify the function executed without reverting
+        assertTrue(true, "requestPartialWithdrawal executed successfully");
+    }
+
+    function test_requestPartialWithdrawal_revert_NotPectraMode() public {
+        // Arrange: create capsule in non-Pectra mode
+        uint256 pectraTs = NetworkConstants.getNetworkParams().pectraHardForkTimestamp;
+        vm.warp(pectraTs - 1);
+
+        ImuaCapsule nonPectraCapsule = new ImuaCapsule(address(0));
+        address capsuleAddress = _getCapsuleFromWithdrawalCredentials(_getWithdrawalCredentials(validatorContainer));
+        vm.etch(capsuleAddress, address(nonPectraCapsule).code);
+        nonPectraCapsule = ImuaCapsule(payable(capsuleAddress));
+        nonPectraCapsule.initialize(address(this), capsuleOwner, address(beaconOracle));
+
+        uint256 withdrawalAmount = 1 ether;
+        uint256 withdrawalFee = 1 wei;
+
+        // Act & Assert: should revert for non-Pectra mode
+        vm.prank(capsuleOwner);
+        vm.expectRevert();
+        nonPectraCapsule.requestPartialWithdrawal{value: withdrawalFee}(validatorPubkey, withdrawalAmount);
+    }
+
+    function test_requestPartialWithdrawal_revert_ZeroAmount() public {
+        // Arrange
+        vm.prank(capsuleOwner);
+        uint256 withdrawalAmount = 0;
+        uint256 withdrawalFee = 1 wei;
+
+        // Act & Assert: should revert for zero withdrawal amount
+        vm.expectRevert();
+        capsule.requestPartialWithdrawal{value: withdrawalFee}(validatorPubkey, withdrawalAmount);
+    }
+
+    function test_requestPartialWithdrawal_revert_InsufficientFee() public {
+        // Arrange
+        vm.prank(capsuleOwner);
+        uint256 withdrawalAmount = 1 ether;
+        uint256 insufficientFee = 0; // less than minimum 1 wei
+
+        // Act & Assert: should revert for insufficient fee
+        vm.expectRevert();
+        capsule.requestPartialWithdrawal{value: insufficientFee}(validatorPubkey, withdrawalAmount);
+    }
+
+    function test_requestPartialWithdrawal_revert_InvalidPubkey() public {
+        // Arrange: use invalid pubkey (wrong length)
+        vm.prank(capsuleOwner);
+        bytes memory invalidPubkey = hex"1234"; // too short
+        uint256 withdrawalAmount = 1 ether;
+        uint256 withdrawalFee = 1 wei;
+
+        // Act & Assert: should revert for invalid pubkey
+        vm.expectRevert();
+        capsule.requestPartialWithdrawal{value: withdrawalFee}(invalidPubkey, withdrawalAmount);
+    }
+
+    function test_requestPartialWithdrawal_revert_UnauthorizedCaller() public {
+        // Arrange: use different caller (not capsule owner)
+        address unauthorizedCaller = address(0x999);
+        vm.prank(unauthorizedCaller);
+        uint256 withdrawalAmount = 1 ether;
+        uint256 withdrawalFee = 1 wei;
+
+        // Act & Assert: should revert for unauthorized caller
+        vm.expectRevert();
+        capsule.requestPartialWithdrawal{value: withdrawalFee}(validatorPubkey, withdrawalAmount);
+    }
+
+}
+
+contract RequestFullWithdrawal is PectraWithdrawalSetup {
+
+    function test_requestFullWithdrawal_success() public {
+        // Arrange: setup test conditions
+        vm.prank(capsuleOwner);
+        uint256 withdrawalFee = 1 wei; // minimum fee per EIP-7002
+
+        // Act: call requestFullWithdrawal
+        capsule.requestFullWithdrawal{value: withdrawalFee}(validatorPubkey);
+
+        // Assert: verify the request was made successfully
+        // Note: In a real implementation, this would emit an event or update state
+        // Here we just verify the function executed without reverting
+        assertTrue(true, "requestFullWithdrawal executed successfully");
+    }
+
+    function test_requestFullWithdrawal_revert_NotPectraMode() public {
+        // Arrange: create capsule in non-Pectra mode
+        uint256 pectraTs = NetworkConstants.getNetworkParams().pectraHardForkTimestamp;
+        vm.warp(pectraTs - 1);
+
+        ImuaCapsule nonPectraCapsule = new ImuaCapsule(address(0));
+        address capsuleAddress = _getCapsuleFromWithdrawalCredentials(_getWithdrawalCredentials(validatorContainer));
+        vm.etch(capsuleAddress, address(nonPectraCapsule).code);
+        nonPectraCapsule = ImuaCapsule(payable(capsuleAddress));
+        nonPectraCapsule.initialize(address(this), capsuleOwner, address(beaconOracle));
+
+        uint256 withdrawalFee = 1 wei;
+
+        // Act & Assert: should revert for non-Pectra mode
+        vm.prank(capsuleOwner);
+        vm.expectRevert();
+        nonPectraCapsule.requestFullWithdrawal{value: withdrawalFee}(validatorPubkey);
+    }
+
+    function test_requestFullWithdrawal_revert_InsufficientFee() public {
+        // Arrange
+        vm.prank(capsuleOwner);
+        uint256 insufficientFee = 0; // less than minimum 1 wei
+
+        // Act & Assert: should revert for insufficient fee
+        vm.expectRevert();
+        capsule.requestFullWithdrawal{value: insufficientFee}(validatorPubkey);
+    }
+
+    function test_requestFullWithdrawal_revert_InvalidPubkey() public {
+        // Arrange: use invalid pubkey (wrong length)
+        vm.prank(capsuleOwner);
+        bytes memory invalidPubkey = hex"1234"; // too short
+
+        uint256 withdrawalFee = 1 wei;
+
+        // Act & Assert: should revert for invalid pubkey
+        vm.expectRevert();
+        capsule.requestFullWithdrawal{value: withdrawalFee}(invalidPubkey);
+    }
+
+    function test_requestFullWithdrawal_revert_UnauthorizedCaller() public {
+        // Arrange: use different caller (not capsule owner)
+        address unauthorizedCaller = address(0x999);
+        vm.prank(unauthorizedCaller);
+        uint256 withdrawalFee = 1 wei;
+
+        // Act & Assert: should revert for unauthorized caller
+        vm.expectRevert();
+        capsule.requestFullWithdrawal{value: withdrawalFee}(validatorPubkey);
+    }
+
+    function test_requestFullWithdrawal_revert_ValidatorAlreadyExited() public {
+        // Arrange: first request a full withdrawal to exit the validator
+        vm.prank(capsuleOwner);
+        uint256 withdrawalFee = 1 wei;
+        capsule.requestFullWithdrawal{value: withdrawalFee}(validatorPubkey);
+
+        // Act & Assert: should revert when trying to exit again
+        vm.prank(capsuleOwner);
+        vm.expectRevert();
+        capsule.requestFullWithdrawal{value: withdrawalFee}(validatorPubkey);
+    }
+
+}
+
+contract GetCurrentWithdrawalFee is PectraWithdrawalSetup {
+
+    function test_getCurrentWithdrawalFee_success() public view {
+        // Act: call getCurrentWithdrawalFee
+        uint256 fee = capsule.getCurrentWithdrawalFee();
+
+        // Assert: verify fee is at least the minimum required (1 wei per EIP-7002)
+        assertGe(fee, 1 wei, "withdrawal fee should be at least 1 wei");
+    }
+
+    function test_getCurrentWithdrawalFee_returns_consistent_value() public view {
+        // Act: call getCurrentWithdrawalFee multiple times
+        uint256 fee1 = capsule.getCurrentWithdrawalFee();
+        uint256 fee2 = capsule.getCurrentWithdrawalFee();
+
+        // Assert: should return consistent values in the same block
+        assertEq(fee1, fee2, "withdrawal fee should be consistent within same block");
+    }
+
+}

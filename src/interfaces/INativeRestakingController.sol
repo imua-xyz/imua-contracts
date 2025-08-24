@@ -46,4 +46,17 @@ interface INativeRestakingController is IBaseRestakingController {
     /// staker's capsule's balance and staker's staking position's withdrawable balance.
     function claimNSTFromImuachain(uint256 claimAmount) external payable;
 
+    /// @notice Request partial withdrawal from a validator via beacon chain (Pectra mode only)
+    /// @param pubkey The validator's BLS public key (48 bytes)
+    /// @param amount The amount to withdraw in wei
+    function requestBeaconPartialWithdrawal(bytes calldata pubkey, uint256 amount) external payable;
+
+    /// @notice Request full withdrawal from a validator via beacon chain (Pectra mode only)
+    /// @param pubkey The validator's BLS public key (48 bytes)
+    function requestBeaconFullWithdrawal(bytes calldata pubkey) external payable;
+
+    /// @notice Get current withdrawal fee for the caller's capsule
+    /// @return Current withdrawal fee in wei
+    function getCurrentWithdrawalFee() external view returns (uint256);
+
 }
