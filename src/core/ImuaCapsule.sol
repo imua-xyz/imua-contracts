@@ -6,6 +6,8 @@ import {IImuaCapsule} from "../interfaces/IImuaCapsule.sol";
 import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
 import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 import {Endian} from "../libraries/Endian.sol";
+
+import {PectraConstants} from "../libraries/PectraConstants.sol";
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 import {ImuaCapsuleStorage} from "../storage/ImuaCapsuleStorage.sol";
 
@@ -21,16 +23,6 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
     using BeaconChainProofs for bytes32;
     using Endian for bytes32;
     using ValidatorContainer for bytes32[];
-
-    /// @notice The address of the Beacon Withdrawal Precompile
-    address private constant BEACON_WITHDRAWAL_PRECOMPILE = 0x00000961Ef480Eb55e80D19ad83579A64c007002;
-
-    /// @notice Constants for EIP-7002 withdrawal requests
-    uint256 private constant PUBKEY_LENGTH = 48;
-    uint256 private constant AMOUNT_LENGTH = 8;
-    uint256 private constant CALLDATA_LENGTH = 56; // PUBKEY_LENGTH + AMOUNT_LENGTH
-    uint256 private constant MIN_WITHDRAWAL_FEE = 1 wei;
-    uint256 private constant FEE_RESPONSE_LENGTH = 32; // Length of fee response from precompile
 
     /// @notice Emitted when the ETH principal balance is unlocked.
     /// @param owner The address of the capsule owner.
@@ -353,7 +345,7 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         if (!isPectra) {
             revert BeaconWithdrawalNotSupportedInPrePectraMode();
         }
-        if (pubkey.length != PUBKEY_LENGTH) {
+        if (pubkey.length != PectraConstants.PUBKEY_LENGTH) {
             revert InvalidValidatorPubkey(pubkey);
         }
         if (amount == 0) {
@@ -391,7 +383,7 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         if (!isPectra) {
             revert BeaconWithdrawalNotSupportedInPrePectraMode();
         }
-        if (pubkey.length != PUBKEY_LENGTH) {
+        if (pubkey.length != PectraConstants.PUBKEY_LENGTH) {
             revert InvalidValidatorPubkey(pubkey);
         }
 
@@ -437,10 +429,10 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         );
 
         // Verify the input is exactly 56 bytes as required by EIP-7002 (48 bytes pubkey + 8 bytes amount)
-        require(callData.length == CALLDATA_LENGTH, "ImuaCapsule: invalid calldata length");
+        require(callData.length == PectraConstants.CALLDATA_LENGTH, "ImuaCapsule: invalid calldata length");
 
         // Call the precompile with the fee provided by the caller
-        (bool success,) = BEACON_WITHDRAWAL_PRECOMPILE.call{value: msg.value}(callData);
+        (bool success,) = PectraConstants.BEACON_WITHDRAWAL_PRECOMPILE.call{value: msg.value}(callData);
 
         return success;
     }
@@ -459,11 +451,11 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
     function _getCurrentWithdrawalFee() internal view returns (uint256 fee) {
         // According to EIP-7002, fee starts at 1 wei and increases dynamically
         // Try to query dynamic fee from precompile
-        (bool success, bytes memory data) = BEACON_WITHDRAWAL_PRECOMPILE.staticcall("");
+        (bool success, bytes memory data) = PectraConstants.BEACON_WITHDRAWAL_PRECOMPILE.staticcall("");
         if (success) {
             fee = uint256(bytes32(data));
         } else {
-            fee = MIN_WITHDRAWAL_FEE; // Fallback to minimum fee
+            fee = PectraConstants.MIN_WITHDRAWAL_FEE; // Fallback to minimum fee
         }
 
         return fee;
