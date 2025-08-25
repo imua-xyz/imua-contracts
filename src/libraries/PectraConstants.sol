@@ -14,6 +14,5 @@ library PectraConstants {
     uint256 internal constant AMOUNT_LENGTH = 8;
     uint256 internal constant CALLDATA_LENGTH = 56; // PUBKEY_LENGTH + AMOUNT_LENGTH
     uint256 internal constant MIN_WITHDRAWAL_FEE = 1 wei;
-    uint256 internal constant FEE_RESPONSE_LENGTH = 32; // Length of fee response from precompile
 
 }

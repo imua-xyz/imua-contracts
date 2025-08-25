@@ -62,6 +62,11 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
     /// @param reason The reason for the failure
     event BeaconWithdrawalRequestFailed(bytes indexed pubkey, uint256 amount, string reason);
 
+    /// @notice Emitted when excess withdrawal fee is refunded to withdrawable balance
+    /// @param capsuleOwner The address of the capsule owner
+    /// @param excessFee The amount of excess fee refunded
+    event ExcessWithdrawalFeeRefunded(address indexed capsuleOwner, uint256 excessFee);
+
     /// @dev Thrown when the validator container is invalid.
     /// @param pubkeyHash The validator's BLS12-381 public key hash.
     error InvalidValidatorContainer(bytes32 pubkeyHash);
@@ -333,8 +338,8 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
     }
 
     /// @inheritdoc IImuaCapsule
-    /// @dev IMPORTANT: Overpaid fees are not returned to the caller. Query getCurrentWithdrawalFee()
-    /// before calling to avoid overpayment. Fee can change between transaction creation and execution.
+    /// @dev Excess fees are refunded to withdrawable balance and can be withdrawn later.
+    /// @dev Query getCurrentWithdrawalFee() before calling for optimal fee management.
     function requestPartialWithdrawal(bytes calldata pubkey, uint256 amount)
         external
         payable
@@ -375,8 +380,8 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
     }
 
     /// @inheritdoc IImuaCapsule
-    /// @dev IMPORTANT: Overpaid fees are not returned to the caller. Query getCurrentWithdrawalFee()
-    /// before calling to avoid overpayment. Fee can change between transaction creation and execution.
+    /// @dev Excess fees are refunded to withdrawable balance and can be withdrawn later.
+    /// @dev Query getCurrentWithdrawalFee() before calling for optimal fee management.
     function requestFullWithdrawal(bytes calldata pubkey) external payable onlyGateway nonReentrant {
         // Validate input parameters
         if (!isPectra) {
@@ -419,18 +424,24 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         // Ensure amount fits in uint64 (8 bytes)
         require(amount <= type(uint64).max, "ImuaCapsule: amount exceeds uint64 max");
 
+        // Get exact fee to avoid overpayment (EIP-7002: overpaid fees are not returned)
+        uint256 exactFee = _getCurrentWithdrawalFee();
+
         // Encode according to EIP-7002 specification
-        // Per EIP-7002 example: abi.encodePacked(pubkey, amount) - Solidity handles endianness correctly
         bytes memory callData = abi.encodePacked(
             pubkey, // validator_pubkey (48 bytes)
             uint64(amount) // amount (8 bytes) - Solidity encodes as expected by precompile
         );
 
-        // Verify the input is exactly 56 bytes as required by EIP-7002 (48 bytes pubkey + 8 bytes amount)
-        require(callData.length == PectraConstants.CALLDATA_LENGTH, "ImuaCapsule: invalid calldata length");
+        // Call precompile with exact fee to prevent overpayment
+        (bool success,) = PectraConstants.BEACON_WITHDRAWAL_PRECOMPILE.call{value: exactFee}(callData);
 
-        // Call the precompile with the fee provided by the caller
-        (bool success,) = PectraConstants.BEACON_WITHDRAWAL_PRECOMPILE.call{value: msg.value}(callData);
+        // Refund any excess fee to withdrawable balance for user to withdraw later
+        if (msg.value > exactFee) {
+            uint256 excessFee = msg.value - exactFee;
+            withdrawableBalance += excessFee;
+            emit ExcessWithdrawalFeeRefunded(capsuleOwner, excessFee);
+        }
 
         return success;
     }

@@ -71,7 +71,7 @@ interface IImuaCapsule {
     /// @dev This function interacts with the beacon withdrawal precompile to claim rewards
     /// @dev Only available for Type 2 validators (0x02 withdrawal credentials) in Pectra mode
     /// @dev Requires payment of withdrawal fee (minimum 1 wei per EIP-7002)
-    /// @dev IMPORTANT: Overpaid fees are not returned. Query getCurrentWithdrawalFee() first to avoid overpayment
+    /// @dev Excess fees are refunded to withdrawable balance and can be withdrawn later
     /// @param pubkey The validator's BLS public key (48 bytes)
     /// @param amount The amount to withdraw in wei (must be > 0 for partial withdrawal)
     function requestPartialWithdrawal(bytes calldata pubkey, uint256 amount) external payable;
@@ -80,14 +80,14 @@ interface IImuaCapsule {
     /// @dev This function interacts with the beacon withdrawal precompile to exit the validator
     /// @dev Only available for Type 2 validators (0x02 withdrawal credentials) in Pectra mode
     /// @dev Requires payment of withdrawal fee (minimum 1 wei per EIP-7002)
-    /// @dev IMPORTANT: Overpaid fees are not returned. Query getCurrentWithdrawalFee() first to avoid overpayment
+    /// @dev Excess fees are refunded to withdrawable balance and can be withdrawn later
     /// @param pubkey The validator's BLS public key (48 bytes)
     function requestFullWithdrawal(bytes calldata pubkey) external payable;
 
     /// @notice Get current withdrawal fee required for beacon withdrawal requests
     /// @dev Returns the fee required to submit a withdrawal request per EIP-7002
     /// @dev Fee is dynamic and can change between query and transaction execution
-    /// @dev Use this function to avoid overpayment - excess fees are not refunded
+    /// @dev Query this before calling withdrawal functions for optimal fee management
     /// @return fee Current fee in wei (minimum 1 wei)
     function getCurrentWithdrawalFee() external view returns (uint256);
 
