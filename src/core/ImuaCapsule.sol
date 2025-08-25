@@ -364,12 +364,6 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
             revert UnregisteredValidator(pubkeyHash);
         }
 
-        // Check fee requirement (EIP-7002 requires minimum 1 wei)
-        uint256 requiredFee = _getCurrentWithdrawalFee();
-        if (msg.value < requiredFee) {
-            revert InsufficientFee(msg.value, requiredFee);
-        }
-
         // Call the beacon withdrawal precompile
         bool success = _callBeaconWithdrawalPrecompile(pubkey, amount);
         if (!success) {
@@ -398,12 +392,6 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
             revert UnregisteredValidator(pubkeyHash);
         }
 
-        // Check fee requirement (EIP-7002 requires minimum 1 wei)
-        uint256 requiredFee = _getCurrentWithdrawalFee();
-        if (msg.value < requiredFee) {
-            revert InsufficientFee(msg.value, requiredFee);
-        }
-
         // Call the beacon withdrawal precompile with amount = 0 for full withdrawal
         bool success = _callBeaconWithdrawalPrecompile(pubkey, 0);
         if (!success) {
@@ -426,6 +414,11 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
 
         // Get exact fee to avoid overpayment (EIP-7002: overpaid fees are not returned)
         uint256 exactFee = _getCurrentWithdrawalFee();
+
+        // Check fee requirement (EIP-7002 requires minimum 1 wei)
+        if (msg.value < exactFee) {
+            revert InsufficientFee(msg.value, exactFee);
+        }
 
         // Encode according to EIP-7002 specification
         bytes memory callData = abi.encodePacked(
