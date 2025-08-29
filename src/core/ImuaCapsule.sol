@@ -7,7 +7,7 @@ import {INativeRestakingController} from "../interfaces/INativeRestakingControll
 import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 import {Endian} from "../libraries/Endian.sol";
 
-import {PectraConstants} from "../libraries/PectraConstants.sol";
+import {NetworkConstants} from "../libraries/NetworkConstants.sol";
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 import {ImuaCapsuleStorage} from "../storage/ImuaCapsuleStorage.sol";
 
@@ -350,15 +350,12 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         if (!isPectra) {
             revert BeaconWithdrawalNotSupportedInPrePectraMode();
         }
-        if (pubkey.length != PectraConstants.PUBKEY_LENGTH) {
-            revert InvalidValidatorPubkey(pubkey);
-        }
         if (amount == 0) {
             revert InvalidWithdrawalAmount(amount);
         }
 
         // Verify that the validator exists and is registered with this capsule
-        bytes32 pubkeyHash = sha256(pubkey);
+        bytes32 pubkeyHash = ValidatorContainer.computePubkeyHash(pubkey);
         Validator storage validator = _capsuleValidators[pubkeyHash];
         if (validator.status == VALIDATOR_STATUS.UNREGISTERED) {
             revert UnregisteredValidator(pubkeyHash);
@@ -381,12 +378,9 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         if (!isPectra) {
             revert BeaconWithdrawalNotSupportedInPrePectraMode();
         }
-        if (pubkey.length != PectraConstants.PUBKEY_LENGTH) {
-            revert InvalidValidatorPubkey(pubkey);
-        }
 
         // Verify that the validator exists and is registered with this capsule
-        bytes32 pubkeyHash = sha256(pubkey);
+        bytes32 pubkeyHash = ValidatorContainer.computePubkeyHash(pubkey);
         Validator storage validator = _capsuleValidators[pubkeyHash];
         if (validator.status == VALIDATOR_STATUS.UNREGISTERED) {
             revert UnregisteredValidator(pubkeyHash);
@@ -427,7 +421,7 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         );
 
         // Call precompile with exact fee to prevent overpayment
-        (bool success,) = PectraConstants.BEACON_WITHDRAWAL_PRECOMPILE.call{value: exactFee}(callData);
+        (bool success,) = NetworkConstants.BEACON_WITHDRAWAL_PRECOMPILE.call{value: exactFee}(callData);
 
         // Refund any excess fee to withdrawable balance for user to withdraw later
         if (msg.value > exactFee) {
@@ -453,14 +447,14 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
     function _getCurrentWithdrawalFee() internal view returns (uint256 fee) {
         // According to EIP-7002, fee starts at 1 wei and increases dynamically
         // Try to query dynamic fee from precompile
-        (bool success, bytes memory data) = PectraConstants.BEACON_WITHDRAWAL_PRECOMPILE.staticcall("");
+        (bool success, bytes memory data) = NetworkConstants.BEACON_WITHDRAWAL_PRECOMPILE.staticcall("");
         if (success) {
             fee = uint256(bytes32(data));
-            if (fee < PectraConstants.MIN_WITHDRAWAL_FEE) {
-                fee = PectraConstants.MIN_WITHDRAWAL_FEE;
+            if (fee < MIN_WITHDRAWAL_FEE) {
+                fee = MIN_WITHDRAWAL_FEE;
             }
         } else {
-            fee = PectraConstants.MIN_WITHDRAWAL_FEE; // Fallback to minimum fee
+            fee = MIN_WITHDRAWAL_FEE; // Fallback to minimum fee
         }
 
         return fee;

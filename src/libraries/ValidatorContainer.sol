@@ -22,6 +22,20 @@ library ValidatorContainer {
     uint256 internal constant VALID_LENGTH = 8;
     uint256 internal constant MERKLE_TREE_HEIGHT = 3;
 
+    /// @notice Computes EigenPod style pubkey hash (48 bytes)
+    /// @dev EigenPod method: append 16 zero bytes and compute sha256
+    /// @dev This matches the implementation in eigenpod-proofs-generation
+    /// @param pubkey The 48-byte BLS public key
+    /// @return The sha256 hash of the public key padded with 16 zeros
+    function computePubkeyHash(bytes memory pubkey) internal pure returns (bytes32) {
+        require(pubkey.length == 48, "ValidatorContainer: invalid pubkey length");
+
+        // EigenPod computePubkeyHash: tack on 16 bytes of 0's and compute sha256
+        // https://github.com/Layr-Labs/eigenpod-proofs-generation/blob/82ee04a15065fdedd58ed8d167688bb03f76dfb2/prove_validator.go#L154
+        bytes memory paddedPubkey = abi.encodePacked(pubkey, bytes16(0));
+        return sha256(paddedPubkey);
+    }
+
     function verifyValidatorContainerBasic(bytes32[] calldata validatorContainer) internal pure returns (bool) {
         return validatorContainer.length == VALID_LENGTH;
     }

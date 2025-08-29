@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Test.sol";
+import "forge-std/console.sol";
 
 import "src/core/ImuaCapsule.sol";
 import "src/interfaces/IImuaCapsule.sol";
@@ -13,10 +14,11 @@ import "src/libraries/BeaconChainProofs.sol";
 import "src/libraries/Endian.sol";
 
 import {Errors} from "src/libraries/Errors.sol";
+
+import {ValidatorContainer} from "src/libraries/ValidatorContainer.sol";
 import {ImuaCapsuleStorage} from "src/storage/ImuaCapsuleStorage.sol";
 
 import {NetworkConstants} from "src/libraries/NetworkConstants.sol";
-import {PectraConstants} from "src/libraries/PectraConstants.sol";
 
 contract DepositSetup is Test {
 
@@ -692,22 +694,26 @@ contract RequestPartialWithdrawal is Test {
         uint256 withdrawalFee = 1 wei; // minimum fee per EIP-7002
 
         // Debug: check pubkey length
-        require(validatorPubkey.length == PectraConstants.PUBKEY_LENGTH, "Invalid pubkey length");
+        require(validatorPubkey.length == 48, "Invalid pubkey length");
 
         // Mock the beacon withdrawal precompile call to succeed
         vm.mockCall(
-            PectraConstants.BEACON_WITHDRAWAL_PRECOMPILE,
+            NetworkConstants.BEACON_WITHDRAWAL_PRECOMPILE,
             abi.encodePacked(validatorPubkey, uint64(withdrawalAmount)),
             abi.encode(true)
         );
 
         // Mock the getCurrentWithdrawalFee call to return minimum fee
         vm.mockCall(
-            PectraConstants.BEACON_WITHDRAWAL_PRECOMPILE, abi.encodeWithSignature(""), abi.encode(uint256(1 wei))
+            NetworkConstants.BEACON_WITHDRAWAL_PRECOMPILE, abi.encodeWithSignature(""), abi.encode(uint256(1 wei))
         );
 
         // Act & Assert: should revert with UnregisteredValidator since we haven't registered the validator
-        vm.expectRevert(abi.encodeWithSelector(ImuaCapsule.UnregisteredValidator.selector, sha256(validatorPubkey)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ImuaCapsule.UnregisteredValidator.selector, ValidatorContainer.computePubkeyHash(bytes(validatorPubkey))
+            )
+        );
         testCapsule.requestPartialWithdrawal{value: withdrawalFee}(validatorPubkey, withdrawalAmount);
     }
 
@@ -810,11 +816,15 @@ contract RequestPartialWithdrawal is Test {
 
         // Mock the getCurrentWithdrawalFee call to return minimum fee
         vm.mockCall(
-            PectraConstants.BEACON_WITHDRAWAL_PRECOMPILE, abi.encodeWithSignature(""), abi.encode(uint256(1 wei))
+            NetworkConstants.BEACON_WITHDRAWAL_PRECOMPILE, abi.encodeWithSignature(""), abi.encode(uint256(1 wei))
         );
 
         // Act & Assert: should revert for unregistered validator (since validator check comes before fee check)
-        vm.expectRevert(abi.encodeWithSelector(ImuaCapsule.UnregisteredValidator.selector, sha256(validatorPubkey)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ImuaCapsule.UnregisteredValidator.selector, ValidatorContainer.computePubkeyHash(bytes(validatorPubkey))
+            )
+        );
         testCapsule.requestPartialWithdrawal{value: insufficientFee}(validatorPubkey, withdrawalAmount);
     }
 
@@ -898,23 +908,83 @@ contract RequestFullWithdrawal is Test {
 
         // Mock the beacon withdrawal precompile call to succeed
         vm.mockCall(
-            PectraConstants.BEACON_WITHDRAWAL_PRECOMPILE,
+            NetworkConstants.BEACON_WITHDRAWAL_PRECOMPILE,
             abi.encodePacked(validatorPubkey, uint64(0)), // amount = 0 for full withdrawal
             abi.encode(true)
         );
 
         // Mock the getCurrentWithdrawalFee call to return minimum fee
         vm.mockCall(
-            PectraConstants.BEACON_WITHDRAWAL_PRECOMPILE, abi.encodeWithSignature(""), abi.encode(uint256(1 wei))
+            NetworkConstants.BEACON_WITHDRAWAL_PRECOMPILE, abi.encodeWithSignature(""), abi.encode(uint256(1 wei))
         );
 
         // Act & Assert: should revert with UnregisteredValidator since we haven't registered the validator
-        vm.expectRevert(abi.encodeWithSelector(ImuaCapsule.UnregisteredValidator.selector, sha256(validatorPubkey)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ImuaCapsule.UnregisteredValidator.selector, ValidatorContainer.computePubkeyHash(bytes(validatorPubkey))
+            )
+        );
         testCapsule.requestFullWithdrawal{value: withdrawalFee}(validatorPubkey);
     }
 
     // Note: Other RequestFullWithdrawal tests are removed to simplify the test suite
     // The core functionality is tested in the success test above
+
+}
+
+// Test SSZ hash computation for BLS public keys
+contract TestSSZHash is Test {
+
+    using stdStorage for StdStorage;
+    using ValidatorContainer for bytes;
+
+    function test_computePubkeyHash() public pure {
+        // Test with specified 48-byte BLS public key
+        bytes memory pubkey =
+            hex"88e169e0a01cbcbfe2e5dc0abec6b504401a58ba34edeabd7f6939eb7c7cbb2730deb9da6ead98e260000c6582248545";
+
+        // EigenPod method result (sha256 of pubkey + 16 zero bytes)
+        bytes32 eigenPodExpectedHash = 0x490a65dc33b6347b0137e01405281fbf288305687a6978856f0e3ae23c92d2b1;
+
+        // Compute actual hash using ValidatorContainer (EigenPod method)
+        bytes32 actualPubkeyHash = ValidatorContainer.computePubkeyHash(pubkey);
+
+        // Verify the hash is not zero and has correct length
+        assertNotEq(actualPubkeyHash, bytes32(0), "Hash should not be zero");
+        assertEq(pubkey.length, 48, "Pubkey should be 48 bytes");
+
+        // Now our implementation matches EigenPod method
+        assertEq(actualPubkeyHash, eigenPodExpectedHash, "Should match EigenPod expected hash");
+
+        console.log("=== EigenPod Pubkey Hash Verification ===");
+        console.log(
+            "Input pubkey:     0x88e169e0a01cbcbfe2e5dc0abec6b504401a58ba34edeabd7f6939eb7c7cbb2730deb9da6ead98e260000c6582248545"
+        );
+        console.log("Expected hash:    ", uint256(eigenPodExpectedHash));
+        console.log("Computed hash:    ", uint256(actualPubkeyHash));
+        console.log("✅ Match:         ", actualPubkeyHash == eigenPodExpectedHash ? "true" : "false");
+    }
+
+    /// @notice Test EigenPod style pubkey hash computation directly
+    function test_eigenPodPubkeyHash() public pure {
+        // Test EigenPod's computePubkeyHash method: sha256(pubkey + 16_zero_bytes)
+        bytes memory pubkey =
+            hex"88e169e0a01cbcbfe2e5dc0abec6b504401a58ba34edeabd7f6939eb7c7cbb2730deb9da6ead98e260000c6582248545";
+        bytes32 expectedEigenPodHash = 0x490a65dc33b6347b0137e01405281fbf288305687a6978856f0e3ae23c92d2b1;
+
+        // Simulate EigenPod method: append 16 zero bytes and sha256
+        bytes memory paddedPubkey = abi.encodePacked(pubkey, bytes16(0));
+        bytes32 eigenPodHash = sha256(paddedPubkey);
+
+        assertEq(eigenPodHash, expectedEigenPodHash, "Should match EigenPod expected hash");
+
+        console.log("Direct EigenPod method verification:");
+        console.log("Pubkey length:       ", pubkey.length, "bytes");
+        console.log("Padded length:       ", paddedPubkey.length, "bytes");
+        console.log("Expected hash:       ", uint256(expectedEigenPodHash));
+        console.log("Computed hash:       ", uint256(eigenPodHash));
+        console.log("✅ Verification:     ", eigenPodHash == expectedEigenPodHash ? "PASSED" : "FAILED");
+    }
 
 }
 
