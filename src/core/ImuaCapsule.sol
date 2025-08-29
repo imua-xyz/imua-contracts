@@ -438,6 +438,11 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         return _getCurrentWithdrawalFee();
     }
 
+    /// @inheritdoc IImuaCapsule
+    function getPubkeyHash(bytes calldata pubkey) external pure returns (bytes32) {
+        return ValidatorContainer.computePubkeyHash(pubkey);
+    }
+
     /**
      * @dev Get current withdrawal fee from precompile
      * @dev NOTE: Fee is dynamic and can change rapidly due to network demand

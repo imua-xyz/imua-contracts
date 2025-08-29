@@ -91,4 +91,11 @@ interface IImuaCapsule {
     /// @return fee Current fee in wei (minimum 1 wei)
     function getCurrentWithdrawalFee() external view returns (uint256);
 
+    /// @notice Get the pubkey hash for a given validator public key
+    /// @dev This function computes the pubkey hash using the same algorithm as EigenPod
+    /// @dev Used for querying validator information without performing withdrawal
+    /// @param pubkey The validator's BLS public key (must be 48 bytes)
+    /// @return The computed pubkey hash (32 bytes)
+    function getPubkeyHash(bytes calldata pubkey) external pure returns (bytes32);
+
 }

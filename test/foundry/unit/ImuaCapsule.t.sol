@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Test.sol";
-import "forge-std/console.sol";
 
 import "src/core/ImuaCapsule.sol";
 import "src/interfaces/IImuaCapsule.sol";
@@ -859,8 +858,8 @@ contract RequestPartialWithdrawal is Test {
         uint256 withdrawalAmount = 1 ether;
         uint256 withdrawalFee = 1 wei;
 
-        // Act & Assert: should revert for invalid pubkey
-        vm.expectRevert(abi.encodeWithSelector(ImuaCapsule.InvalidValidatorPubkey.selector, invalidPubkey));
+        // Act & Assert: should revert for invalid pubkey (length check in ValidatorContainer.computePubkeyHash)
+        vm.expectRevert(bytes("ValidatorContainer: invalid pubkey length"));
         testCapsule.requestPartialWithdrawal{value: withdrawalFee}(invalidPubkey, withdrawalAmount);
     }
 
@@ -927,6 +926,41 @@ contract RequestFullWithdrawal is Test {
         testCapsule.requestFullWithdrawal{value: withdrawalFee}(validatorPubkey);
     }
 
+    function test_requestFullWithdrawal_revert_InvalidPubkey() public {
+        // Arrange: Create a new capsule for this test
+        vm.chainId(1);
+        uint256 pectraTs = NetworkConstants.getNetworkParams().pectraHardForkTimestamp;
+        vm.warp(pectraTs + 1);
+
+        IBeaconChainOracle testBeaconOracle = IBeaconChainOracle(address(0x123));
+        vm.etch(address(testBeaconOracle), bytes("aabb"));
+
+        address payable testCapsuleOwner = payable(address(0x125));
+
+        // Create capsule implementation and deploy at specific address
+        ImuaCapsule implementation = new ImuaCapsule(address(0));
+        address testCapsuleAddress = address(0xFFF);
+        vm.etch(testCapsuleAddress, address(implementation).code);
+        ImuaCapsule testCapsule = ImuaCapsule(payable(testCapsuleAddress));
+
+        // Mock the getPectraHardForkTimestamp call to avoid NetworkConstants dependency
+        vm.mockCall(
+            address(0xf718DcEC914835d47a5e428A5397BF2F7276808b),
+            abi.encodeWithSignature("getPectraHardForkTimestamp()"),
+            abi.encode(uint256(1_746_612_312)) // Pectra timestamp
+        );
+
+        testCapsule.initialize(address(this), testCapsuleOwner, address(testBeaconOracle));
+
+        // Arrange: use invalid pubkey (wrong length)
+        bytes memory invalidPubkey = hex"1234"; // too short
+        uint256 withdrawalFee = 1 wei;
+
+        // Act & Assert: should revert for invalid pubkey (length check in ValidatorContainer.computePubkeyHash)
+        vm.expectRevert(bytes("ValidatorContainer: invalid pubkey length"));
+        testCapsule.requestFullWithdrawal{value: withdrawalFee}(invalidPubkey);
+    }
+
     // Note: Other RequestFullWithdrawal tests are removed to simplify the test suite
     // The core functionality is tested in the success test above
 
@@ -955,14 +989,6 @@ contract TestSSZHash is Test {
 
         // Now our implementation matches EigenPod method
         assertEq(actualPubkeyHash, eigenPodExpectedHash, "Should match EigenPod expected hash");
-
-        console.log("=== EigenPod Pubkey Hash Verification ===");
-        console.log(
-            "Input pubkey:     0x88e169e0a01cbcbfe2e5dc0abec6b504401a58ba34edeabd7f6939eb7c7cbb2730deb9da6ead98e260000c6582248545"
-        );
-        console.log("Expected hash:    ", uint256(eigenPodExpectedHash));
-        console.log("Computed hash:    ", uint256(actualPubkeyHash));
-        console.log("✅ Match:         ", actualPubkeyHash == eigenPodExpectedHash ? "true" : "false");
     }
 
     /// @notice Test EigenPod style pubkey hash computation directly
@@ -977,13 +1003,6 @@ contract TestSSZHash is Test {
         bytes32 eigenPodHash = sha256(paddedPubkey);
 
         assertEq(eigenPodHash, expectedEigenPodHash, "Should match EigenPod expected hash");
-
-        console.log("Direct EigenPod method verification:");
-        console.log("Pubkey length:       ", pubkey.length, "bytes");
-        console.log("Padded length:       ", paddedPubkey.length, "bytes");
-        console.log("Expected hash:       ", uint256(expectedEigenPodHash));
-        console.log("Computed hash:       ", uint256(eigenPodHash));
-        console.log("✅ Verification:     ", eigenPodHash == expectedEigenPodHash ? "PASSED" : "FAILED");
     }
 
 }

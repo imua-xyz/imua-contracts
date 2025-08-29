@@ -31,7 +31,8 @@ library ValidatorContainer {
         require(pubkey.length == 48, "ValidatorContainer: invalid pubkey length");
 
         // EigenPod computePubkeyHash: tack on 16 bytes of 0's and compute sha256
-        // https://github.com/Layr-Labs/eigenpod-proofs-generation/blob/82ee04a15065fdedd58ed8d167688bb03f76dfb2/prove_validator.go#L154
+        // Ref: https://github.com/Layr-Labs/eigenpod-proofs-generation/blob/
+        // 82ee04a15065fdedd58ed8d167688bb03f76dfb2/prove_validator.go#L154
         bytes memory paddedPubkey = abi.encodePacked(pubkey, bytes16(0));
         return sha256(paddedPubkey);
     }
