@@ -168,4 +168,10 @@ contract ImuaCapsuleStorage {
         }
     }
 
+    /// @dev Gets the beacon withdrawal precompile address for EIP-7002 operations.
+    /// @return The address of the beacon withdrawal precompile contract.
+    function getBeaconWithdrawalPrecompile() internal pure returns (address) {
+        return NetworkConstants.BEACON_WITHDRAWAL_PRECOMPILE;
+    }
+
 }

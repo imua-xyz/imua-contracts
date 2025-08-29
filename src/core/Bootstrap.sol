@@ -838,7 +838,7 @@ contract Bootstrap is
     }
 
     /// @notice Request partial withdrawal from a validator via beacon chain (not supported in Bootstrap)
-    function requestBeaconPartialWithdrawal(bytes calldata, uint256)
+    function requestBeaconPartialWithdrawal(bytes calldata, uint64)
         external
         payable
         override

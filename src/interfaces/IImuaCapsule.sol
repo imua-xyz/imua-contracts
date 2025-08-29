@@ -73,8 +73,8 @@ interface IImuaCapsule {
     /// @dev Requires payment of withdrawal fee (minimum 1 wei per EIP-7002)
     /// @dev Excess fees are refunded to withdrawable balance and can be withdrawn later
     /// @param pubkey The validator's BLS public key (48 bytes)
-    /// @param amount The amount to withdraw in wei (must be > 0 for partial withdrawal)
-    function requestPartialWithdrawal(bytes calldata pubkey, uint256 amount) external payable;
+    /// @param amountInGwei The amount to withdraw in Gwei (must be > 0 for partial withdrawal)
+    function requestPartialWithdrawal(bytes calldata pubkey, uint64 amountInGwei) external payable;
 
     /// @notice Request a full withdrawal for a Type 2 validator (exit staking, only available in Pectra mode)
     /// @dev This function interacts with the beacon withdrawal precompile to exit the validator
@@ -92,7 +92,7 @@ interface IImuaCapsule {
     function getCurrentWithdrawalFee() external view returns (uint256);
 
     /// @notice Get the pubkey hash for a given validator public key
-    /// @dev This function computes the pubkey hash using the same algorithm as EigenPod
+    /// @dev This function computes the pubkey hash using the same algorithm
     /// @dev Used for querying validator information without performing withdrawal
     /// @param pubkey The validator's BLS public key (must be 48 bytes)
     /// @return The computed pubkey hash (32 bytes)

@@ -689,7 +689,7 @@ contract RequestPartialWithdrawal is Test {
 
         testCapsule.initialize(address(this), testCapsuleOwner, address(testBeaconOracle));
 
-        uint256 withdrawalAmount = 1 ether;
+        uint64 withdrawalAmount = 1e9; // 1 Gwei
         uint256 withdrawalFee = 1 wei; // minimum fee per EIP-7002
 
         // Debug: check pubkey length
@@ -742,7 +742,7 @@ contract RequestPartialWithdrawal is Test {
 
         nonPectraCapsule.initialize(address(this), testCapsuleOwner, address(testBeaconOracle));
 
-        uint256 withdrawalAmount = 1 ether;
+        uint64 withdrawalAmount = 1e9; // 1 Gwei
         uint256 withdrawalFee = 1 wei;
 
         // Act & Assert: should revert for non-Pectra mode
@@ -776,7 +776,7 @@ contract RequestPartialWithdrawal is Test {
 
         testCapsule.initialize(address(this), testCapsuleOwner, address(testBeaconOracle));
 
-        uint256 withdrawalAmount = 0;
+        uint64 withdrawalAmount = 0;
         uint256 withdrawalFee = 1 wei;
 
         // Act & Assert: should revert for zero withdrawal amount
@@ -810,7 +810,7 @@ contract RequestPartialWithdrawal is Test {
 
         testCapsule.initialize(address(this), testCapsuleOwner, address(testBeaconOracle));
 
-        uint256 withdrawalAmount = 1 ether;
+        uint64 withdrawalAmount = 1e9; // 1 Gwei
         uint256 insufficientFee = 0; // less than minimum 1 wei
 
         // Mock the getCurrentWithdrawalFee call to return minimum fee
@@ -855,7 +855,7 @@ contract RequestPartialWithdrawal is Test {
 
         // Arrange: use invalid pubkey (wrong length)
         bytes memory invalidPubkey = hex"1234"; // too short
-        uint256 withdrawalAmount = 1 ether;
+        uint64 withdrawalAmount = 1e9; // 1 Gwei
         uint256 withdrawalFee = 1 wei;
 
         // Act & Assert: should revert for invalid pubkey (length check in ValidatorContainer.computePubkeyHash)
@@ -977,32 +977,32 @@ contract TestSSZHash is Test {
         bytes memory pubkey =
             hex"88e169e0a01cbcbfe2e5dc0abec6b504401a58ba34edeabd7f6939eb7c7cbb2730deb9da6ead98e260000c6582248545";
 
-        // EigenPod method result (sha256 of pubkey + 16 zero bytes)
-        bytes32 eigenPodExpectedHash = 0x490a65dc33b6347b0137e01405281fbf288305687a6978856f0e3ae23c92d2b1;
+        // Method result (sha256 of pubkey + 16 zero bytes)
+        bytes32 validatorExpectedHash = 0x490a65dc33b6347b0137e01405281fbf288305687a6978856f0e3ae23c92d2b1;
 
-        // Compute actual hash using ValidatorContainer (EigenPod method)
+        // Compute actual hash using ValidatorContainer
         bytes32 actualPubkeyHash = ValidatorContainer.computePubkeyHash(pubkey);
 
         // Verify the hash is not zero and has correct length
         assertNotEq(actualPubkeyHash, bytes32(0), "Hash should not be zero");
         assertEq(pubkey.length, 48, "Pubkey should be 48 bytes");
 
-        // Now our implementation matches EigenPod method
-        assertEq(actualPubkeyHash, eigenPodExpectedHash, "Should match EigenPod expected hash");
+        // Now our implementation matches the expected method
+        assertEq(actualPubkeyHash, validatorExpectedHash, "Should match expected hash");
     }
 
-    /// @notice Test EigenPod style pubkey hash computation directly
-    function test_eigenPodPubkeyHash() public pure {
-        // Test EigenPod's computePubkeyHash method: sha256(pubkey + 16_zero_bytes)
+    /// @notice Test pubkey hash computation directly
+    function test_validatorPubkeyHash() public pure {
+        // Test computePubkeyHash method: sha256(pubkey + 16_zero_bytes)
         bytes memory pubkey =
             hex"88e169e0a01cbcbfe2e5dc0abec6b504401a58ba34edeabd7f6939eb7c7cbb2730deb9da6ead98e260000c6582248545";
-        bytes32 expectedEigenPodHash = 0x490a65dc33b6347b0137e01405281fbf288305687a6978856f0e3ae23c92d2b1;
+        bytes32 expectedValidatorHash = 0x490a65dc33b6347b0137e01405281fbf288305687a6978856f0e3ae23c92d2b1;
 
-        // Simulate EigenPod method: append 16 zero bytes and sha256
+        // Simulate method: append 16 zero bytes and sha256
         bytes memory paddedPubkey = abi.encodePacked(pubkey, bytes16(0));
-        bytes32 eigenPodHash = sha256(paddedPubkey);
+        bytes32 validatorHash = sha256(paddedPubkey);
 
-        assertEq(eigenPodHash, expectedEigenPodHash, "Should match EigenPod expected hash");
+        assertEq(validatorHash, expectedValidatorHash, "Should match expected hash");
     }
 
 }

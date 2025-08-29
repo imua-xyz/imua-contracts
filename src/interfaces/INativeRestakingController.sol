@@ -48,8 +48,8 @@ interface INativeRestakingController is IBaseRestakingController {
 
     /// @notice Request partial withdrawal from a validator via beacon chain (Pectra mode only)
     /// @param pubkey The validator's BLS public key (48 bytes)
-    /// @param amount The amount to withdraw in wei
-    function requestBeaconPartialWithdrawal(bytes calldata pubkey, uint256 amount) external payable;
+    /// @param amountInGwei The amount to withdraw in Gwei
+    function requestBeaconPartialWithdrawal(bytes calldata pubkey, uint64 amountInGwei) external payable;
 
     /// @notice Request full withdrawal from a validator via beacon chain (Pectra mode only)
     /// @param pubkey The validator's BLS public key (48 bytes)
