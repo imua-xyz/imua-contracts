@@ -145,4 +145,8 @@ library NetworkConstants {
         return getNetworkParams().pectraHardForkTimestamp;
     }
 
+    /// @notice The address of the Beacon Withdrawal Precompile (EIP-7002)
+    /// @dev This is a network-level constant as it's a precompile address that exists on the Ethereum network
+    address public constant BEACON_WITHDRAWAL_PRECOMPILE = 0x00000961Ef480Eb55e80D19ad83579A64c007002;
+
 }

@@ -837,4 +837,26 @@ contract Bootstrap is
         return stakerToTokenToValidators[stakerAddress][token].length;
     }
 
+    /// @notice Request partial withdrawal from a validator via beacon chain (not supported in Bootstrap)
+    function requestBeaconPartialWithdrawal(bytes calldata, uint64)
+        external
+        payable
+        override
+        whenNotPaused
+        nativeRestakingEnabled
+    {
+        revert Errors.NotYetSupported();
+    }
+
+    /// @notice Request full withdrawal from a validator via beacon chain (not supported in Bootstrap)
+    function requestBeaconFullWithdrawal(bytes calldata)
+        external
+        payable
+        override
+        whenNotPaused
+        nativeRestakingEnabled
+    {
+        revert Errors.NotYetSupported();
+    }
+
 }

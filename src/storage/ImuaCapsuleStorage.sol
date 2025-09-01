@@ -62,6 +62,10 @@ contract ImuaCapsuleStorage {
     /// @notice The minimum interval between successful NST claims.
     uint256 public constant MIN_CLAIM_INTERVAL = 10 minutes;
 
+    /// @notice Constants for EIP-7002 withdrawal requests
+    /// @dev These are ImuaCapsule-specific constants for handling beacon withdrawals
+    uint256 public constant MIN_WITHDRAWAL_FEE = 1 wei;
+
     /* -------------------------------------------------------------------------- */
     /*                                 Immutables                                 */
     /* -------------------------------------------------------------------------- */
@@ -162,6 +166,12 @@ contract ImuaCapsuleStorage {
         } else {
             return INetworkConfig(NETWORK_CONFIG).getPectraHardForkTimestamp();
         }
+    }
+
+    /// @dev Gets the beacon withdrawal precompile address for EIP-7002 operations.
+    /// @return The address of the beacon withdrawal precompile contract.
+    function getBeaconWithdrawalPrecompile() internal pure returns (address) {
+        return NetworkConstants.BEACON_WITHDRAWAL_PRECOMPILE;
     }
 
 }
