@@ -6,6 +6,7 @@ import {IImuaCapsule} from "../interfaces/IImuaCapsule.sol";
 import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
 import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 import {Endian} from "../libraries/Endian.sol";
+
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 import {ImuaCapsuleStorage} from "../storage/ImuaCapsuleStorage.sol";
 
@@ -43,6 +44,22 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
     /// @param capsuleOwner The address of the capsule owner.
     event RestakingActivated(address indexed capsuleOwner);
 
+    /// @notice Emitted when a partial withdrawal is successfully requested for a Type 2 validator
+    /// @param pubkey The validator's BLS public key
+    /// @param amountInGwei The amount requested for withdrawal (in Gwei)
+    /// @param capsuleOwner The address of the capsule owner
+    event PartialWithdrawalRequested(bytes indexed pubkey, uint64 amountInGwei, address indexed capsuleOwner);
+
+    /// @notice Emitted when a full withdrawal is successfully requested for a Type 2 validator
+    /// @param pubkey The validator's BLS public key
+    /// @param capsuleOwner The address of the capsule owner
+    event FullWithdrawalRequested(bytes indexed pubkey, address indexed capsuleOwner);
+
+    /// @notice Emitted when excess withdrawal fee is refunded to withdrawable balance
+    /// @param capsuleOwner The address of the capsule owner
+    /// @param excessFee The amount of excess fee refunded
+    event ExcessWithdrawalFeeRefunded(address indexed capsuleOwner, uint256 excessFee);
+
     /// @dev Thrown when the validator container is invalid.
     /// @param pubkeyHash The validator's BLS12-381 public key hash.
     error InvalidValidatorContainer(bytes32 pubkeyHash);
@@ -78,6 +95,27 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
     /// @param gateway The address of the gateway.
     /// @param caller The address of the caller.
     error InvalidCaller(address gateway, address caller);
+
+    /// @dev Thrown when trying to use beacon withdrawal functionality in pre-Pectra mode
+    error BeaconWithdrawalNotSupportedInPrePectraMode();
+
+    /// @dev Thrown when an invalid withdrawal amount is provided
+    /// @param amountInGwei The invalid amountInGwei
+    error InvalidWithdrawalAmount(uint64 amountInGwei);
+
+    /// @dev Thrown when an invalid validator public key is provided
+    /// @param pubkey The invalid public key
+    error InvalidValidatorPubkey(bytes pubkey);
+
+    /// @dev Thrown when the beacon withdrawal precompile call fails
+    /// @param pubkey The validator's public key
+    /// @param amountInGwei The withdrawal amountInGwei
+    error BeaconWithdrawalPrecompileFailed(bytes pubkey, uint64 amountInGwei);
+
+    /// @dev Thrown when insufficient fee is provided for withdrawal request
+    /// @param provided The provided fee amount
+    /// @param required The required fee amount
+    error InsufficientFee(uint256 provided, uint256 required);
 
     /// @dev Ensures that the caller is the gateway.
     modifier onlyGateway() {
@@ -290,6 +328,131 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
     /// @inheritdoc IImuaCapsule
     function isPectraMode() external view returns (bool) {
         return isPectra;
+    }
+
+    /// @inheritdoc IImuaCapsule
+    /// @dev Excess fees are refunded to withdrawable balance and can be withdrawn later.
+    /// @dev Query getCurrentWithdrawalFee() before calling for optimal fee management.
+    function requestPartialWithdrawal(bytes calldata pubkey, uint64 amountInGwei)
+        external
+        payable
+        onlyGateway
+        nonReentrant
+    {
+        // Validate input parameters
+        if (!isPectra) {
+            revert BeaconWithdrawalNotSupportedInPrePectraMode();
+        }
+        if (amountInGwei == 0) {
+            revert InvalidWithdrawalAmount(amountInGwei);
+        }
+
+        // Verify that the validator exists and is registered with this capsule
+        bytes32 pubkeyHash = ValidatorContainer.computePubkeyHash(pubkey);
+        Validator storage validator = _capsuleValidators[pubkeyHash];
+        if (validator.status == VALIDATOR_STATUS.UNREGISTERED) {
+            revert UnregisteredValidator(pubkeyHash);
+        }
+
+        // Call the beacon withdrawal precompile
+        bool success = _callBeaconWithdrawalPrecompile(pubkey, amountInGwei);
+        if (!success) {
+            revert BeaconWithdrawalPrecompileFailed(pubkey, amountInGwei);
+        }
+
+        emit PartialWithdrawalRequested(pubkey, amountInGwei, capsuleOwner);
+    }
+
+    /// @inheritdoc IImuaCapsule
+    /// @dev Excess fees are refunded to withdrawable balance and can be withdrawn later.
+    /// @dev Query getCurrentWithdrawalFee() before calling for optimal fee management.
+    function requestFullWithdrawal(bytes calldata pubkey) external payable onlyGateway nonReentrant {
+        // Validate input parameters
+        if (!isPectra) {
+            revert BeaconWithdrawalNotSupportedInPrePectraMode();
+        }
+
+        // Verify that the validator exists and is registered with this capsule
+        bytes32 pubkeyHash = ValidatorContainer.computePubkeyHash(pubkey);
+        Validator storage validator = _capsuleValidators[pubkeyHash];
+        if (validator.status == VALIDATOR_STATUS.UNREGISTERED) {
+            revert UnregisteredValidator(pubkeyHash);
+        }
+
+        // Call the beacon withdrawal precompile with amount = 0 for full withdrawal
+        bool success = _callBeaconWithdrawalPrecompile(pubkey, 0);
+        if (!success) {
+            revert BeaconWithdrawalPrecompileFailed(pubkey, 0);
+        }
+
+        emit FullWithdrawalRequested(pubkey, capsuleOwner);
+    }
+
+    /**
+     * @dev Internal function to call the beacon withdrawal precompile
+     * @dev According to EIP-7002: input format is validator_pubkey (48 bytes) + amountInGwei (8 bytes in Gwei)
+     * @param pubkey The validator's BLS public key (48 bytes)
+     * @param amountInGwei The amount to withdraw in Gwei (0 for full withdrawal)
+     * @return success Whether the precompile call was successful
+     */
+    function _callBeaconWithdrawalPrecompile(bytes calldata pubkey, uint64 amountInGwei) internal returns (bool) {
+        // Get exact fee to avoid overpayment (EIP-7002: overpaid fees are not returned)
+        uint256 exactFee = _getCurrentWithdrawalFee();
+
+        // Check fee requirement (EIP-7002 requires minimum 1 wei)
+        if (msg.value < exactFee) {
+            revert InsufficientFee(msg.value, exactFee);
+        }
+
+        // Encode according to EIP-7002 specification
+        bytes memory callData = abi.encodePacked(
+            pubkey, // validator_pubkey (48 bytes)
+            amountInGwei // amount (8 bytes in Gwei) - uint64 directly encodes to 8 bytes
+        );
+
+        // Call precompile with exact fee to prevent overpayment
+        (bool success,) = getBeaconWithdrawalPrecompile().call{value: exactFee}(callData);
+
+        // Refund any excess fee to withdrawable balance for user to withdraw later
+        if (msg.value > exactFee) {
+            uint256 excessFee = msg.value - exactFee;
+            withdrawableBalance += excessFee;
+            emit ExcessWithdrawalFeeRefunded(capsuleOwner, excessFee);
+        }
+
+        return success;
+    }
+
+    /// @inheritdoc IImuaCapsule
+    function getCurrentWithdrawalFee() external view returns (uint256) {
+        return _getCurrentWithdrawalFee();
+    }
+
+    /// @inheritdoc IImuaCapsule
+    function getPubkeyHash(bytes calldata pubkey) external pure returns (bytes32) {
+        return ValidatorContainer.computePubkeyHash(pubkey);
+    }
+
+    /**
+     * @dev Get current withdrawal fee from precompile
+     * @dev NOTE: Fee is dynamic and can change rapidly due to network demand
+     * @dev Callers should be aware that overpaid fees are not refunded by the precompile
+     * @return fee Current fee in wei (minimum 1 wei per EIP-7002)
+     */
+    function _getCurrentWithdrawalFee() internal view returns (uint256 fee) {
+        // According to EIP-7002, fee starts at 1 wei and increases dynamically
+        // Try to query dynamic fee from precompile
+        (bool success, bytes memory data) = getBeaconWithdrawalPrecompile().staticcall("");
+        if (success) {
+            fee = uint256(bytes32(data));
+            if (fee < MIN_WITHDRAWAL_FEE) {
+                fee = MIN_WITHDRAWAL_FEE;
+            }
+        } else {
+            fee = MIN_WITHDRAWAL_FEE; // Fallback to minimum fee
+        }
+
+        return fee;
     }
 
 }

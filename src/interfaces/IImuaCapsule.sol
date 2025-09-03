@@ -67,4 +67,35 @@ interface IImuaCapsule {
     /// @return True if the capsule is in Pectra mode, false otherwise.
     function isPectraMode() external view returns (bool);
 
+    /// @notice Request a partial withdrawal for a Type 2 validator (only available in Pectra mode)
+    /// @dev This function interacts with the beacon withdrawal precompile to claim rewards
+    /// @dev Only available for Type 2 validators (0x02 withdrawal credentials) in Pectra mode
+    /// @dev Requires payment of withdrawal fee (minimum 1 wei per EIP-7002)
+    /// @dev Excess fees are refunded to withdrawable balance and can be withdrawn later
+    /// @param pubkey The validator's BLS public key (48 bytes)
+    /// @param amountInGwei The amount to withdraw in Gwei (must be > 0 for partial withdrawal)
+    function requestPartialWithdrawal(bytes calldata pubkey, uint64 amountInGwei) external payable;
+
+    /// @notice Request a full withdrawal for a Type 2 validator (exit staking, only available in Pectra mode)
+    /// @dev This function interacts with the beacon withdrawal precompile to exit the validator
+    /// @dev Only available for Type 2 validators (0x02 withdrawal credentials) in Pectra mode
+    /// @dev Requires payment of withdrawal fee (minimum 1 wei per EIP-7002)
+    /// @dev Excess fees are refunded to withdrawable balance and can be withdrawn later
+    /// @param pubkey The validator's BLS public key (48 bytes)
+    function requestFullWithdrawal(bytes calldata pubkey) external payable;
+
+    /// @notice Get current withdrawal fee required for beacon withdrawal requests
+    /// @dev Returns the fee required to submit a withdrawal request per EIP-7002
+    /// @dev Fee is dynamic and can change between query and transaction execution
+    /// @dev Query this before calling withdrawal functions for optimal fee management
+    /// @return fee Current fee in wei (minimum 1 wei)
+    function getCurrentWithdrawalFee() external view returns (uint256);
+
+    /// @notice Get the pubkey hash for a given validator public key
+    /// @dev This function computes the pubkey hash using the same algorithm
+    /// @dev Used for querying validator information without performing withdrawal
+    /// @param pubkey The validator's BLS public key (must be 48 bytes)
+    /// @return The computed pubkey hash (32 bytes)
+    function getPubkeyHash(bytes calldata pubkey) external pure returns (bytes32);
+
 }
