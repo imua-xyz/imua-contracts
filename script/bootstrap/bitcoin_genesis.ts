@@ -21,7 +21,6 @@ import {
   Token,
   BootstrapEntry,
 } from './types';
-import { toVersionAndHash } from './utils';
 
 export interface BootstrapStake {
   txid: string;
@@ -163,11 +162,45 @@ export class GenesisGenerator {
     }
   }
 
+  /**
+   * ✅ ICB-01 Fix: Enhanced Imuachain address validation
+   */
+  private isValidImuachainAddress(addressHex: string): boolean {
+    try {
+      // Validate Ethereum address format (ethers.isAddress already checks prefix, length, and hex format)
+      return ethers.isAddress(addressHex);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * ✅ ICB-01 Fix: Enhanced validator address validation (includes checksum validation)
+   */
   private isValidValidatorAddress(address: string): boolean {
     try {
-      const { prefix, data } = fromBech32(address);
-      return prefix === 'im' && data.length === 20;
-    } catch {
+      // Use fromBech32 for complete validation (including checksum)
+      const decoded = fromBech32(address);
+
+      // Validate prefix (only 'im' prefix allowed)
+      if (decoded.prefix !== 'im') {
+        return false;
+      }
+
+      // Validate data length (20 byte address)
+      if (decoded.data.length !== 20) {
+        return false;
+      }
+
+      // Re-encode to verify checksum
+      const reencoded = toBech32(decoded.prefix, decoded.data);
+      if (reencoded !== address) {
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.warn(`Bech32 validation failed for ${address}:`, error);
       return false;
     }
   }
@@ -175,6 +208,7 @@ export class GenesisGenerator {
   /**
    * Parse and validate OP_RETURN data from Bitcoin transaction output
    * Format: 6a3d{20 bytes imuachain}{41 bytes validator}
+   * ✅ ICB-01 Fix: Enhanced address validation
    */
   private parseOpReturnData(scriptPubKey: string, txid?: string): OpReturnData | null {
     // Validate OP_RETURN format
@@ -198,12 +232,20 @@ export class GenesisGenerator {
     const imuachainAddressHex = ('0x' + hexOpReturnData.slice(0, 40)).toLowerCase();
     const validatorAddressHex = hexOpReturnData.slice(40);
 
-    try {
-      // Convert validator hex to string
-      const bytes = Buffer.from(validatorAddressHex, 'hex');
-      const validatorAddress = new TextDecoder().decode(bytes);
+    // ✅ Validate Imuachain address format
+    if (!this.isValidImuachainAddress(imuachainAddressHex)) {
+      if (txid) {
+        console.log(`Invalid Imuachain address in tx ${txid}: ${imuachainAddressHex}`);
+      }
+      return null;
+    }
 
-      // Validate the validator address format
+    try {
+      // Convert validator hex to string with strict UTF-8 validation
+      const bytes = Buffer.from(validatorAddressHex, 'hex');
+      const validatorAddress = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+
+      // ✅ Enhanced validator address validation
       if (!this.isValidValidatorAddress(validatorAddress)) {
         if (txid) {
           console.log(`Invalid validator address format in tx ${txid}: ${validatorAddress}`);
@@ -217,14 +259,10 @@ export class GenesisGenerator {
       };
     } catch (error) {
       if (txid) {
-        console.error(`Error converting validator address in tx ${txid}:`, error);
+        console.error(`Error decoding validator address in tx ${txid}:`, error);
       }
       return null;
     }
-  }
-
-  getNetworkFromAddress(address: string): networks.Network {
-    return determineNetworkFromAddress(address);
   }
 
   private async isValidBootstrapTransaction(tx: BTCTransaction): Promise<boolean> {
@@ -366,9 +404,6 @@ export class GenesisGenerator {
         continue;
       }
 
-      const { version, hash } = toVersionAndHash(senderAddress, this.getNetworkFromAddress(senderAddress));
-      console.log(`the underlying hash of address has length ${hash.length}`);
-
       stakes.push({
         txid: tx.txid,
         blockHeight: tx.status.block_height,
@@ -388,6 +423,21 @@ export class GenesisGenerator {
   // Get cached validator info (public method for use in genesis generation)
   public getValidatorInfo(validatorAddr: string): any {
     return this.validatorInfoCache.get(validatorAddr);
+  }
+
+  // Public method for testing parseOpReturnData functionality
+  public testParseOpReturnData(scriptPubKey: string, txid?: string): OpReturnData | null {
+    return this.parseOpReturnData(scriptPubKey, txid);
+  }
+
+  // Public method for testing imuachain address validation
+  public testIsValidImuachainAddress(addressHex: string): boolean {
+    return this.isValidImuachainAddress(addressHex);
+  }
+
+  // Public method for testing validator address validation
+  public testIsValidValidatorAddress(address: string): boolean {
+    return this.isValidValidatorAddress(address);
   }
 }
 
@@ -707,55 +757,6 @@ export async function generateGenesisState(stakes: BootstrapStake[], generator?:
   };
 
   return genesisState;
-}
-
-// Utility function to determine network from Bitcoin address
-function determineNetworkFromAddress(address: string): networks.Network {
-  // Bech32 addresses (native segwit)
-  if (address.startsWith('bc1')) {
-    return networks.bitcoin; // Mainnet
-  }
-  if (address.startsWith('tb1')) {
-    return networks.testnet; // Testnet
-  }
-  if (address.startsWith('bcrt1')) {
-    return networks.regtest; // Regtest
-  }
-
-  // Legacy addresses (Base58Check)
-  try {
-    // Try to decode the address to get the version byte
-    const decoded = addressUtils.fromBase58Check(address);
-
-    // Check version bytes for different networks
-    if (decoded.version === networks.bitcoin.pubKeyHash || decoded.version === networks.bitcoin.scriptHash) {
-      return networks.bitcoin; // Mainnet
-    }
-    if (decoded.version === networks.testnet.pubKeyHash || decoded.version === networks.testnet.scriptHash) {
-      return networks.testnet; // Testnet
-    }
-    if (decoded.version === networks.regtest.pubKeyHash || decoded.version === networks.regtest.scriptHash) {
-      return networks.regtest; // Regtest
-    }
-  } catch (error) {
-    // If decoding fails, try prefix-based detection as fallback
-    console.warn(`Failed to decode address ${address}, using prefix-based detection`);
-  }
-
-  // Fallback prefix-based detection
-  if (address.startsWith('1') || address.startsWith('3')) {
-    return networks.bitcoin; // Mainnet P2PKH/P2SH
-  }
-  if (address.startsWith('m') || address.startsWith('n') || address.startsWith('2')) {
-    return networks.testnet; // Testnet
-  }
-  if (address.startsWith('bcrt')) {
-    return networks.regtest; // Regtest
-  }
-
-  // Default to mainnet
-  console.warn(`Could not determine network for address ${address}, defaulting to mainnet`);
-  return networks.bitcoin;
 }
 
 export async function exportBootstrapData(stakes: BootstrapStake[], resolvedGenesisPath?: string): Promise<void> {
