@@ -35,6 +35,8 @@ library BeaconChainProofs {
     uint256 internal constant HISTORICAL_SUMMARIES_TREE_HEIGHT = 24;
     // VALIDATOR_REGISTRY_LIMIT = 2 ** 40, so tree height is 40
     uint256 internal constant VALIDATOR_TREE_HEIGHT = 40;
+    // MAX_VALIDATOR_INDEX = 2 ** 40 - 1
+    uint256 internal constant MAX_VALIDATOR_INDEX = (1 << VALIDATOR_TREE_HEIGHT) - 1;
     // MAX_WITHDRAWALS_PER_PAYLOAD = 2**4, making tree height = 4
     uint256 internal constant WITHDRAWALS_TREE_HEIGHT = 4;
 
@@ -123,6 +125,7 @@ library BeaconChainProofs {
                 "validator container root proof should have 46 nodes"
             );
         }
+        require(validatorIndex <= MAX_VALIDATOR_INDEX, "validator index out of bounds");
 
         uint256 leafIndex = (VALIDATOR_TREE_ROOT_INDEX << (VALIDATOR_TREE_HEIGHT + 1)) | uint256(validatorIndex);
 
