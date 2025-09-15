@@ -61,6 +61,10 @@ abstract contract NativeRestakingController is
             }
         }
 
+        if (msg.value % 1 gwei != 0) {
+            revert Errors.NativeRestakingControllerInvalidStakeValue();
+        }
+
         ETH_POS.deposit{value: msg.value}(pubkey, capsule.capsuleWithdrawalCredentials(), signature, depositDataRoot);
         emit StakedWithCapsule(msg.sender, address(capsule));
     }

@@ -751,6 +751,11 @@ contract Bootstrap is
             }
         }
 
+        // per the spec, the deposit value must be a multiple of 1 gwei.
+        if (msg.value % 1 gwei != 0) {
+            revert Errors.NativeRestakingControllerInvalidStakeValue();
+        }
+
         ETH_POS.deposit{value: msg.value}(pubkey, capsule.capsuleWithdrawalCredentials(), signature, depositDataRoot);
         emit StakedWithCapsule(msg.sender, address(capsule));
     }
