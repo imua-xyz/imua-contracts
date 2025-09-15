@@ -81,7 +81,7 @@ library BeaconChainProofs {
         bytes32 stateRoot,
         bytes32[] calldata stateRootProof,
         bool isElectra
-    ) internal view returns (bool valid) {
+    ) public view returns (bool valid) {
         bool validStateRoot = isValidStateRoot(stateRoot, beaconBlockRoot, stateRootProof);
         bool validVCRootAgainstStateRoot = isValidVCRootAgainstStateRoot(
             validatorContainerRoot, stateRoot, validatorContainerRootProof, validatorIndex, isElectra
@@ -92,7 +92,7 @@ library BeaconChainProofs {
     }
 
     function isValidStateRoot(bytes32 stateRoot, bytes32 beaconBlockRoot, bytes32[] calldata stateRootProof)
-        internal
+        public
         view
         returns (bool)
     {
@@ -112,7 +112,7 @@ library BeaconChainProofs {
         bytes32[] calldata validatorContainerRootProof,
         uint256 validatorIndex,
         bool isElectra
-    ) internal view returns (bool) {
+    ) public view returns (bool) {
         if (isElectra) {
             require(
                 validatorContainerRootProof.length
