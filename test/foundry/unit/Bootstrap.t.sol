@@ -43,13 +43,13 @@ import "src/storage/GatewayStorage.sol";
 import "src/utils/BeaconProxyBytecode.sol";
 
 contract ETHPOSDepositMock is IETHPOSDeposit {
+
     function deposit(
         bytes calldata pubkey,
         bytes calldata withdrawal_credentials,
         bytes calldata signature,
         bytes32 deposit_data_root
-    ) external payable {
-    }
+    ) external payable {}
 
     function get_deposit_root() external view returns (bytes32) {
         return bytes32(0);
@@ -58,6 +58,7 @@ contract ETHPOSDepositMock is IETHPOSDeposit {
     function get_deposit_count() external view returns (bytes memory) {
         return "";
     }
+
 }
 
 contract BootstrapTest is Test {
