@@ -61,7 +61,7 @@ abstract contract NativeRestakingController is
             }
         }
 
-        ETH_POS.deposit{value: 32 ether}(pubkey, capsule.capsuleWithdrawalCredentials(), signature, depositDataRoot);
+        ETH_POS.deposit{value: msg.value}(pubkey, capsule.capsuleWithdrawalCredentials(), signature, depositDataRoot);
         emit StakedWithCapsule(msg.sender, address(capsule));
     }
 
