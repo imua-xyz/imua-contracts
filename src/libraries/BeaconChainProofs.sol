@@ -81,15 +81,14 @@ library BeaconChainProofs {
         bytes32 stateRoot,
         bytes32[] calldata stateRootProof,
         bool isElectra
-    ) public view returns (bool valid) {
-        bool validStateRoot = isValidStateRoot(stateRoot, beaconBlockRoot, stateRootProof);
-        bool validVCRootAgainstStateRoot = isValidVCRootAgainstStateRoot(
-            validatorContainerRoot, stateRoot, validatorContainerRootProof, validatorIndex, isElectra
-        );
-        if (validStateRoot && validVCRootAgainstStateRoot) {
-            valid = true;
-        }
+    ) public view returns (bool) {
+        return isValidStateRoot(stateRoot, beaconBlockRoot, stateRootProof)
+            && isValidVCRootAgainstStateRoot(
+                validatorContainerRoot, stateRoot, validatorContainerRootProof, validatorIndex, isElectra
+            );
     }
+
+    // the below functions can be internal-only but we keep them public for testing purposes
 
     function isValidStateRoot(bytes32 stateRoot, bytes32 beaconBlockRoot, bytes32[] calldata stateRootProof)
         public
@@ -113,19 +112,13 @@ library BeaconChainProofs {
         uint256 validatorIndex,
         bool isElectra
     ) public view returns (bool) {
-        if (isElectra) {
-            require(
-                validatorContainerRootProof.length
-                    == (VALIDATOR_TREE_HEIGHT + 1) + BEACON_STATE_FIELD_TREE_HEIGHT_ELECTRA,
-                "validator container root proof should have 47 nodes"
-            );
-        } else {
-            require(
-                validatorContainerRootProof.length == (VALIDATOR_TREE_HEIGHT + 1) + BEACON_STATE_FIELD_TREE_HEIGHT,
-                "validator container root proof should have 46 nodes"
-            );
-        }
         require(validatorIndex <= MAX_VALIDATOR_INDEX, "validator index out of bounds");
+        require(
+            validatorContainerRootProof.length
+                == (VALIDATOR_TREE_HEIGHT + 1)
+                    + (isElectra ? BEACON_STATE_FIELD_TREE_HEIGHT_ELECTRA : BEACON_STATE_FIELD_TREE_HEIGHT),
+            "unexpected number of nodes in validator container root proof"
+        );
 
         uint256 leafIndex = (VALIDATOR_TREE_ROOT_INDEX << (VALIDATOR_TREE_HEIGHT + 1)) | uint256(validatorIndex);
 

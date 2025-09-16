@@ -14,7 +14,7 @@ contract BeaconChainProofsTest is Test {
         uint256 validatorIndex = 0; // Valid index
         bool isElectra = true;
 
-        vm.expectRevert("validator container root proof should have 47 nodes");
+        vm.expectRevert("unexpected number of nodes in validator container root proof");
         BeaconChainProofs.isValidVCRootAgainstStateRoot(
             validatorContainerRoot, stateRoot, validatorContainerRootProof, validatorIndex, isElectra
         );
@@ -27,7 +27,7 @@ contract BeaconChainProofsTest is Test {
         uint256 validatorIndex = 0; // Valid index
         bool isElectra = false;
 
-        vm.expectRevert("validator container root proof should have 46 nodes");
+        vm.expectRevert("unexpected number of nodes in validator container root proof");
         BeaconChainProofs.isValidVCRootAgainstStateRoot(
             validatorContainerRoot, stateRoot, validatorContainerRootProof, validatorIndex, isElectra
         );
