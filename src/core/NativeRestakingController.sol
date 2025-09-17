@@ -66,7 +66,7 @@ abstract contract NativeRestakingController is
         }
 
         ETH_POS.deposit{value: msg.value}(pubkey, capsule.capsuleWithdrawalCredentials(), signature, depositDataRoot);
-        emit StakedWithCapsule(msg.sender, address(capsule));
+        emit StakedWithCapsule(msg.sender, address(capsule), msg.value);
     }
 
     /// @notice Creates a new ImuaCapsule contract for the message sender.
