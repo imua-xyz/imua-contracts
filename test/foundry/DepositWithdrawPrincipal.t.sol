@@ -28,7 +28,7 @@ contract DepositWithdrawPrincipalTest is ImuachainDeployer {
     );
     event Transfer(address indexed from, address indexed to, uint256 amount);
     event CapsuleCreated(address indexed owner, address indexed capsule);
-    event StakedWithCapsule(address indexed staker, address indexed capsule);
+    event StakedWithCapsule(address indexed staker, address indexed capsule, uint256 indexed amount);
     event PrincipalDeposited(address indexed depositor, uint256 amount);
     event PrincipalUnlocked(address indexed staker, uint256 amount);
     event PrincipalWithdrawn(address indexed src, address indexed dst, uint256 amount);
@@ -376,7 +376,7 @@ contract DepositWithdrawPrincipalTest is ImuachainDeployer {
         vm.expectEmit(true, true, true, true, address(clientGateway));
         emit CapsuleCreated(depositor.addr, address(expectedCapsule));
         vm.expectEmit(address(clientGateway));
-        emit StakedWithCapsule(depositor.addr, address(expectedCapsule));
+        emit StakedWithCapsule(depositor.addr, address(expectedCapsule), 32 ether);
 
         vm.startPrank(depositor.addr);
         clientGateway.stake{value: 32 ether}(abi.encodePacked(_getPubkey(validatorContainer)), bytes(""), bytes32(0));

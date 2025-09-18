@@ -308,7 +308,8 @@ contract BootstrapStorage is GatewayStorage {
     /// @notice Emitted when a staker stakes with a capsule.
     /// @param staker Address of the staker.
     /// @param capsule Address of the capsule.
-    event StakedWithCapsule(address indexed staker, address indexed capsule);
+    /// @param amount Amount of ETH staked.
+    event StakedWithCapsule(address indexed staker, address indexed capsule, uint256 indexed amount);
 
     /// @dev Struct to return detailed information about a token, including its name, symbol, address, decimals, total
     /// supply, and additional metadata for cross-chain operations and contextual data.
