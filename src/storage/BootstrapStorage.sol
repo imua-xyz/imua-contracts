@@ -234,7 +234,7 @@ contract BootstrapStorage is GatewayStorage {
     /// @param token The address of the token being delegated, on this chain.
     /// @param amount The amount of the token delegated.
     event DelegateResult(
-        bool indexed success, address indexed delegator, string indexed delegatee, address token, uint256 amount
+        bool indexed success, address indexed delegator, string delegatee, address token, uint256 amount
     );
 
     /// @notice Emitted when a delegation is removed from an operator.
@@ -245,7 +245,7 @@ contract BootstrapStorage is GatewayStorage {
     /// @param token The address of the token being undelegated, on this chain.
     /// @param amount The amount of the token undelegated.
     event UndelegateResult(
-        bool indexed success, address indexed undelegator, string indexed undelegatee, address token, uint256 amount
+        bool indexed success, address indexed undelegator, string undelegatee, address token, uint256 amount
     );
 
     /// @notice Emitted when a deposit + delegation is made.

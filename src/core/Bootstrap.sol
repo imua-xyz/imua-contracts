@@ -338,7 +338,7 @@ contract Bootstrap is
         }
         validators[validatorAddress].commission.rate = newRate;
         commissionEdited[validatorAddress] = true;
-        emit ValidatorCommissionUpdated(newRate);
+        emit ValidatorCommissionUpdated(validatorAddress,newRate);
     }
 
     /// @notice Validates a consensus key.
