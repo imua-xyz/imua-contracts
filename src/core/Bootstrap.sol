@@ -291,11 +291,8 @@ contract Bootstrap is
     /// @return bool Returns `true` if the commission is valid, `false` otherwise.
     // forgefmt: disable-next-item
     function isCommissionValid(Commission memory commission) public pure returns (bool) {
-        return commission.rate <= 1e18 &&
-               commission.maxRate <= 1e18 &&
-               commission.maxChangeRate <= 1e18 &&
-               commission.rate <= commission.maxRate &&
-               commission.maxChangeRate <= commission.maxRate;
+        return commission.rate <= 1e18 && commission.maxRate <= 1e18 && commission.maxChangeRate <= 1e18
+            && commission.rate <= commission.maxRate && commission.maxChangeRate <= commission.maxRate;
     }
 
     /// @inheritdoc IValidatorRegistry
@@ -365,6 +362,7 @@ contract Bootstrap is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         nonReentrant // interacts with Vault
+
     {
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
@@ -405,6 +403,7 @@ contract Bootstrap is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         nonReentrant // interacts with Vault
+
     {
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
@@ -466,6 +465,7 @@ contract Bootstrap is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         nonReentrant // because it interacts with vault
+
     {
         if (recipient == address(0)) {
             revert Errors.ZeroAddress();
@@ -485,7 +485,8 @@ contract Bootstrap is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         isValidBech32Address(validator)
-    // does not need a reentrancy guard
+        // does not need a reentrancy guard
+
     {
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
@@ -534,7 +535,8 @@ contract Bootstrap is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         isValidBech32Address(validator)
-    // does not need a reentrancy guard
+        // does not need a reentrancy guard
+
     {
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
@@ -590,6 +592,7 @@ contract Bootstrap is
         isValidAmount(amount)
         isValidBech32Address(validator)
         nonReentrant // because it interacts with vault in deposit
+
     {
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
@@ -624,12 +627,13 @@ contract Bootstrap is
             emit BootstrappedAlready();
             return;
         }
-        try ICustomProxyAdmin(customProxyAdmin).changeImplementation(
-            // address(this) is storage address and not logic address. so it is a proxy.
-            ITransparentUpgradeableProxy(address(this)),
-            clientChainGatewayLogic,
-            clientChainInitializationData
-        ) {
+        try ICustomProxyAdmin(customProxyAdmin)
+            .changeImplementation(
+                // address(this) is storage address and not logic address. so it is a proxy.
+                ITransparentUpgradeableProxy(address(this)),
+                clientChainGatewayLogic,
+                clientChainInitializationData
+            ) {
             emit Bootstrapped();
         } catch {
             // to allow retries, never fail
@@ -644,10 +648,10 @@ contract Bootstrap is
     /// contract.
     /// @param _clientChainInitializationData The initialization data to be used when setting up
     /// the new logic contract.
-    function setClientChainGatewayLogic(address _clientChainGatewayLogic, bytes calldata _clientChainInitializationData)
-        public
-        onlyOwner
-    {
+    function setClientChainGatewayLogic(
+        address _clientChainGatewayLogic,
+        bytes calldata _clientChainInitializationData
+    ) public onlyOwner {
         _setClientChainGatewayLogic(_clientChainGatewayLogic, _clientChainInitializationData);
     }
 

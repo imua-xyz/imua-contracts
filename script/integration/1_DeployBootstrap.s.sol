@@ -216,8 +216,7 @@ contract DeployContracts is Script {
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
 
         bootstrap = Bootstrap(
-            payable(
-                address(
+            payable(address(
                     new TransparentUpgradeableProxy(
                         address(bootstrapLogic),
                         address(proxyAdmin),
@@ -237,8 +236,7 @@ contract DeployContracts is Script {
                             )
                         )
                     )
-                )
-            )
+                ))
         );
 
         // to keep bootstrap address constant, we must keep its nonce unchanged. hence, further transactions are sent

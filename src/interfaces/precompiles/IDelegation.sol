@@ -67,8 +67,6 @@ interface IDelegation {
     //  It might be allocated by Imuachain when the client chain isn't supported
     //  by layerZero
     /// @param staker is the EVM address to remove the marking from.
-    function dissociateOperatorFromStaker(uint32 clientChainID, bytes calldata staker)
-        external
-        returns (bool success);
+    function dissociateOperatorFromStaker(uint32 clientChainID, bytes calldata staker) external returns (bool success);
 
 }

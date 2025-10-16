@@ -146,10 +146,8 @@ contract CombinedFaucet is
     /// @dev ERC165 interface support check.
     /// Automatically derives the interface selectors for ERC165, ERC721Receiver, and ERC1155Receiver.
     function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
-        return (
-            interfaceId == type(IERC165).interfaceId || interfaceId == type(IERC721Receiver).interfaceId
-                || interfaceId == type(IERC1155Receiver).interfaceId
-        );
+        return (interfaceId == type(IERC165).interfaceId || interfaceId == type(IERC721Receiver).interfaceId
+                || interfaceId == type(IERC1155Receiver).interfaceId);
     }
 
     // Allow the contract to receive native token

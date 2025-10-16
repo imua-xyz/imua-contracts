@@ -160,8 +160,7 @@ contract BootstrapTest is Test {
         spawnTime = block.timestamp + 1 hours;
         offsetDuration = 30 minutes;
         bootstrap = Bootstrap(
-            payable(
-                address(
+            payable(address(
                     new TransparentUpgradeableProxy(
                         address(bootstrapLogic),
                         address(proxyAdmin),
@@ -179,8 +178,7 @@ contract BootstrapTest is Test {
                             )
                         )
                     )
-                )
-            )
+                ))
         );
         // validate the initialization
         assertTrue(bootstrap.isWhitelistedToken(address(myToken)));
@@ -1163,8 +1161,7 @@ contract BootstrapTest is Test {
         Bootstrap bootstrapLogic_ = new Bootstrap(address(clientChainLzEndpoint), config);
         vm.expectRevert(Errors.ZeroAddress.selector);
         Bootstrap(
-            payable(
-                address(
+            payable(address(
                     new TransparentUpgradeableProxy(
                         address(bootstrapLogic_),
                         address(proxyAdmin),
@@ -1182,8 +1179,7 @@ contract BootstrapTest is Test {
                             )
                         )
                     )
-                )
-            )
+                ))
         );
     }
 
@@ -1200,8 +1196,7 @@ contract BootstrapTest is Test {
         Bootstrap bootstrapLogic_ = new Bootstrap(address(clientChainLzEndpoint), config);
         vm.expectRevert(Errors.BootstrapSpawnTimeAlreadyPast.selector);
         Bootstrap(
-            payable(
-                address(
+            payable(address(
                     new TransparentUpgradeableProxy(
                         address(bootstrapLogic_),
                         address(proxyAdmin),
@@ -1219,8 +1214,7 @@ contract BootstrapTest is Test {
                             )
                         )
                     )
-                )
-            )
+                ))
         );
     }
 
@@ -1237,8 +1231,7 @@ contract BootstrapTest is Test {
         Bootstrap bootstrapLogic_ = new Bootstrap(address(clientChainLzEndpoint), config);
         vm.expectRevert(Errors.ZeroValue.selector);
         Bootstrap(
-            payable(
-                address(
+            payable(address(
                     new TransparentUpgradeableProxy(
                         address(bootstrapLogic_),
                         address(proxyAdmin),
@@ -1256,8 +1249,7 @@ contract BootstrapTest is Test {
                             )
                         )
                     )
-                )
-            )
+                ))
         );
     }
 
@@ -1275,8 +1267,7 @@ contract BootstrapTest is Test {
         vm.expectRevert(Errors.BootstrapSpawnTimeLessThanDuration.selector);
         vm.warp(20);
         Bootstrap(
-            payable(
-                address(
+            payable(address(
                     new TransparentUpgradeableProxy(
                         address(bootstrapLogic_),
                         address(proxyAdmin),
@@ -1294,8 +1285,7 @@ contract BootstrapTest is Test {
                             )
                         )
                     )
-                )
-            )
+                ))
         );
     }
 
@@ -1313,8 +1303,7 @@ contract BootstrapTest is Test {
         vm.expectRevert(Errors.BootstrapLockTimeAlreadyPast.selector);
         vm.warp(20);
         Bootstrap(
-            payable(
-                address(
+            payable(address(
                     new TransparentUpgradeableProxy(
                         address(bootstrapLogic_),
                         address(proxyAdmin),
@@ -1332,8 +1321,7 @@ contract BootstrapTest is Test {
                             )
                         )
                     )
-                )
-            )
+                ))
         );
     }
 
@@ -1350,8 +1338,7 @@ contract BootstrapTest is Test {
         Bootstrap bootstrapLogic_ = new Bootstrap(address(clientChainLzEndpoint), config);
         vm.expectRevert(Errors.ZeroAddress.selector);
         Bootstrap(
-            payable(
-                address(
+            payable(address(
                     new TransparentUpgradeableProxy(
                         address(bootstrapLogic_),
                         address(proxyAdmin),
@@ -1369,8 +1356,7 @@ contract BootstrapTest is Test {
                             )
                         )
                     )
-                )
-            )
+                ))
         );
     }
 
@@ -1387,8 +1373,7 @@ contract BootstrapTest is Test {
         Bootstrap bootstrapLogic_ = new Bootstrap(address(clientChainLzEndpoint), config);
         vm.expectRevert(Errors.ZeroAddress.selector);
         Bootstrap(
-            payable(
-                address(
+            payable(address(
                     new TransparentUpgradeableProxy(
                         address(bootstrapLogic_),
                         address(proxyAdmin),
@@ -1406,8 +1391,7 @@ contract BootstrapTest is Test {
                             )
                         )
                     )
-                )
-            )
+                ))
         );
     }
 
@@ -1424,8 +1408,7 @@ contract BootstrapTest is Test {
         Bootstrap bootstrapLogic_ = new Bootstrap(address(clientChainLzEndpoint), config);
         vm.expectRevert(Errors.BootstrapClientChainDataMalformed.selector);
         Bootstrap(
-            payable(
-                address(
+            payable(address(
                     new TransparentUpgradeableProxy(
                         address(bootstrapLogic_),
                         address(proxyAdmin),
@@ -1443,8 +1426,7 @@ contract BootstrapTest is Test {
                             )
                         )
                     )
-                )
-            )
+                ))
         );
     }
 
@@ -1554,9 +1536,9 @@ contract BootstrapTest is Test {
         vm.startPrank(addrs[0]);
         vm.deal(addrs[0], 1 ether);
         vm.expectRevert(Errors.NonZeroValue.selector);
-        bootstrap.delegateTo{value: 0.1 ether}(
-            "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0]
-        );
+        bootstrap.delegateTo{
+            value: 0.1 ether
+        }("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0]);
         vm.stopPrank();
     }
 
@@ -1564,9 +1546,9 @@ contract BootstrapTest is Test {
         vm.startPrank(addrs[0]);
         vm.deal(addrs[0], 1 ether);
         vm.expectRevert(Errors.NonZeroValue.selector);
-        bootstrap.undelegateFrom{value: 0.1 ether}(
-            "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0], true
-        );
+        bootstrap.undelegateFrom{
+            value: 0.1 ether
+        }("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0], true);
         vm.stopPrank();
     }
 
@@ -1574,9 +1556,9 @@ contract BootstrapTest is Test {
         vm.startPrank(addrs[0]);
         vm.deal(addrs[0], 1 ether);
         vm.expectRevert(Errors.NonZeroValue.selector);
-        bootstrap.depositThenDelegateTo{value: 0.1 ether}(
-            address(myToken), amounts[0], "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla"
-        );
+        bootstrap.depositThenDelegateTo{
+            value: 0.1 ether
+        }(address(myToken), amounts[0], "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla");
         vm.stopPrank();
     }
 
@@ -1852,9 +1834,8 @@ contract BootstrapTest is Test {
     function _enableNativeRestaking() internal {
         // First find the slot from the logic contract
         bytes32 whitelistSlot = bytes32(
-            stdstore.target(address(bootstrapLogic)).sig("isWhitelistedToken(address)").with_key(
-                VIRTUAL_STAKED_ETH_ADDRESS
-            ).find()
+            stdstore.target(address(bootstrapLogic)).sig("isWhitelistedToken(address)")
+                .with_key(VIRTUAL_STAKED_ETH_ADDRESS).find()
         );
 
         // Then write to the proxy contract's storage
@@ -1864,9 +1845,8 @@ contract BootstrapTest is Test {
     function _disableNativeRestaking() internal {
         // First find the slot from the logic contract
         bytes32 whitelistSlot = bytes32(
-            stdstore.target(address(bootstrapLogic)).sig("isWhitelistedToken(address)").with_key(
-                VIRTUAL_STAKED_ETH_ADDRESS
-            ).find()
+            stdstore.target(address(bootstrapLogic)).sig("isWhitelistedToken(address)")
+                .with_key(VIRTUAL_STAKED_ETH_ADDRESS).find()
         );
 
         // Then write to the proxy contract's storage

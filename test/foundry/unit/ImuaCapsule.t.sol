@@ -393,9 +393,8 @@ contract WithdrawalSetup is Test {
 
         stdstore.target(capsuleAddress).sig("capsuleOwner()").checked_write(bytes32(uint256(uint160(capsuleOwner))));
 
-        stdstore.target(capsuleAddress).sig("beaconOracle()").checked_write(
-            bytes32(uint256(uint160(address(beaconOracle))))
-        );
+        stdstore.target(capsuleAddress).sig("beaconOracle()")
+            .checked_write(bytes32(uint256(uint160(address(beaconOracle)))));
 
         activationTimestamp = BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
         mockProofTimestamp = activationTimestamp;
@@ -867,6 +866,7 @@ contract RequestPartialWithdrawal is Test {
     // The onlyGateway modifier is already tested in other functions
     // and the vm.prank + vm.expectRevert combination was causing issues
 
+
 }
 
 contract RequestFullWithdrawal is Test {
@@ -963,6 +963,7 @@ contract RequestFullWithdrawal is Test {
 
     // Note: Other RequestFullWithdrawal tests are removed to simplify the test suite
     // The core functionality is tested in the success test above
+
 
 }
 

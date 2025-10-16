@@ -32,11 +32,12 @@ contract ImplementationChanger is Initializable, StorageOld {
     }
 
     function changeImplementation(address customProxyAdmin, address newImplementation) public {
-        ICustomProxyAdmin(customProxyAdmin).changeImplementation(
-            ITransparentUpgradeableProxy(address(this)),
-            newImplementation,
-            abi.encodeCall(NewImplementation.initialize, ())
-        );
+        ICustomProxyAdmin(customProxyAdmin)
+            .changeImplementation(
+                ITransparentUpgradeableProxy(address(this)),
+                newImplementation,
+                abi.encodeCall(NewImplementation.initialize, ())
+            );
     }
 
 }

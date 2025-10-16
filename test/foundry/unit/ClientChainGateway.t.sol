@@ -92,9 +92,8 @@ contract SetUp is Test {
         vm.chainId(clientChainId);
         _deploy();
 
-        NonShortCircuitEndpointV2Mock(address(clientChainLzEndpoint)).setDestLzEndpoint(
-            address(imuachainGateway), address(imuachainLzEndpoint)
-        );
+        NonShortCircuitEndpointV2Mock(address(clientChainLzEndpoint))
+            .setDestLzEndpoint(address(imuachainGateway), address(imuachainLzEndpoint));
 
         vm.prank(owner.addr);
         clientGateway.setPeer(imuachainChainId, address(imuachainGateway).toBytes32());
@@ -166,9 +165,8 @@ contract Pausable is SetUp {
         // we use this hacking way to find the slot of `isWhitelistedToken(address(restakeToken))` and set its value to
         // true
         bytes32 whitelistedSlot = bytes32(
-            stdstore.target(address(clientGatewayLogic)).sig("isWhitelistedToken(address)").with_key(
-                address(restakeToken)
-            ).find()
+            stdstore.target(address(clientGatewayLogic)).sig("isWhitelistedToken(address)")
+                .with_key(address(restakeToken)).find()
         );
         vm.store(address(clientGateway), whitelistedSlot, bytes32(uint256(1)));
     }
@@ -284,9 +282,8 @@ contract WithdrawNonBeaconChainETHFromCapsule is SetUp {
 
         // we use this hacking way to add virtual staked ETH to the whitelist to enable native restaking
         bytes32 whitelistedSlot = bytes32(
-            stdstore.target(address(clientGatewayLogic)).sig("isWhitelistedToken(address)").with_key(
-                VIRTUAL_STAKED_ETH_ADDRESS
-            ).find()
+            stdstore.target(address(clientGatewayLogic)).sig("isWhitelistedToken(address)")
+                .with_key(VIRTUAL_STAKED_ETH_ADDRESS).find()
         );
         vm.store(address(clientGateway), whitelistedSlot, bytes32(uint256(1)));
 
