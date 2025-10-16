@@ -711,7 +711,8 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
                 }
             } else if (optionType == ExecutorOptions.OPTION_TYPE_ORDERED_EXECUTION) {
                 // ordered = true;
-            } else {
+            }
+            else {
                 revert IExecutorFeeLib.Executor_UnsupportedOptionType(optionType);
             }
         }
