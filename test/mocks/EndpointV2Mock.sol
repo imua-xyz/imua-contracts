@@ -162,12 +162,12 @@ contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
         if (_msgValue > 0) {
             try ILayerZeroReceiver(_receiver)
             .lzReceive{value: _msgValue, gas: _gas}(_origin, _guid, _message, address(0), "") {}
-                catch (bytes memory) { /*reason*/
-                }
+                catch (bytes memory /*reason*/
+                ) {}
         } else {
             try ILayerZeroReceiver(_receiver).lzReceive{gas: _gas}(_origin, _guid, _message, address(0), "") {}
-                catch (bytes memory) { /*reason*/
-                }
+                catch (bytes memory /*reason*/
+                ) {}
         }
     }
 
