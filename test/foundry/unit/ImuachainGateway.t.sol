@@ -287,9 +287,8 @@ contract LzReceive is SetUp {
             bytes("")
         );
 
-        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getAssociatedOperator(
-            clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr)))
-        );
+        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS)
+            .getAssociatedOperator(clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr))));
         assertEq(keccak256(associatedOperator), keccak256(bytes(operator)));
     }
 
@@ -326,9 +325,8 @@ contract LzReceive is SetUp {
             bytes("")
         );
 
-        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getAssociatedOperator(
-            anotherChainId, abi.encodePacked(bytes32(bytes20(staker.addr)))
-        );
+        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS)
+            .getAssociatedOperator(anotherChainId, abi.encodePacked(bytes32(bytes20(staker.addr))));
         assertEq(keccak256(associatedOperator), keccak256(bytes(anotherOperator)));
     }
 
@@ -571,34 +569,34 @@ contract AddWhitelistTokens is SetUp {
     function test_RevertWhen_CallerNotOwner() public {
         vm.startPrank(deployer.addr);
         vm.expectRevert("Ownable: caller is not the owner");
-        imuachainGateway.addWhitelistToken{value: nativeFee}(
-            clientChainId, bytes32(0), 18, "name", "metadata", "oracleInfo", 0
-        );
+        imuachainGateway.addWhitelistToken{
+            value: nativeFee
+        }(clientChainId, bytes32(0), 18, "name", "metadata", "oracleInfo", 0);
     }
 
     function test_RevertWhen_Paused() public {
         vm.startPrank(owner.addr);
         imuachainGateway.pause();
         vm.expectRevert("Pausable: paused");
-        imuachainGateway.addWhitelistToken{value: nativeFee}(
-            clientChainId, bytes32(0), 18, "name", "metadata", "oracleInfo", 0
-        );
+        imuachainGateway.addWhitelistToken{
+            value: nativeFee
+        }(clientChainId, bytes32(0), 18, "name", "metadata", "oracleInfo", 0);
     }
 
     function test_RevertWhen_ZeroValue() public {
         vm.startPrank(owner.addr);
         vm.expectRevert(abi.encodeWithSelector(IncorrectNativeFee.selector, uint256(0)));
-        imuachainGateway.addWhitelistToken{value: 0}(
-            clientChainId, bytes32(bytes20(address(restakeToken))), 18, "name", "metadata", "oracleInfo", 0
-        );
+        imuachainGateway.addWhitelistToken{
+            value: 0
+        }(clientChainId, bytes32(bytes20(address(restakeToken))), 18, "name", "metadata", "oracleInfo", 0);
     }
 
     function test_RevertWhen_HasZeroAddressToken() public {
         vm.startPrank(owner.addr);
         vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector));
-        imuachainGateway.addWhitelistToken{value: nativeFee}(
-            clientChainId, bytes32(0), 18, "name", "metadata", "oracleInfo", 0
-        );
+        imuachainGateway.addWhitelistToken{
+            value: nativeFee
+        }(clientChainId, bytes32(0), 18, "name", "metadata", "oracleInfo", 0);
     }
 
     function test_Success_AddWhiteListToken() public {
@@ -607,7 +605,9 @@ contract AddWhitelistTokens is SetUp {
         emit WhitelistTokenAdded(clientChainId, bytes32(bytes20(address(restakeToken))));
         vm.expectEmit(address(imuachainGateway));
         emit MessageSent(Action.REQUEST_ADD_WHITELIST_TOKEN, generateUID(1, false), 1, nativeFee);
-        imuachainGateway.addWhitelistToken{value: nativeFee}(
+        imuachainGateway.addWhitelistToken{
+            value: nativeFee
+        }(
             clientChainId,
             bytes32(bytes20(address(restakeToken))),
             18,
@@ -625,7 +625,9 @@ contract AddWhitelistTokens is SetUp {
         emit WhitelistTokenAdded(solanaClientChainId, bytes32(bytes20(address(restakeToken))));
         vm.expectEmit(address(imuachainGateway));
         emit MessageSent(Action.REQUEST_ADD_WHITELIST_TOKEN, generateUID(1, false, true), 1, nativeFeeForSolana);
-        imuachainGateway.addWhitelistToken{value: nativeFeeForSolana}(
+        imuachainGateway.addWhitelistToken{
+            value: nativeFeeForSolana
+        }(
             solanaClientChainId,
             bytes32(bytes20(address(restakeToken))),
             9,
@@ -665,7 +667,9 @@ contract UpdateWhitelistTokens is SetUp {
         emit WhitelistTokenAdded(clientChainId, bytes32(bytes20(address(restakeToken))));
         vm.expectEmit(address(imuachainGateway));
         emit MessageSent(Action.REQUEST_ADD_WHITELIST_TOKEN, generateUID(1, false), 1, nativeFee);
-        imuachainGateway.addWhitelistToken{value: nativeFee}(
+        imuachainGateway.addWhitelistToken{
+            value: nativeFee
+        }(
             clientChainId,
             bytes32(bytes20(address(restakeToken))),
             18,
@@ -731,9 +735,8 @@ contract AssociateOperatorWithEVMStaker is SetUp {
         vm.startPrank(staker.addr);
         imuachainGateway.associateOperatorWithEVMStaker(clientChainId, operator);
 
-        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getAssociatedOperator(
-            clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr)))
-        );
+        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS)
+            .getAssociatedOperator(clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr))));
         assertEq(keccak256(associatedOperator), keccak256(bytes(operator)));
     }
 
@@ -775,13 +778,11 @@ contract AssociateOperatorWithEVMStaker is SetUp {
         vm.startPrank(staker.addr);
         imuachainGateway.associateOperatorWithEVMStaker(anotherChainId, anotherOperator);
 
-        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getAssociatedOperator(
-            clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr)))
-        );
+        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS)
+            .getAssociatedOperator(clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr))));
         assertEq(keccak256(associatedOperator), keccak256(bytes(operator)));
-        associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getAssociatedOperator(
-            anotherChainId, abi.encodePacked(bytes32(bytes20(staker.addr)))
-        );
+        associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS)
+            .getAssociatedOperator(anotherChainId, abi.encodePacked(bytes32(bytes20(staker.addr))));
         assertEq(keccak256(associatedOperator), keccak256(bytes(anotherOperator)));
     }
 
@@ -792,9 +793,8 @@ contract AssociateOperatorWithEVMStaker is SetUp {
         vm.startPrank(staker.addr);
         imuachainGateway.dissociateOperatorFromEVMStaker(clientChainId);
 
-        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getAssociatedOperator(
-            clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr)))
-        );
+        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS)
+            .getAssociatedOperator(clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr))));
         assertEq(associatedOperator.length, 0);
     }
 

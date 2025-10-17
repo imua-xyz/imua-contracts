@@ -406,7 +406,8 @@ contract UTXOGateway is
     }
 
     /**
-     * @notice Marks a peg-out request as processed, after the peg-out tx is confirmed on the client chain(e.g. Bitcoin).
+     * @notice Marks a peg-out request as processed, after the peg-out tx is confirmed on the client chain(e.g.
+     * Bitcoin).
      * @dev Only authorized witnesses can call this function
      * @param clientChainId The client chain ID.
      * @param requestNonce The nonce of the peg-out request.
