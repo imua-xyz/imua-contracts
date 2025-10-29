@@ -75,7 +75,8 @@ interface IValidatorRegistry {
     event ValidatorKeyReplaced(string validatorAddress, bytes32 newConsensusPublicKey);
 
     /// @dev Emitted when a validator's commission rate is updated.
+    /// @param validatorAddress The Imuachain address of the validator.
     /// @param newRate The new commission rate for the validator.
-    event ValidatorCommissionUpdated(uint256 newRate);
+    event ValidatorCommissionUpdated(string validatorAddress, uint256 newRate);
 
 }

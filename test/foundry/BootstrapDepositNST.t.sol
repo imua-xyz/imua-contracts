@@ -69,7 +69,7 @@ contract BootstrapDepositNSTTest is Test {
 
     event DepositResult(bool indexed success, address indexed token, address indexed depositor, uint256 amount);
     event CapsuleCreated(address indexed owner, address indexed capsule);
-    event StakedWithCapsule(address indexed staker, address indexed capsule);
+    event StakedWithCapsule(address indexed staker, address indexed capsule, uint256 indexed amount);
 
     function setUp() public {
         // set chainid to 1 so that capsule implementation can use default network constants
@@ -119,8 +119,7 @@ contract BootstrapDepositNSTTest is Test {
         spawnTime = block.timestamp + 1 hours;
         offsetDuration = 30 minutes;
         bootstrap = Bootstrap(
-            payable(
-                address(
+            payable(address(
                     new TransparentUpgradeableProxy(
                         address(bootstrapLogic),
                         address(proxyAdmin),
@@ -138,8 +137,7 @@ contract BootstrapDepositNSTTest is Test {
                             )
                         )
                     )
-                )
-            )
+                ))
         );
         // validate the initialization
         assertTrue(bootstrap.isWhitelistedToken(VIRTUAL_STAKED_ETH_ADDRESS));
@@ -192,7 +190,7 @@ contract BootstrapDepositNSTTest is Test {
         vm.expectEmit(true, true, true, true, address(bootstrap));
         emit CapsuleCreated(depositor, address(expectedCapsule));
         vm.expectEmit(address(bootstrap));
-        emit StakedWithCapsule(depositor, address(expectedCapsule));
+        emit StakedWithCapsule(depositor, address(expectedCapsule), 32 ether);
 
         vm.deal(depositor, 33 ether); // 32 ETH for deposit and 1 ETH for gas
         bootstrap.stake{value: 32 ether}(abi.encodePacked(_getPubkey(validatorContainer)), bytes(""), bytes32(0));
@@ -300,8 +298,9 @@ contract BootstrapDepositNSTTest is Test {
         assertEq(vm.load(capsuleAddress, beaconSlotInCapsule), beaconAddress);
 
         /// replace expectedCapsule with capsule
-        bytes32 capsuleSlotInGateway =
-            bytes32(stdstore.target(address(bootstrapLogic)).sig("ownerToCapsule(address)").with_key(depositor_).find());
+        bytes32 capsuleSlotInGateway = bytes32(
+            stdstore.target(address(bootstrapLogic)).sig("ownerToCapsule(address)").with_key(depositor_).find()
+        );
         vm.store(address(bootstrap), capsuleSlotInGateway, bytes32(uint256(uint160(address(capsule)))));
         assertEq(address(bootstrap.ownerToCapsule(depositor_)), address(capsule));
 

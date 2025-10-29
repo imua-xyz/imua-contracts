@@ -144,12 +144,7 @@ contract AssetsMock is IAssets {
         }
         isRegisteredToken[clientChainId][token] = true;
         registeredTokens[clientChainId][token] = TokenInfo({
-            name: name,
-            symbol: "",
-            clientChainID: clientChainId,
-            tokenID: token,
-            decimals: decimals,
-            totalStaked: 0
+            name: name, symbol: "", clientChainID: clientChainId, tokenID: token, decimals: decimals, totalStaked: 0
         });
         return true;
     }
@@ -202,11 +197,7 @@ contract AssetsMock is IAssets {
         return (true, authorizedGateways[gateway]);
     }
 
-    function getTokenInfo(uint32 clientChainId, bytes calldata tokenId)
-        external
-        view
-        returns (bool, TokenInfo memory)
-    {
+    function getTokenInfo(uint32 clientChainId, bytes calldata tokenId) external view returns (bool, TokenInfo memory) {
         if (!isRegisteredToken[clientChainId][tokenId]) {
             return (false, TokenInfo("", "", 0, bytes(""), 0, 0));
         }

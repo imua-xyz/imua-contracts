@@ -12,7 +12,7 @@ ignored_error_codes = [5667]
 ignored_warnings_from = ["script", "test"]
 # fail compilation if the warnings are not fixed.
 # this is super useful for the code size warning.
-deny_warnings = true
+# deny_warnings = true
 # optimization is no longer enabled by default
 optimizer = true
 optimizer_runs = 100

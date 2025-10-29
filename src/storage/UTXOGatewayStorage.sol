@@ -17,7 +17,6 @@ contract UTXOGatewayStorage {
         NONE, // 0: Invalid/uninitialized token
         BTC, // 1: Bitcoin token, matches with ClientChainID.Bitcoin
         XRP // 2: XRPL token, matches with ClientChainID.XRPL
-
     }
 
     /**
@@ -28,7 +27,6 @@ contract UTXOGatewayStorage {
         NONE, // 0: Invalid/uninitialized chain
         BITCOIN, // 1: Bitcoin chain, matches with Token.BTC
         XRPL // 2: XRPL chain, matches with Token.XRP
-
     }
 
     /**
@@ -38,7 +36,6 @@ contract UTXOGatewayStorage {
         NOT_STARTED_OR_PROCESSED, // 0: transaction hasn't started collecting proofs or has been processed
         PENDING, // 1: Currently collecting witness proofs
         EXPIRED // 2: Failed due to timeout, but can be retried
-
     }
 
     /**

@@ -280,7 +280,8 @@ library Errors {
     /// @dev NativeRestakingController: native restaking is not enabled
     error NativeRestakingControllerNotWhitelisted();
 
-    /// @dev NativeRestakingController: stake value must be exactly 32 ether
+    /// @dev NativeRestakingController: stake value must be either 32 ether or
+    /// between 32 ether and 2048 ether both inclusive for Pectra mode
     error NativeRestakingControllerInvalidStakeValue();
 
     /// @dev NativeRestakingController: message sender has already created the capsule

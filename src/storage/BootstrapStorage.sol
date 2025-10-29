@@ -234,7 +234,7 @@ contract BootstrapStorage is GatewayStorage {
     /// @param token The address of the token being delegated, on this chain.
     /// @param amount The amount of the token delegated.
     event DelegateResult(
-        bool indexed success, address indexed delegator, string indexed delegatee, address token, uint256 amount
+        bool indexed success, address indexed delegator, string delegatee, address token, uint256 amount
     );
 
     /// @notice Emitted when a delegation is removed from an operator.
@@ -245,7 +245,7 @@ contract BootstrapStorage is GatewayStorage {
     /// @param token The address of the token being undelegated, on this chain.
     /// @param amount The amount of the token undelegated.
     event UndelegateResult(
-        bool indexed success, address indexed undelegator, string indexed undelegatee, address token, uint256 amount
+        bool indexed success, address indexed undelegator, string undelegatee, address token, uint256 amount
     );
 
     /// @notice Emitted when a deposit + delegation is made.
@@ -308,7 +308,8 @@ contract BootstrapStorage is GatewayStorage {
     /// @notice Emitted when a staker stakes with a capsule.
     /// @param staker Address of the staker.
     /// @param capsule Address of the capsule.
-    event StakedWithCapsule(address indexed staker, address indexed capsule);
+    /// @param amount Amount of ETH staked.
+    event StakedWithCapsule(address indexed staker, address indexed capsule, uint256 indexed amount);
 
     /// @dev Struct to return detailed information about a token, including its name, symbol, address, decimals, total
     /// supply, and additional metadata for cross-chain operations and contextual data.

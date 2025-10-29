@@ -35,6 +35,8 @@ library BeaconChainProofs {
     uint256 internal constant HISTORICAL_SUMMARIES_TREE_HEIGHT = 24;
     // VALIDATOR_REGISTRY_LIMIT = 2 ** 40, so tree height is 40
     uint256 internal constant VALIDATOR_TREE_HEIGHT = 40;
+    // MAX_VALIDATOR_INDEX = 2 ** 40 - 1
+    uint256 internal constant MAX_VALIDATOR_INDEX = (1 << VALIDATOR_TREE_HEIGHT) - 1;
     // MAX_WITHDRAWALS_PER_PAYLOAD = 2**4, making tree height = 4
     uint256 internal constant WITHDRAWALS_TREE_HEIGHT = 4;
 
@@ -79,28 +81,24 @@ library BeaconChainProofs {
         bytes32 stateRoot,
         bytes32[] calldata stateRootProof,
         bool isElectra
-    ) internal view returns (bool valid) {
-        bool validStateRoot = isValidStateRoot(stateRoot, beaconBlockRoot, stateRootProof);
-        bool validVCRootAgainstStateRoot = isValidVCRootAgainstStateRoot(
+    ) public view returns (bool) {
+        return isValidStateRoot(stateRoot, beaconBlockRoot, stateRootProof)
+            && isValidVCRootAgainstStateRoot(
             validatorContainerRoot, stateRoot, validatorContainerRootProof, validatorIndex, isElectra
         );
-        if (validStateRoot && validVCRootAgainstStateRoot) {
-            valid = true;
-        }
     }
 
+    // the below functions can be internal-only but we keep them public for testing purposes
+
     function isValidStateRoot(bytes32 stateRoot, bytes32 beaconBlockRoot, bytes32[] calldata stateRootProof)
-        internal
+        public
         view
         returns (bool)
     {
         require(stateRootProof.length == BEACON_BLOCK_HEADER_FIELD_TREE_HEIGHT, "state root proof should have 3 nodes");
 
         return Merkle.verifyInclusionSha256({
-            proof: stateRootProof,
-            root: beaconBlockRoot,
-            leaf: stateRoot,
-            index: STATE_ROOT_INDEX
+            proof: stateRootProof, root: beaconBlockRoot, leaf: stateRoot, index: STATE_ROOT_INDEX
         });
     }
 
@@ -110,27 +108,19 @@ library BeaconChainProofs {
         bytes32[] calldata validatorContainerRootProof,
         uint256 validatorIndex,
         bool isElectra
-    ) internal view returns (bool) {
-        if (isElectra) {
-            require(
-                validatorContainerRootProof.length
-                    == (VALIDATOR_TREE_HEIGHT + 1) + BEACON_STATE_FIELD_TREE_HEIGHT_ELECTRA,
-                "validator container root proof should have 47 nodes"
-            );
-        } else {
-            require(
-                validatorContainerRootProof.length == (VALIDATOR_TREE_HEIGHT + 1) + BEACON_STATE_FIELD_TREE_HEIGHT,
-                "validator container root proof should have 46 nodes"
-            );
-        }
+    ) public view returns (bool) {
+        require(validatorIndex <= MAX_VALIDATOR_INDEX, "validator index out of bounds");
+        require(
+            validatorContainerRootProof.length
+                == (VALIDATOR_TREE_HEIGHT + 1)
+                    + (isElectra ? BEACON_STATE_FIELD_TREE_HEIGHT_ELECTRA : BEACON_STATE_FIELD_TREE_HEIGHT),
+            "unexpected number of nodes in validator container root proof"
+        );
 
         uint256 leafIndex = (VALIDATOR_TREE_ROOT_INDEX << (VALIDATOR_TREE_HEIGHT + 1)) | uint256(validatorIndex);
 
         return Merkle.verifyInclusionSha256({
-            proof: validatorContainerRootProof,
-            root: stateRoot,
-            leaf: validatorContainerRoot,
-            index: leafIndex
+            proof: validatorContainerRootProof, root: stateRoot, leaf: validatorContainerRoot, index: leafIndex
         });
     }
 

@@ -291,11 +291,8 @@ contract Bootstrap is
     /// @return bool Returns `true` if the commission is valid, `false` otherwise.
     // forgefmt: disable-next-item
     function isCommissionValid(Commission memory commission) public pure returns (bool) {
-        return commission.rate <= 1e18 &&
-               commission.maxRate <= 1e18 &&
-               commission.maxChangeRate <= 1e18 &&
-               commission.rate <= commission.maxRate &&
-               commission.maxChangeRate <= commission.maxRate;
+        return commission.rate <= 1e18 && commission.maxRate <= 1e18 && commission.maxChangeRate <= 1e18
+            && commission.rate <= commission.maxRate && commission.maxChangeRate <= commission.maxRate;
     }
 
     /// @inheritdoc IValidatorRegistry
@@ -338,7 +335,7 @@ contract Bootstrap is
         }
         validators[validatorAddress].commission.rate = newRate;
         commissionEdited[validatorAddress] = true;
-        emit ValidatorCommissionUpdated(newRate);
+        emit ValidatorCommissionUpdated(validatorAddress, newRate);
     }
 
     /// @notice Validates a consensus key.
@@ -365,6 +362,7 @@ contract Bootstrap is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         nonReentrant // interacts with Vault
+
     {
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
@@ -405,6 +403,7 @@ contract Bootstrap is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         nonReentrant // interacts with Vault
+
     {
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
@@ -466,6 +465,7 @@ contract Bootstrap is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         nonReentrant // because it interacts with vault
+
     {
         if (recipient == address(0)) {
             revert Errors.ZeroAddress();
@@ -485,7 +485,8 @@ contract Bootstrap is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         isValidBech32Address(validator)
-    // does not need a reentrancy guard
+        // does not need a reentrancy guard
+
     {
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
@@ -534,7 +535,8 @@ contract Bootstrap is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         isValidBech32Address(validator)
-    // does not need a reentrancy guard
+        // does not need a reentrancy guard
+
     {
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
@@ -590,6 +592,7 @@ contract Bootstrap is
         isValidAmount(amount)
         isValidBech32Address(validator)
         nonReentrant // because it interacts with vault in deposit
+
     {
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
@@ -624,12 +627,13 @@ contract Bootstrap is
             emit BootstrappedAlready();
             return;
         }
-        try ICustomProxyAdmin(customProxyAdmin).changeImplementation(
-            // address(this) is storage address and not logic address. so it is a proxy.
-            ITransparentUpgradeableProxy(address(this)),
-            clientChainGatewayLogic,
-            clientChainInitializationData
-        ) {
+        try ICustomProxyAdmin(customProxyAdmin)
+            .changeImplementation(
+                // address(this) is storage address and not logic address. so it is a proxy.
+                ITransparentUpgradeableProxy(address(this)),
+                clientChainGatewayLogic,
+                clientChainInitializationData
+            ) {
             emit Bootstrapped();
         } catch {
             // to allow retries, never fail
@@ -644,10 +648,10 @@ contract Bootstrap is
     /// contract.
     /// @param _clientChainInitializationData The initialization data to be used when setting up
     /// the new logic contract.
-    function setClientChainGatewayLogic(address _clientChainGatewayLogic, bytes calldata _clientChainInitializationData)
-        public
-        onlyOwner
-    {
+    function setClientChainGatewayLogic(
+        address _clientChainGatewayLogic,
+        bytes calldata _clientChainInitializationData
+    ) public onlyOwner {
         _setClientChainGatewayLogic(_clientChainGatewayLogic, _clientChainInitializationData);
     }
 
@@ -751,8 +755,13 @@ contract Bootstrap is
             }
         }
 
-        ETH_POS.deposit{value: 32 ether}(pubkey, capsule.capsuleWithdrawalCredentials(), signature, depositDataRoot);
-        emit StakedWithCapsule(msg.sender, address(capsule));
+        // per the spec, the deposit value must be a multiple of 1 gwei.
+        if (msg.value % 1 gwei != 0) {
+            revert Errors.NativeRestakingControllerInvalidStakeValue();
+        }
+
+        ETH_POS.deposit{value: msg.value}(pubkey, capsule.capsuleWithdrawalCredentials(), signature, depositDataRoot);
+        emit StakedWithCapsule(msg.sender, address(capsule), msg.value);
     }
 
     /// @notice Creates a new ImuaCapsule contract for the message sender.
