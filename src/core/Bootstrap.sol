@@ -361,7 +361,6 @@ contract Bootstrap is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         nonReentrant // interacts with Vault
-
     {
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
@@ -402,7 +401,6 @@ contract Bootstrap is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         nonReentrant // interacts with Vault
-
     {
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
@@ -464,7 +462,6 @@ contract Bootstrap is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         nonReentrant // because it interacts with vault
-
     {
         if (recipient == address(0)) {
             revert Errors.ZeroAddress();
@@ -484,8 +481,7 @@ contract Bootstrap is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         isValidBech32Address(validator)
-        // does not need a reentrancy guard
-
+    // does not need a reentrancy guard
     {
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
@@ -534,8 +530,7 @@ contract Bootstrap is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         isValidBech32Address(validator)
-        // does not need a reentrancy guard
-
+    // does not need a reentrancy guard
     {
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
@@ -591,7 +586,6 @@ contract Bootstrap is
         isValidAmount(amount)
         isValidBech32Address(validator)
         nonReentrant // because it interacts with vault in deposit
-
     {
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
@@ -643,10 +637,10 @@ contract Bootstrap is
     /// contract.
     /// @param _clientChainInitializationData The initialization data to be used when setting up
     /// the new logic contract.
-    function setClientChainGatewayLogic(
-        address _clientChainGatewayLogic,
-        bytes calldata _clientChainInitializationData
-    ) public onlyOwner {
+    function setClientChainGatewayLogic(address _clientChainGatewayLogic, bytes calldata _clientChainInitializationData)
+        public
+        onlyOwner
+    {
         _setClientChainGatewayLogic(_clientChainGatewayLogic, _clientChainInitializationData);
     }
 

@@ -4,9 +4,8 @@ pragma solidity ^0.8.0;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {
-    ERC20PresetFixedSupplyUpgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC20/presets/ERC20PresetFixedSupplyUpgradeable.sol";
+import {ERC20PresetFixedSupplyUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/presets/ERC20PresetFixedSupplyUpgradeable.sol";
 
 contract ERC20PresetFixedSupplyClone is Initializable, OwnableUpgradeable, ERC20PresetFixedSupplyUpgradeable {
 

@@ -221,18 +221,15 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         uint256 basePrice = (nativeFee * relayerFeeConfig.dstPriceRatio) / 10 ** 10;
 
         // pricePerByte = (dstGasPriceInWei * gasPerBytes) * tokenConversionRate
-        uint256 pricePerByte =
-            ((relayerFeeConfig.dstGasPriceInWei * relayerFeeConfig.gasPerByte * relayerFeeConfig.dstPriceRatio)
-                / 10
-                ** 10) * _payloadSize;
+        uint256 pricePerByte = (
+            (relayerFeeConfig.dstGasPriceInWei * relayerFeeConfig.gasPerByte * relayerFeeConfig.dstPriceRatio)
+                / 10 ** 10
+        ) * _payloadSize;
 
         return basePrice + pricePerByte;
     }
 
-    function _quote(
-        MessagingParams calldata _params,
-        address /*_sender*/
-    )
+    function _quote(MessagingParams calldata _params, address /*_sender*/ )
         internal
         view
         returns (MessagingFee memory messagingFee)
@@ -435,9 +432,8 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         bytes calldata _newOptions
     ) private pure returns (bytes memory, bytes memory) {
         if (_workerId == ExecutorOptions.WORKER_ID) {
-            _executorOptions = _executorOptions.length == 0
-                ? _newOptions
-                : abi.encodePacked(_executorOptions, _newOptions);
+            _executorOptions =
+                _executorOptions.length == 0 ? _newOptions : abi.encodePacked(_executorOptions, _newOptions);
         } else if (_workerId == DVNOptions.WORKER_ID) {
             _dvnOptions = _dvnOptions.length == 0 ? _newOptions : abi.encodePacked(_dvnOptions, _newOptions);
         } else {
@@ -519,33 +515,15 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         address from => mapping(address to => mapping(bytes32 guid => mapping(uint16 index => bytes32 messageHash)))
     ) public composeQueue;
 
-    function defaultReceiveLibrary(
-        uint32 /*_eid*/
-    )
-        external
-        pure
-        returns (address)
-    {
+    function defaultReceiveLibrary(uint32 /*_eid*/ ) external pure returns (address) {
         return address(0);
     }
 
-    function defaultReceiveLibraryTimeout(
-        uint32 /*_eid*/
-    )
-        external
-        pure
-        returns (address lib, uint256 expiry)
-    {
+    function defaultReceiveLibraryTimeout(uint32 /*_eid*/ ) external pure returns (address lib, uint256 expiry) {
         return (address(0), 0);
     }
 
-    function defaultSendLibrary(
-        uint32 /*_eid*/
-    )
-        external
-        pure
-        returns (address)
-    {
+    function defaultSendLibrary(uint32 /*_eid*/ ) external pure returns (address) {
         return address(0);
     }
 
@@ -553,11 +531,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         Origin calldata,
         /*_origin*/
         address /*receiver*/
-    )
-        external
-        pure
-        returns (ExecutionState)
-    {
+    ) external pure returns (ExecutionState) {
         return ExecutionState.NotExecutable;
     }
 
@@ -569,11 +543,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         uint32,
         /*_eid*/
         uint32 /*_configType*/
-    )
-        external
-        pure
-        returns (bytes memory config)
-    {
+    ) external pure returns (bytes memory config) {
         return bytes("0x");
     }
 
@@ -581,11 +551,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         address,
         /*receiver*/
         uint32 /*_eid*/
-    )
-        external
-        pure
-        returns (address lib, bool isDefault)
-    {
+    ) external pure returns (address lib, bool isDefault) {
         return (address(0), false);
     }
 
@@ -599,11 +565,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         address,
         /*_sender*/
         uint32 /*_eid*/
-    )
-        external
-        pure
-        returns (address lib)
-    {
+    ) external pure returns (address lib) {
         return address(0);
     }
 
@@ -615,31 +577,15 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         address,
         /*_sender*/
         uint32 /*_eid*/
-    )
-        external
-        pure
-        returns (bool)
-    {
+    ) external pure returns (bool) {
         return false;
     }
 
-    function isRegisteredLibrary(
-        address /*_lib*/
-    )
-        external
-        pure
-        returns (bool)
-    {
+    function isRegisteredLibrary(address /*_lib*/ ) external pure returns (bool) {
         return false;
     }
 
-    function isSupportedEid(
-        uint32 /*_eid*/
-    )
-        external
-        pure
-        returns (bool)
-    {
+    function isSupportedEid(uint32 /*_eid*/ ) external pure returns (bool) {
         return false;
     }
 
@@ -650,9 +596,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         uint16, /*_index,*/
         bytes calldata, /*_message,*/
         bytes calldata /*_extraData*/
-    )
-        external
-        payable {}
+    ) external payable {}
 
     // function lzReceive(
     //     Origin calldata /*_origin,*/,
@@ -676,11 +620,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         uint32,
         /*_dstEid,*/
         bytes32 /*_receiver*/
-    )
-        external
-        pure
-        returns (bytes32)
-    {
+    ) external pure returns (bytes32) {
         return 0;
     }
 
@@ -690,8 +630,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         bytes32, /*_sender,*/
         uint64, /*_nonce,*/
         bytes32 /*_payloadHash*/
-    )
-        external {}
+    ) external {}
 
     function quote(MessagingParams calldata _params, address _sender) external view returns (MessagingFee memory) {
         return _quote(_params, _sender);
@@ -699,10 +638,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
 
     mapping(address receiver => mapping(uint32 srcEid => Timeout)) public receiveLibraryTimeout;
 
-    function registerLibrary(
-        address /*_lib*/
-    )
-        public {}
+    function registerLibrary(address /*_lib*/ ) public {}
 
     function sendCompose(
         address,
@@ -712,8 +648,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         uint16,
         /*_index*/
         bytes calldata /*_message*/
-    )
-        external {}
+    ) external {}
 
     function setConfig(
         address,
@@ -721,8 +656,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         address,
         /*_lib*/
         SetConfigParam[] calldata /*_params*/
-    )
-        external {}
+    ) external {}
 
     function setDefaultReceiveLibrary(
         uint32,
@@ -730,8 +664,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         address,
         /*_newLib*/
         uint256 /*_gracePeriod*/
-    )
-        external {}
+    ) external {}
 
     function setDefaultReceiveLibraryTimeout(
         uint32,
@@ -739,25 +672,17 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         address,
         /*_lib*/
         uint256 /*_expiry*/
-    )
-        external {}
+    ) external {}
 
     function setDefaultSendLibrary(
         uint32,
         /*_eid*/
         address /*_newLib*/
-    )
-        external {}
+    ) external {}
 
-    function setDelegate(
-        address /*_delegate*/
-    )
-        external {}
+    function setDelegate(address /*_delegate*/ ) external {}
 
-    function setLzToken(
-        address /*_lzToken*/
-    )
-        external {}
+    function setLzToken(address /*_lzToken*/ ) external {}
 
     function setReceiveLibrary(
         address,
@@ -767,8 +692,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         address,
         /*_newLib*/
         uint256 /*_gracePeriod*/
-    )
-        external {}
+    ) external {}
 
     function setReceiveLibraryTimeout(
         address,
@@ -778,8 +702,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         address,
         /*_lib*/
         uint256 /*_gracePeriod*/
-    )
-        external {}
+    ) external {}
 
     function setSendLibrary(
         address,
@@ -787,8 +710,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         uint32,
         /*_eid*/
         address /*_newLib*/
-    )
-        external {}
+    ) external {}
 
     function skip(
         address,
@@ -798,19 +720,14 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         bytes32,
         /*_sender*/
         uint64 /*_nonce*/
-    )
-        external {}
+    ) external {}
 
     function verifiable(
         Origin calldata, /*_origin*/
         address, /*_receiver*/
         address, /*_receiveLib*/
         bytes32 /*_payloadHash*/
-    )
-        external
-        pure
-        returns (bool)
-    {
+    ) external pure returns (bool) {
         return false;
     }
 
@@ -820,8 +737,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         address,
         /*_receiver*/
         bytes32 /*_payloadHash*/
-    )
-        external {}
+    ) external {}
 
     // Helper Functions
     function executeNativeAirDropAndReturnLzGas(bytes calldata _options)
@@ -909,11 +825,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         uint32,
         /*_srcEid*/
         address /*_actualReceiveLib*/
-    )
-        public
-        pure
-        returns (bool)
-    {
+    ) public pure returns (bool) {
         return true;
     }
 

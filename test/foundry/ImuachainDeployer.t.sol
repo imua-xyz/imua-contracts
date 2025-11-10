@@ -189,9 +189,8 @@ contract ImuachainDeployer is Test {
         for (; outboundNonces[imuachainChainId] < whitelistTokens.length + 1; outboundNonces[imuachainChainId]++) {
             uint256 i = outboundNonces[imuachainChainId] - 1; // only one var in the loop is allowed
                 // estimate the fee from the payload
-            payloads[i] = abi.encodePacked(
-                Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokens[i], tvlLimits[i])
-            );
+            payloads[i] =
+                abi.encodePacked(Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokens[i], tvlLimits[i]));
             nativeFee = imuachainGateway.quote(clientChainId, payloads[i]);
             requestIds[i] = generateUID(uint64(i + 1), false);
             // gateway should emit the packet for the outgoing message
@@ -210,9 +209,9 @@ contract ImuachainDeployer is Test {
                 uint64(i) + 1, // nonce
                 nativeFee
             );
-            imuachainGateway.addWhitelistToken{
-                value: nativeFee
-            }(clientChainId, whitelistTokens[i], decimals[i], names[i], metaDatas[i], oracleInfos[i], tvlLimits[i]);
+            imuachainGateway.addWhitelistToken{value: nativeFee}(
+                clientChainId, whitelistTokens[i], decimals[i], names[i], metaDatas[i], oracleInfos[i], tvlLimits[i]
+            );
         }
 
         // second layerzero relayers should watch the request message packet and relay the message to destination
@@ -334,13 +333,15 @@ contract ImuachainDeployer is Test {
         clientGatewayLogic = new ClientChainGateway(address(clientChainLzEndpoint), config, address(rewardVaultBeacon));
 
         clientGateway = ClientChainGateway(
-            payable(address(
+            payable(
+                address(
                     new TransparentUpgradeableProxy(
                         address(clientGatewayLogic),
                         address(proxyAdmin),
                         abi.encodeWithSelector(clientGatewayLogic.initialize.selector, payable(owner.addr))
                     )
-                ))
+                )
+            )
         );
 
         // get the reward vault address since it would be deployed during initialization
@@ -353,20 +354,24 @@ contract ImuachainDeployer is Test {
         // deploy imuachain network contracts
         imuachainGatewayLogic = new ImuachainGateway(address(imuachainLzEndpoint));
         imuachainGateway = ImuachainGateway(
-            payable(address(
+            payable(
+                address(
                     new TransparentUpgradeableProxy(
                         address(imuachainGatewayLogic),
                         address(proxyAdmin),
                         abi.encodeWithSelector(imuachainGatewayLogic.initialize.selector, payable(owner.addr))
                     )
-                ))
+                )
+            )
         );
 
         // set the destination endpoint for corresponding destinations in endpoint mock
-        NonShortCircuitEndpointV2Mock(address(clientChainLzEndpoint))
-            .setDestLzEndpoint(address(imuachainGateway), address(imuachainLzEndpoint));
-        NonShortCircuitEndpointV2Mock(address(imuachainLzEndpoint))
-            .setDestLzEndpoint(address(clientGateway), address(clientChainLzEndpoint));
+        NonShortCircuitEndpointV2Mock(address(clientChainLzEndpoint)).setDestLzEndpoint(
+            address(imuachainGateway), address(imuachainLzEndpoint)
+        );
+        NonShortCircuitEndpointV2Mock(address(imuachainLzEndpoint)).setDestLzEndpoint(
+            address(clientGateway), address(clientChainLzEndpoint)
+        );
 
         vm.startPrank(owner.addr);
 
@@ -429,8 +434,9 @@ contract ImuachainDeployer is Test {
     }
 
     function _getPrincipalBalance(uint32 chainId, address depositor, address token) internal view returns (uint256) {
-        return AssetsMock(ASSETS_PRECOMPILE_ADDRESS)
-            .getPrincipalBalance(chainId, _addressToBytes(token), _addressToBytes(depositor));
+        return AssetsMock(ASSETS_PRECOMPILE_ADDRESS).getPrincipalBalance(
+            chainId, _addressToBytes(token), _addressToBytes(depositor)
+        );
     }
 
 }

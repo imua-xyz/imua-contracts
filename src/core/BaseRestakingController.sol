@@ -62,9 +62,8 @@ abstract contract BaseRestakingController is
         whenNotPaused
         nonReentrant
     {
-        bytes memory actionArgs = abi.encodePacked(
-            bytes32(bytes20(msg.sender)), amount, bytes32(bytes20(token)), bytes(operator)
-        );
+        bytes memory actionArgs =
+            abi.encodePacked(bytes32(bytes20(msg.sender)), amount, bytes32(bytes20(token)), bytes(operator));
         _processRequest(Action.REQUEST_DELEGATE_TO, actionArgs, bytes(""));
     }
 
@@ -121,9 +120,9 @@ abstract contract BaseRestakingController is
     /// @param actionArgs The encodePacked arguments for the action.
     function _sendMsgToImuachain(Action action, bytes memory actionArgs) internal returns (uint64) {
         bytes memory payload = abi.encodePacked(action, actionArgs);
-        bytes memory options = OptionsBuilder.newOptions()
-            .addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE)
-            .addExecutorOrderedExecutionOption();
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
+            DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
+        ).addExecutorOrderedExecutionOption();
         MessagingFee memory fee = _quote(IMUACHAIN_CHAIN_ID, payload, options, false);
 
         MessagingReceipt memory receipt =

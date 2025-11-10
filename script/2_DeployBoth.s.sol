@@ -27,9 +27,8 @@ contract DeployScript is BaseScript {
 
         string memory prerequisites = vm.readFile("script/deployments/prerequisiteContracts.json");
 
-        clientChainLzEndpoint = ILayerZeroEndpointV2(
-            stdJson.readAddress(prerequisites, string.concat(".", clientChainName, ".lzEndpoint"))
-        );
+        clientChainLzEndpoint =
+            ILayerZeroEndpointV2(stdJson.readAddress(prerequisites, string.concat(".", clientChainName, ".lzEndpoint")));
         require(address(clientChainLzEndpoint) != address(0), "client chain l0 endpoint should not be empty");
 
         restakeToken = ERC20PresetFixedSupply(
@@ -89,13 +88,15 @@ contract DeployScript is BaseScript {
             new ClientChainGateway(address(clientChainLzEndpoint), config, address(rewardVaultBeacon));
 
         clientGateway = ClientChainGateway(
-            payable(address(
+            payable(
+                address(
                     new TransparentUpgradeableProxy(
                         address(clientGatewayLogic),
                         address(clientChainProxyAdmin),
                         abi.encodeWithSelector(clientGatewayLogic.initialize.selector, payable(owner.addr))
                     )
-                ))
+                )
+            )
         );
 
         // get the reward vault address since it would be deployed during initialization
@@ -119,24 +120,28 @@ contract DeployScript is BaseScript {
             ImuachainGatewayMock imuachainGatewayLogic =
                 new ImuachainGatewayMock(address(imuachainLzEndpoint), assetsMock, rewardMock, delegationMock);
             imuachainGateway = ImuachainGateway(
-                payable(address(
+                payable(
+                    address(
                         new TransparentUpgradeableProxy(
                             address(imuachainGatewayLogic),
                             address(imuachainProxyAdmin),
                             abi.encodeWithSelector(imuachainGatewayLogic.initialize.selector, payable(owner.addr))
                         )
-                    ))
+                    )
+                )
             );
         } else {
             ImuachainGateway imuachainGatewayLogic = new ImuachainGateway(address(imuachainLzEndpoint));
             imuachainGateway = ImuachainGateway(
-                payable(address(
+                payable(
+                    address(
                         new TransparentUpgradeableProxy(
                             address(imuachainGatewayLogic),
                             address(imuachainProxyAdmin),
                             abi.encodeWithSelector(imuachainGatewayLogic.initialize.selector, payable(owner.addr))
                         )
-                    ))
+                    )
+                )
             );
         }
 

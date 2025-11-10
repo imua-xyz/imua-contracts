@@ -81,7 +81,10 @@ contract DelegationMock is IDelegation {
         return true;
     }
 
-    function dissociateOperatorFromStaker(uint32 clientChainId, bytes calldata staker) external returns (bool success) {
+    function dissociateOperatorFromStaker(uint32 clientChainId, bytes calldata staker)
+        external
+        returns (bool success)
+    {
         if (!AssetsMock(ASSETS_PRECOMPILE_ADDRESS).isRegisteredChain(clientChainId)) {
             return false;
         }

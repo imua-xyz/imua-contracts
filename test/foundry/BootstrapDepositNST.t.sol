@@ -119,7 +119,8 @@ contract BootstrapDepositNSTTest is Test {
         spawnTime = block.timestamp + 1 hours;
         offsetDuration = 30 minutes;
         bootstrap = Bootstrap(
-            payable(address(
+            payable(
+                address(
                     new TransparentUpgradeableProxy(
                         address(bootstrapLogic),
                         address(proxyAdmin),
@@ -137,7 +138,8 @@ contract BootstrapDepositNSTTest is Test {
                             )
                         )
                     )
-                ))
+                )
+            )
         );
         // validate the initialization
         assertTrue(bootstrap.isWhitelistedToken(VIRTUAL_STAKED_ETH_ADDRESS));
@@ -298,9 +300,8 @@ contract BootstrapDepositNSTTest is Test {
         assertEq(vm.load(capsuleAddress, beaconSlotInCapsule), beaconAddress);
 
         /// replace expectedCapsule with capsule
-        bytes32 capsuleSlotInGateway = bytes32(
-            stdstore.target(address(bootstrapLogic)).sig("ownerToCapsule(address)").with_key(depositor_).find()
-        );
+        bytes32 capsuleSlotInGateway =
+            bytes32(stdstore.target(address(bootstrapLogic)).sig("ownerToCapsule(address)").with_key(depositor_).find());
         vm.store(address(bootstrap), capsuleSlotInGateway, bytes32(uint256(uint160(address(capsule)))));
         assertEq(address(bootstrap.ownerToCapsule(depositor_)), address(capsule));
 
