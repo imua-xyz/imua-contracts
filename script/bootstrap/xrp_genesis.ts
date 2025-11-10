@@ -88,6 +88,7 @@ export class XRPGenesisGenerator {
   private readonly minAmount: number; // in drops (1 XRP = 1,000,000 drops)
   private readonly bootstrapContract: ethers.Contract;
   private addressMappings: Map<string, string> = new Map(); // xrp -> imuachain
+  private reverseMappings: Map<string, string> = new Map(); // imuachain -> xrp (enforce uniqueness across senders)
   private validatorInfoCache: Map<string, any> = new Map(); // validator address -> validator info
 
   constructor(
@@ -538,31 +539,31 @@ export class XRPGenesisGenerator {
       return { isValid: false };
     }
 
-    // Check address mapping consistency (1-1 binding rule)
+    // Address binding rules aligned with BTC:
+    // - Same sender can appear with different imuachain addresses, but we only keep the first binding as final staker address (first-wins)
+    // - Different senders cannot bind to the same imuachain address (global uniqueness)
     const senderAddress = tx.tx.Account.toLowerCase();
     const imuachainAddress = memoData.imuachainAddress.toLowerCase();
 
-    if (this.addressMappings.has(senderAddress)) {
-      const existingImuachainAddress = this.addressMappings.get(senderAddress);
-      if (existingImuachainAddress !== imuachainAddress) {
+    // Enforce reverse uniqueness: one imuachain address must not be used by different senders
+    if (this.reverseMappings.has(imuachainAddress)) {
+      const existingSender = this.reverseMappings.get(imuachainAddress);
+      if (existingSender !== senderAddress) {
         console.log(
-          `Inconsistent imuachain address for XRP address ${senderAddress} in tx ${tx.hash}\n  Previous: ${existingImuachainAddress}, Current: ${imuachainAddress}`
+          `Imuachain address ${imuachainAddress} already bound to different XRP address (${existingSender} vs ${senderAddress}) in tx ${tx.hash}`
         );
         return { isValid: false };
       }
-    } else {
-      // Check if this imuachain address is already mapped to another XRP address
-      for (const [existingXrpAddr, existingImuaAddr] of this.addressMappings.entries()) {
-        if (existingImuaAddr === imuachainAddress && existingXrpAddr !== senderAddress) {
-          console.log(
-            `Imuachain address ${imuachainAddress} is already mapped to XRP address ${existingXrpAddr}, cannot map to ${senderAddress} in tx ${tx.hash}`
-          );
-          return { isValid: false };
-        }
-      }
+    }
 
-      // Store the mapping for the first time
+    // Forward mapping: record first binding only (first-wins)
+    if (!this.addressMappings.has(senderAddress)) {
       this.addressMappings.set(senderAddress, imuachainAddress);
+      console.log(`Recorded initial staker binding: ${senderAddress} -> ${imuachainAddress} in tx ${tx.hash}`);
+    }
+    // Track reverse mapping to enforce global uniqueness
+    if (!this.reverseMappings.has(imuachainAddress)) {
+      this.reverseMappings.set(imuachainAddress, senderAddress);
     }
 
     return { isValid: true, memoData };
@@ -612,13 +613,21 @@ export class XRPGenesisGenerator {
     for (const { tx, memoData } of validTxs) {
       const amount = parseInt(tx.tx.Amount as string);
 
+      // Use the consistent imuachain address from validated mapping (first binding per sender)
+      const sender = tx.tx.Account.toLowerCase();
+      const consistentImuachainAddress = this.addressMappings.get(sender);
+      if (!consistentImuachainAddress) {
+        console.error(`Error: No mapping found for XRP address ${sender} in tx ${tx.hash}`);
+        continue;
+      }
+
       stakes.push({
         hash: tx.hash,
         ledgerIndex: tx.ledger_index,
         transactionIndex: tx.meta.TransactionIndex,
-        xrpAddress: tx.tx.Account.toLowerCase(), // XRP sender address
-        stakerAddress: memoData.imuachainAddress.toLowerCase(), // Use imuachainAddress as staker address
-        imuachainAddress: memoData.imuachainAddress.toLowerCase(),
+        xrpAddress: sender, // XRP sender address
+        stakerAddress: consistentImuachainAddress, // Use first-bound imuachain address as staker
+        imuachainAddress: consistentImuachainAddress,
         validatorAddress: memoData.validatorAddress,
         amount: amount,
         // XRPL timestamp is Ripple epoch; convert to Unix epoch

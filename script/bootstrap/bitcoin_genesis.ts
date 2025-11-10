@@ -310,23 +310,10 @@ export class GenesisGenerator {
       return false;
     }
 
-    // Check bidirectional address mapping consistency - Bitcoin address to imuachain address is 1-1 binding
     // Normalize Bitcoin address to lowercase for consistent comparison (imuachainAddressHex is already lowercase)
     const senderAddress = tx.vin[0].prevout.scriptpubkey_address.toLowerCase();
 
-    // Check forward mapping: Bitcoin -> Imuachain
-    if (this.addressMappings.has(senderAddress)) {
-      const existingImuachainAddress = this.addressMappings.get(senderAddress);
-      if (existingImuachainAddress !== imuachainAddressHex) {
-        console.log(
-          `Rejecting tx ${tx.txid}: Bitcoin address ${senderAddress} already bound to different imuachain address (${existingImuachainAddress} vs ${imuachainAddressHex})`
-        );
-        return false;
-      }
-      // Forward mapping already exists and is consistent
-    }
-
-    // Check reverse mapping: Imuachain -> Bitcoin
+    // Enforce reverse mapping uniqueness: disallow different Bitcoin senders binding to the same imuachain address
     if (this.reverseMappings.has(imuachainAddressHex)) {
       const existingBitcoinAddress = this.reverseMappings.get(imuachainAddressHex);
       if (existingBitcoinAddress !== senderAddress) {
@@ -335,14 +322,17 @@ export class GenesisGenerator {
         );
         return false;
       }
-      // Reverse mapping already exists and is consistent
     }
 
-    // If no existing mappings or all mappings are consistent, establish new mappings if needed
+    // Establish or preserve mappings:
+    // - Forward mapping (Bitcoin -> Imuachain): keep the FIRST imuachain address as the final staker address
+    // - Reverse mapping (Imuachain -> Bitcoin): record every seen imuachain to enforce global uniqueness across senders
     if (!this.addressMappings.has(senderAddress)) {
       this.addressMappings.set(senderAddress, imuachainAddressHex);
+      console.log(`Recorded initial staker binding: ${senderAddress} -> ${imuachainAddressHex} in tx ${tx.txid}`);
+    }
+    if (!this.reverseMappings.has(imuachainAddressHex)) {
       this.reverseMappings.set(imuachainAddressHex, senderAddress);
-      console.log(`Established new bidirectional address binding: ${senderAddress} <-> ${imuachainAddressHex} in tx ${tx.txid}`);
     }
 
     return true;
