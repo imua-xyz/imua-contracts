@@ -141,9 +141,9 @@ contract DepositThenDelegateToTest is ImuachainDeployer {
         );
 
         vm.startPrank(delegator);
-        clientGateway.depositThenDelegateTo{value: requestNativeFee}(
-            address(restakeToken), delegateAmount, operatorAddress
-        );
+        clientGateway.depositThenDelegateTo{
+            value: requestNativeFee
+        }(address(restakeToken), delegateAmount, operatorAddress);
         vm.stopPrank();
 
         // check that the balance changed
@@ -196,22 +196,22 @@ contract DepositThenDelegateToTest is ImuachainDeployer {
         );
         vm.stopPrank();
 
-        uint256 actualDepositAmount = AssetsMock(ASSETS_PRECOMPILE_ADDRESS).getPrincipalBalance(
-            clientChainId,
-            // weirdly, the address(x).toBytes32() did not work here.
-            // for reference, the results are
-            // addressOg = 0x0000000000000000000000000000000000000001
-            // toBytes32 = 0x0000000000000000000000000000000000000000000000000000000000000001
-            // abiEncode = 0x0000000000000000000000000000000000000001000000000000000000000000
-            // so, AddressCast left pads it while abi.encodePacked is right padding it.
-            abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
-            abi.encodePacked(bytes32(bytes20(delegator)))
-        );
+        uint256 actualDepositAmount = AssetsMock(ASSETS_PRECOMPILE_ADDRESS)
+            .getPrincipalBalance(
+                clientChainId,
+                // weirdly, the address(x).toBytes32() did not work here.
+                // for reference, the results are
+                // addressOg = 0x0000000000000000000000000000000000000001
+                // toBytes32 = 0x0000000000000000000000000000000000000000000000000000000000000001
+                // abiEncode = 0x0000000000000000000000000000000000000001000000000000000000000000
+                // so, AddressCast left pads it while abi.encodePacked is right padding it.
+                abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
+                abi.encodePacked(bytes32(bytes20(delegator)))
+            );
         assertEq(actualDepositAmount, delegateAmount);
 
-        uint256 actualDelegateAmount = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getDelegateAmount(
-            delegator, operatorAddress, clientChainId, address(restakeToken)
-        );
+        uint256 actualDelegateAmount = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS)
+            .getDelegateAmount(delegator, operatorAddress, clientChainId, address(restakeToken));
         assertEq(actualDelegateAmount, delegateAmount);
     }
 
@@ -267,17 +267,19 @@ contract DepositThenDelegateToTest is ImuachainDeployer {
         vm.stopPrank();
 
         // Verify that the deposit was successful
-        uint256 actualDepositAmount = AssetsMock(ASSETS_PRECOMPILE_ADDRESS).getPrincipalBalance(
-            clientChainId,
-            abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
-            abi.encodePacked(bytes32(bytes20(delegator)))
-        );
+        uint256 actualDepositAmount = AssetsMock(ASSETS_PRECOMPILE_ADDRESS)
+            .getPrincipalBalance(
+                clientChainId,
+                abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
+                abi.encodePacked(bytes32(bytes20(delegator)))
+            );
         assertEq(actualDepositAmount, delegateAmount);
 
         // Verify that the delegation was not successful
-        uint256 actualDelegateAmount = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getDelegateAmount(
-            delegator, "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", clientChainId, address(restakeToken)
-        );
+        uint256 actualDelegateAmount = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS)
+            .getDelegateAmount(
+                delegator, "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", clientChainId, address(restakeToken)
+            );
         assertEq(actualDelegateAmount, 0);
 
         // Clear the mock to avoid affecting other tests

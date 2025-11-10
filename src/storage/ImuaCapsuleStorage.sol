@@ -21,7 +21,6 @@ contract ImuaCapsuleStorage {
         UNREGISTERED, // the validator has not been registered in this ImuaCapsule
         REGISTERED, // staked on ethpos and withdrawal credentials are pointed to the ImuaCapsule
         WITHDRAWN // withdrawn from the Beacon Chain
-
     }
 
     /// @notice Struct representing a validator in the ImuaCapsule.

@@ -174,9 +174,9 @@ contract DepositWithdrawPrincipalTest is ImuachainDeployer {
         emit MessageSent(
             Action.REQUEST_WITHDRAW_LST, withdrawRequestId, outboundNonces[clientChainId]++, withdrawRequestNativeFee
         );
-        clientGateway.claimPrincipalFromImuachain{value: withdrawRequestNativeFee}(
-            address(restakeToken), withdrawAmount
-        );
+        clientGateway.claimPrincipalFromImuachain{
+            value: withdrawRequestNativeFee
+        }(address(restakeToken), withdrawAmount);
 
         // second layerzero relayers should watch the request message packet and relay the message to destination
         // endpoint
