@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-
 /// @title ICustomProxyAdmin
 /// @author imua-xyz
 /// @notice ICustomProxyAdmin provides a set of functions for custom proxy admin operations.
