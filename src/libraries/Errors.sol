@@ -198,8 +198,8 @@ library Errors {
     //  CustomProxyAdmin Errors  //
     ///////////////////////////////
 
-    /// @dev CustomProxyAdmin: sender must be the bootstrapper
-    error CustomProxyAdminOnlyCalledFromThis();
+    /// @dev CustomProxyAdmin: sender is not the managed proxy
+    error CustomProxyAdminUnmanagedProxy();
 
     /// @dev CustomProxyAdmin: no proxy set
     error CustomProxyAdminNoProxySet();

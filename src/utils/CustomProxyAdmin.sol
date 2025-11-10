@@ -45,7 +45,7 @@ contract CustomProxyAdmin is Initializable, ProxyAdmin, ICustomProxyAdmin {
         }
         // only the `proxy` can call this function to upgrade itself
         if (msg.sender != proxy) {
-            revert Errors.CustomProxyAdminOnlyCalledFromThis();
+            revert Errors.CustomProxyAdminUnmanagedProxy();
         }
         // we follow check-effects-interactions pattern to write state before external call
         address proxy_ = proxy;
