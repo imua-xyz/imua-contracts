@@ -10,11 +10,9 @@ import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transp
 interface ICustomProxyAdmin {
 
     /// @notice Changes the implementation of a proxy.
-    /// @param proxy The address of the proxy to change the implementation of.
     /// @param implementation The address of the new implementation.
     /// @param data The data to send to the new implementation.
     /// @dev This function is only callable by the proxy itself to upgrade itself.
-    function changeImplementation(ITransparentUpgradeableProxy proxy, address implementation, bytes memory data)
-        external;
+    function upgradeSelfToAndCall(address implementation, bytes memory data) external;
 
 }

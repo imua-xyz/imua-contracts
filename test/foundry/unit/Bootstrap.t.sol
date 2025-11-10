@@ -1053,7 +1053,7 @@ contract BootstrapTest is Test {
             assertTrue(bootstrap.bootstrapped());
             // no more upgrades are possible
             assertTrue(bootstrap.customProxyAdmin() == address(0));
-            assertTrue(proxyAdmin.bootstrapper() == address(0));
+            assertTrue(proxyAdmin.proxy() == address(0));
             assertTrue(bootstrap.owner() == owner);
         } else {
             assertFalse(bootstrap.bootstrapped());

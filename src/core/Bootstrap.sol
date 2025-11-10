@@ -624,11 +624,8 @@ contract Bootstrap is
             emit BootstrappedAlready();
             return;
         }
-        try ICustomProxyAdmin(customProxyAdmin).changeImplementation(
-            // address(this) is storage address and not logic address. so it is a proxy.
-            ITransparentUpgradeableProxy(address(this)),
-            clientChainGatewayLogic,
-            clientChainInitializationData
+        try ICustomProxyAdmin(customProxyAdmin).upgradeSelfToAndCall(
+            clientChainGatewayLogic, clientChainInitializationData
         ) {
             emit Bootstrapped();
         } catch {
