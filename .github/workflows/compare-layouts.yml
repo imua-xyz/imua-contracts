@@ -94,7 +94,7 @@ jobs:
       # The below line does not accept environment variables,
       # so it becomes the single source of truth for the version, within this workflow.
       # Any `pinning` of the version should be done here and in forge-ci.yml.
-      foundry-version: nightly
+      foundry-version: stable
       # Skip the setup job if the parent job failed.
       # Instead of using an if condition, use this to avoid job skipped emails.
       skip-install: ${{ github.event.workflow_run.conclusion != 'success' }}
