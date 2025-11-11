@@ -119,10 +119,14 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
 
     /// @dev Ensures that the caller is the gateway.
     modifier onlyGateway() {
+        _onlyGateway();
+        _;
+    }
+
+    function _onlyGateway() internal view {
         if (msg.sender != address(gateway)) {
             revert InvalidCaller(address(gateway), msg.sender);
         }
-        _;
     }
 
     /// @notice Constructor to create the ImuaCapsule contract.
@@ -443,8 +447,8 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         // According to EIP-7002, fee starts at 1 wei and increases dynamically
         // Try to query dynamic fee from precompile
         (bool success, bytes memory data) = getBeaconWithdrawalPrecompile().staticcall("");
-        if (success) {
-            fee = uint256(bytes32(data));
+        if (success && data.length >= 32) {
+            fee = _bytesToUint256(data);
             if (fee < MIN_WITHDRAWAL_FEE) {
                 fee = MIN_WITHDRAWAL_FEE;
             }
@@ -453,6 +457,12 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         }
 
         return fee;
+    }
+
+    function _bytesToUint256(bytes memory input) private pure returns (uint256 result) {
+        assembly {
+            result := mload(add(input, 32))
+        }
     }
 
 }

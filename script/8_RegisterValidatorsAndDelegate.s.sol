@@ -80,7 +80,8 @@ contract RegisterValidatorsAndDelegate is Script {
                 depositAmount += amounts[i][j];
             }
             if (token.balanceOf(addr) < depositAmount) {
-                token.transfer(addr, depositAmount);
+                bool sent = token.transfer(addr, depositAmount);
+                require(sent, "token transfer failed");
             }
             vm.stopBroadcast();
             // approve

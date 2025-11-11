@@ -53,7 +53,8 @@ contract VaultTest is Test {
         // Cast the proxy to Vault
         vault = Vault(address(proxy));
 
-        token.transfer(depositor, TVL_LIMIT + 1000 * 10 ** 18); // Give enough tokens to exceed TVL
+        bool fundedDepositor = token.transfer(depositor, TVL_LIMIT + 1000 * 10 ** 18); // Give enough tokens to exceed TVL
+        assertTrue(fundedDepositor, "token funding failed");
     }
 
     function testInitialize() public {
@@ -84,7 +85,8 @@ contract VaultTest is Test {
     function testWithdraw() public {
         uint256 amount = 100 * 10 ** 18;
 
-        token.transfer(withdrawer, amount); // Give enough tokens to exceed TVL
+        bool fundedWithdrawer = token.transfer(withdrawer, amount); // Give enough tokens to exceed TVL
+        assertTrue(fundedWithdrawer, "token funding failed");
 
         vm.startPrank(withdrawer);
         token.approve(address(vault), amount);

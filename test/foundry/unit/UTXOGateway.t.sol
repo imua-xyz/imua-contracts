@@ -49,6 +49,7 @@ contract UTXOGatewayTest is Test {
     // virtual token address and token, shared for tokens supported by the gateway
     address public constant VIRTUAL_TOKEN_ADDRESS = 0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB;
     bytes public constant VIRTUAL_TOKEN = abi.encodePacked(bytes32(bytes20(VIRTUAL_TOKEN_ADDRESS)));
+    bytes32 public constant VIRTUAL_TOKEN_BYTES32 = bytes32(uint256(uint160(VIRTUAL_TOKEN_ADDRESS)));
 
     uint8 public constant BTC_DECIMALS = 8;
     string public constant BTC_NAME = "BTC";
@@ -653,7 +654,7 @@ contract UTXOGatewayTest is Test {
             abi.encodeWithSelector(
                 Errors.AddWhitelistTokenFailed.selector,
                 uint32(uint8(UTXOGatewayStorage.ClientChainID.BITCOIN)),
-                bytes32(VIRTUAL_TOKEN)
+                VIRTUAL_TOKEN_BYTES32
             )
         );
         gateway.activateStakingForClientChain(UTXOGatewayStorage.ClientChainID.BITCOIN);

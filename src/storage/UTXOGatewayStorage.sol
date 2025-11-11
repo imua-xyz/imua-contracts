@@ -468,16 +468,12 @@ contract UTXOGatewayStorage {
      * @param amount The amount to check
      */
     modifier isValidAmount(uint256 amount) {
-        if (amount == 0) {
-            revert Errors.ZeroAmount();
-        }
+        _isValidAmount(amount);
         _;
     }
 
     modifier isRegistered(Token token, address imAddress) {
-        if (outboundRegistry[ClientChainID(uint8(token))][imAddress].length == 0) {
-            revert Errors.AddressNotRegistered();
-        }
+        _isRegistered(token, imAddress);
         _;
     }
 
@@ -485,10 +481,26 @@ contract UTXOGatewayStorage {
      * @dev Modifier to restrict access to authorized witnesses only.
      */
     modifier onlyAuthorizedWitness() {
+        _onlyAuthorizedWitness();
+        _;
+    }
+
+    function _isValidAmount(uint256 amount) internal pure {
+        if (amount == 0) {
+            revert Errors.ZeroAmount();
+        }
+    }
+
+    function _isRegistered(Token token, address imAddress) internal view {
+        if (outboundRegistry[ClientChainID(uint8(token))][imAddress].length == 0) {
+            revert Errors.AddressNotRegistered();
+        }
+    }
+
+    function _onlyAuthorizedWitness() internal view {
         if (!authorizedWitnesses[msg.sender]) {
             revert Errors.UnauthorizedWitness();
         }
-        _;
     }
 
     /// @notice Checks if the provided string is a valid Imuachain address.

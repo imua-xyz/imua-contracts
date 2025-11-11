@@ -222,9 +222,8 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
 
         // pricePerByte = (dstGasPriceInWei * gasPerBytes) * tokenConversionRate
         uint256 pricePerByte =
-            ((relayerFeeConfig.dstGasPriceInWei * relayerFeeConfig.gasPerByte * relayerFeeConfig.dstPriceRatio)
-                / 10
-                ** 10) * _payloadSize;
+            (relayerFeeConfig.dstGasPriceInWei * relayerFeeConfig.gasPerByte * relayerFeeConfig.dstPriceRatio * _payloadSize)
+                / (10 ** 10);
 
         return basePrice + pricePerByte;
     }

@@ -20,10 +20,14 @@ contract Vault is Initializable, VaultStorage, IVault {
 
     /// @dev Allows only the gateway to call the function.
     modifier onlyGateway() {
+        _onlyGateway();
+        _;
+    }
+
+    function _onlyGateway() internal view {
         if (msg.sender != address(gateway)) {
             revert Errors.VaultCallerIsNotGateway();
         }
-        _;
     }
 
     /// @dev This constructor disables initialization so that the proxy pattern can be used.

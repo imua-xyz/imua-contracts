@@ -11,6 +11,10 @@ contract AssetsMock is IAssets {
     address constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     address constant VIRTUAL_STAKED_BTC_ADDRESS = 0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB;
     uint32 internal constant clientBtcChainId = 1;
+    bytes32 internal constant VIRTUAL_STAKED_ETH_BYTES32 =
+        bytes32(uint256(uint160(VIRTUAL_STAKED_ETH_ADDRESS)));
+    bytes32 internal constant VIRTUAL_STAKED_BTC_BYTES32 =
+        bytes32(uint256(uint160(VIRTUAL_STAKED_BTC_ADDRESS)));
 
     mapping(uint32 => mapping(bytes => mapping(bytes => uint256))) public principalBalances;
     mapping(bytes => mapping(bytes => bool)) public inValidatorSet;
@@ -40,8 +44,9 @@ contract AssetsMock is IAssets {
 
         // Validate the asset address
         // If the assetsAddress is not the virtual ETH/BTC address, check if the token is registered
-        bool notEth = bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
-        bool notBtc = bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_BTC_ADDRESS));
+        bytes32 assetKey = _calldataBytesToBytes32(assetsAddress);
+        bool notEth = assetKey != VIRTUAL_STAKED_ETH_BYTES32;
+        bool notBtc = assetKey != VIRTUAL_STAKED_BTC_BYTES32;
 
         if (notEth && notBtc) {
             require(isRegisteredToken[clientChainLzId][assetsAddress], "the token not registered");
@@ -59,7 +64,7 @@ contract AssetsMock is IAssets {
     ) external returns (bool success, uint256 latestAssetState) {
         require(stakerAddress.length == 32, "invalid staker address");
 
-        bytes memory nstAddress = abi.encodePacked(bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)));
+        bytes memory nstAddress = abi.encodePacked(VIRTUAL_STAKED_ETH_BYTES32);
         principalBalances[clientChainLzId][nstAddress][stakerAddress] += opAmount;
         inValidatorSet[stakerAddress][validatorID] = true;
         return (true, principalBalances[clientChainLzId][nstAddress][stakerAddress]);
@@ -74,9 +79,9 @@ contract AssetsMock is IAssets {
         require(assetsAddress.length == 32, "invalid asset address");
         require(withdrawer.length == 32, "invalid staker address");
 
-        bytes32 assetAddressBytes32 = bytes32(assetsAddress);
-        bool isEth = assetAddressBytes32 == bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
-        bool isBtc = assetAddressBytes32 == bytes32(bytes20(VIRTUAL_STAKED_BTC_ADDRESS));
+        bytes32 assetAddressBytes32 = _calldataBytesToBytes32(assetsAddress);
+        bool isEth = assetAddressBytes32 == VIRTUAL_STAKED_ETH_BYTES32;
+        bool isBtc = assetAddressBytes32 == VIRTUAL_STAKED_BTC_BYTES32;
 
         // Disallow ETH withdrawals or non-registered tokens (except BTC)
         if (isEth || (!isRegisteredToken[clientChainLzId][assetsAddress] && !isBtc)) {
@@ -98,7 +103,7 @@ contract AssetsMock is IAssets {
     {
         require(withdrawer.length == 32, "invalid staker address");
 
-        bytes memory nstAddress = abi.encodePacked(bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)));
+        bytes memory nstAddress = abi.encodePacked(VIRTUAL_STAKED_ETH_BYTES32);
         if (opAmount > principalBalances[clientChainLzId][nstAddress][withdrawer]) {
             return (false, 0);
         }
@@ -185,8 +190,15 @@ contract AssetsMock is IAssets {
         return principalBalances[clientChainLzId][token][staker];
     }
 
+    function _calldataBytesToBytes32(bytes calldata data) private pure returns (bytes32 result) {
+        require(data.length == 32, "invalid length");
+        assembly {
+            result := calldataload(data.offset)
+        }
+    }
+
     function _addressToBytes(address addr) internal pure returns (bytes memory) {
-        return abi.encodePacked(bytes32(bytes20(addr)));
+        return abi.encodePacked(bytes32(uint256(uint160(addr))));
     }
 
     function isRegisteredClientChain(uint32 clientChainID) external view returns (bool, bool) {

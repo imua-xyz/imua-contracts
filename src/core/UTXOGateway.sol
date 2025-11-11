@@ -656,7 +656,7 @@ contract UTXOGateway is
         if (!registered) {
             bool updated = ASSETS_CONTRACT.updateToken(clientChainIdUint32, token, metadata);
             if (!updated) {
-                revert Errors.AddWhitelistTokenFailed(clientChainIdUint32, bytes32(token));
+                revert Errors.AddWhitelistTokenFailed(clientChainIdUint32, _bytesMemoryToBytes32(token));
             }
             emit WhitelistTokenUpdated(clientChainId, VIRTUAL_TOKEN_ADDRESS);
         } else {
@@ -704,6 +704,15 @@ contract UTXOGateway is
 
         if (bytes(_msg.operator).length > 0 && !isValidOperatorAddress(_msg.operator)) {
             revert Errors.InvalidOperator();
+        }
+    }
+
+    function _bytesMemoryToBytes32(bytes memory data) private pure returns (bytes32 result) {
+        if (data.length != 32) {
+            revert Errors.InvalidWhitelistTokensInput();
+        }
+        assembly {
+            result := mload(add(data, 32))
         }
     }
 

@@ -13,10 +13,14 @@ contract RewardVault is RewardVaultStorage, Initializable, IRewardVault {
     using SafeERC20 for IERC20;
 
     modifier onlyGateway() {
+        _onlyGateway();
+        _;
+    }
+
+    function _onlyGateway() internal view {
         if (msg.sender != gateway) {
             revert Errors.VaultCallerIsNotGateway();
         }
-        _;
     }
 
     constructor() {

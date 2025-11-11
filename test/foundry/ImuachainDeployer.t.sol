@@ -193,21 +193,25 @@ contract ImuachainDeployer is Test {
                 Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokens[i], tvlLimits[i])
             );
             nativeFee = imuachainGateway.quote(clientChainId, payloads[i]);
-            requestIds[i] = generateUID(uint64(i + 1), false);
+            require(i + 1 <= type(uint64).max, "nonce overflow");
+            // casting to 'uint64' is safe because we enforce the value within range above
+            // forge-lint: disable-next-line(unsafe-typecast)
+            uint64 nonce = uint64(i + 1);
+            requestIds[i] = generateUID(nonce, false);
             // gateway should emit the packet for the outgoing message
             vm.expectEmit(address(imuachainLzEndpoint));
             emit NewPacket(
                 clientChainId,
                 address(imuachainGateway),
                 address(clientGateway).toBytes32(),
-                uint64(i) + 1, // nonce
+                nonce, // nonce
                 payloads[i]
             );
             vm.expectEmit(address(imuachainGateway));
             emit MessageSent(
                 Action.REQUEST_ADD_WHITELIST_TOKEN,
                 requestIds[i],
-                uint64(i) + 1, // nonce
+                nonce, // nonce
                 nativeFee
             );
             imuachainGateway.addWhitelistToken{
@@ -385,6 +389,8 @@ contract ImuachainDeployer is Test {
     }
 
     function _getCapsuleFromWithdrawalCredentials(bytes32 withdrawalCredentials) internal pure returns (address) {
+        // casting to 'bytes20' is safe because withdrawal credentials encode the ETH1 address in the low 20 bytes
+        // forge-lint: disable-next-line(unsafe-typecast)
         return address(bytes20(uint160(uint256(withdrawalCredentials))));
     }
 
