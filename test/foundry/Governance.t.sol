@@ -81,7 +81,7 @@ contract GovernanceTest is Test {
 
     function setUp() public {
         // Fork Holesky testnet
-        holeskyFork = vm.createSelectFork("https://ethereum-holesky.publicnode.com");
+        holeskyFork = vm.createSelectFork("https://rpc.hoodi.ethpandaops.io");
 
         // Use already deployed Gnosis Safe contracts on Holesky
         safeImplementation = GnosisSafeL2(payable(0x3E5c63644E683549055b9Be8653de26E0B4CD36E));

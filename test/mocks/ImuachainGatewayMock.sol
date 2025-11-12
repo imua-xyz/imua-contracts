@@ -387,9 +387,8 @@ contract ImuachainGatewayMock is
         if (isDeposit && !success) {
             revert Errors.DepositRequestShouldNotFail(srcChainId, lzNonce); // we should not let this happen
         }
-        emit LSTTransfer(
-            isDeposit, success, _calldataBytesToBytes32(token), _calldataBytesToBytes32(staker), amount
-        );
+        // forge-lint: disable-next-line(unsafe-typecast)
+        emit LSTTransfer(isDeposit, success, bytes32(token), bytes32(staker), amount);
 
         response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success);
     }
@@ -408,7 +407,6 @@ contract ImuachainGatewayMock is
         returns (bytes memory response)
     {
         bytes calldata staker = payload[:32];
-        bytes32 stakerKey = _calldataBytesToBytes32(staker);
         uint256 amount = uint256(bytes32(payload[32:64]));
 
         bool isDeposit = act == Action.REQUEST_DEPOSIT_NST;
@@ -427,7 +425,8 @@ contract ImuachainGatewayMock is
         if (isDeposit && !success) {
             revert Errors.DepositRequestShouldNotFail(srcChainId, lzNonce); // we should not let this happen
         }
-        emit NSTTransfer(isDeposit, success, validatorID, stakerKey, amount);
+        // forge-lint: disable-next-line(unsafe-typecast)
+        emit NSTTransfer(isDeposit, success, validatorID, bytes32(staker), amount);
 
         response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success);
     }
@@ -456,13 +455,8 @@ contract ImuachainGatewayMock is
         } else {
             (success,) = REWARD_CONTRACT.claimReward(srcChainId, token, avsOrWithdrawer, amount);
         }
-        emit RewardOperation(
-            success,
-            isSubmitReward,
-            _calldataBytesToBytes32(token),
-            _calldataBytesToBytes32(avsOrWithdrawer),
-            amount
-        );
+        // forge-lint: disable-next-line(unsafe-typecast)
+        emit RewardOperation(success, isSubmitReward, bytes32(token), bytes32(avsOrWithdrawer), amount);
 
         response = isSubmitReward ? bytes("") : abi.encodePacked(lzNonce, success);
     }
@@ -488,21 +482,14 @@ contract ImuachainGatewayMock is
         bool isDelegate = act == Action.REQUEST_DELEGATE_TO;
         bool accepted;
         if (isDelegate) {
-            accepted = DELEGATION_CONTRACT.delegate(srcChainId, token, staker, operator, amount);
-            emit DelegationRequest(
-                accepted, _memoryBytesToBytes32(token), _memoryBytesToBytes32(staker), string(operator), amount
-            );
+            accepted = DELEGATION_CONTRACT.delegate(srcChainId, token, staker, operator, amount);   
+            // forge-lint: disable-next-line(unsafe-typecast)
+            emit DelegationRequest(accepted, bytes32(token), bytes32(staker), string(operator), amount);
         } else {
             bool instantUnbond = payload[137] == bytes1(0x01);
             accepted = DELEGATION_CONTRACT.undelegate(srcChainId, token, staker, operator, amount, instantUnbond);
-            emit UndelegationRequest(
-                accepted,
-                _memoryBytesToBytes32(token),
-                _memoryBytesToBytes32(staker),
-                string(operator),
-                amount,
-                instantUnbond
-            );
+            // forge-lint: disable-next-line(unsafe-typecast)
+            emit UndelegationRequest(accepted, bytes32(token), bytes32(staker), string(operator), amount, instantUnbond);
         }
     }
 
@@ -528,14 +515,12 @@ contract ImuachainGatewayMock is
         if (!success) {
             revert Errors.DepositRequestShouldNotFail(srcChainId, lzNonce); // we should not let this happen
         }
-        emit LSTTransfer(
-            true, success, _memoryBytesToBytes32(token), _memoryBytesToBytes32(depositor), amount
-        );
+        // forge-lint: disable-next-line(unsafe-typecast)
+        emit LSTTransfer(true, success, bytes32(token), bytes32(depositor), amount);
 
         bool accepted = DELEGATION_CONTRACT.delegate(srcChainId, token, depositor, operator, amount);
-        emit DelegationRequest(
-            accepted, _memoryBytesToBytes32(token), _memoryBytesToBytes32(depositor), string(operator), amount
-        );
+        // forge-lint: disable-next-line(unsafe-typecast)
+        emit DelegationRequest(accepted, bytes32(token), bytes32(depositor), string(operator), amount);
     }
 
     /// @notice Handles the associating/dissociating operator request, and no response would be returned.
@@ -551,7 +536,6 @@ contract ImuachainGatewayMock is
     {
         bool success;
         bytes calldata staker = payload[:32];
-        bytes32 stakerKey = _calldataBytesToBytes32(staker);
 
         bool isAssociate = act == Action.REQUEST_ASSOCIATE_OPERATOR;
         if (isAssociate) {
@@ -560,8 +544,8 @@ contract ImuachainGatewayMock is
         } else {
             success = DELEGATION_CONTRACT.dissociateOperatorFromStaker(srcChainId, staker);
         }
-
-        emit AssociationResult(success, isAssociate, stakerKey);
+        // forge-lint: disable-next-line(unsafe-typecast)
+        emit AssociationResult(success, isAssociate, bytes32(staker));
     }
 
     /// @dev Sends an interchain message to the client chain.
@@ -619,24 +603,6 @@ contract ImuachainGatewayMock is
         }
         options = options.addExecutorLzReceiveOption(gasLimit, value);
         return options;
-    }
-
-    function _calldataBytesToBytes32(bytes calldata data) private pure returns (bytes32 result) {
-        if (data.length != 32) {
-            revert Errors.InvalidMessageLength();
-        }
-        assembly {
-            result := calldataload(data.offset)
-        }
-    }
-
-    function _memoryBytesToBytes32(bytes memory data) private pure returns (bytes32 result) {
-        if (data.length != 32) {
-            revert Errors.InvalidMessageLength();
-        }
-        assembly {
-            result := mload(add(data, 32))
-        }
     }
 
 }

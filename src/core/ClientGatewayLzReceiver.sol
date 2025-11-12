@@ -204,15 +204,11 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     /// @return token The token address
     /// @return value The uint128 value
     function _decodeTokenUint128(bytes calldata payload) internal view returns (address, uint128) {
-        bytes32 tokenAsBytes32 = _calldataBytesToBytes32(payload[:32]);
-        uint256 tokenRaw = uint256(tokenAsBytes32);
-        // casting to 'uint160' is safe because the higher bits are validated to be zero above
+        bytes32 tokenAsBytes32 = bytes32(payload[:32]);
+        // The whitelist token address is encoded in the first 20 bytes (left-padded) of the 32-byte slot.
+        // Truncating to bytes20 is therefore safe and restores the original address encoding.
         // forge-lint: disable-next-line(unsafe-typecast)
-        uint160 truncated = uint160(tokenRaw);
-        if (uint256(truncated) != tokenRaw) {
-            revert Errors.InvalidWhitelistTokensInput();
-        }
-        address token = address(truncated);
+        address token = address(bytes20(tokenAsBytes32));
         if (token == address(0)) {
             // cannot happen since the precompiles check for this
             revert Errors.ZeroAddress();
@@ -223,15 +219,6 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         }
         uint128 value = uint128(bytes16(payload[32:]));
         return (token, value);
-    }
-
-    function _calldataBytesToBytes32(bytes calldata data) private pure returns (bytes32 result) {
-        if (data.length != 32) {
-            revert Errors.InvalidWhitelistTokensInput();
-        }
-        assembly {
-            result := calldataload(data.offset)
-        }
     }
 
 }

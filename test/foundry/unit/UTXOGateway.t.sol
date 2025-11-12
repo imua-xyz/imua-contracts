@@ -49,7 +49,9 @@ contract UTXOGatewayTest is Test {
     // virtual token address and token, shared for tokens supported by the gateway
     address public constant VIRTUAL_TOKEN_ADDRESS = 0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB;
     bytes public constant VIRTUAL_TOKEN = abi.encodePacked(bytes32(bytes20(VIRTUAL_TOKEN_ADDRESS)));
-    bytes32 public constant VIRTUAL_TOKEN_BYTES32 = bytes32(uint256(uint160(VIRTUAL_TOKEN_ADDRESS)));
+    // VIRTUAL_TOKEN is 32 bytes so it is safe to cast to bytes32
+    // forge-lint: disable-next-line(unsafe-typecast)
+    bytes32 public constant VIRTUAL_TOKEN_BYTES32 = bytes32(VIRTUAL_TOKEN);
 
     uint8 public constant BTC_DECIMALS = 8;
     string public constant BTC_NAME = "BTC";
