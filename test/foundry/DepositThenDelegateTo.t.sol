@@ -143,9 +143,9 @@ contract DepositThenDelegateToTest is ImuachainDeployer {
         );
 
         vm.startPrank(delegator);
-        clientGateway.depositThenDelegateTo{
-            value: requestNativeFee
-        }(address(restakeToken), delegateAmount, operatorAddress);
+        clientGateway.depositThenDelegateTo{value: requestNativeFee}(
+            address(restakeToken), delegateAmount, operatorAddress
+        );
         vm.stopPrank();
 
         // check that the balance changed

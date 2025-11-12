@@ -53,7 +53,8 @@ contract VaultTest is Test {
         // Cast the proxy to Vault
         vault = Vault(address(proxy));
 
-        bool fundedDepositor = token.transfer(depositor, TVL_LIMIT + 1000 * 10 ** 18); // Give enough tokens to exceed TVL
+        bool fundedDepositor = token.transfer(depositor, TVL_LIMIT + 1000 * 10 ** 18); // Give enough tokens to exceed
+        // TVL
         assertTrue(fundedDepositor, "token funding failed");
     }
 

@@ -482,7 +482,7 @@ contract ImuachainGatewayMock is
         bool isDelegate = act == Action.REQUEST_DELEGATE_TO;
         bool accepted;
         if (isDelegate) {
-            accepted = DELEGATION_CONTRACT.delegate(srcChainId, token, staker, operator, amount);   
+            accepted = DELEGATION_CONTRACT.delegate(srcChainId, token, staker, operator, amount);
             // forge-lint: disable-next-line(unsafe-typecast)
             emit DelegationRequest(accepted, bytes32(token), bytes32(staker), string(operator), amount);
         } else {

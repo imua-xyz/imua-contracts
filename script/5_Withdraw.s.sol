@@ -79,9 +79,7 @@ contract DepositScript is BaseScript {
             vm.selectFork(imuachain);
             vm.startBroadcast(relayer.privateKey);
             uint64 nonce = imuachainGateway.nextNonce(clientChainEndpointId, address(clientGateway).toBytes32());
-            imuachainLzEndpoint.lzReceive{
-                gas: 500_000
-            }(
+            imuachainLzEndpoint.lzReceive{gas: 500_000}(
                 Origin(clientChainEndpointId, address(clientGateway).toBytes32(), nonce),
                 address(imuachainGateway),
                 GUID.generate(

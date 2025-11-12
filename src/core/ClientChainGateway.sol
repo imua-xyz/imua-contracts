@@ -41,8 +41,7 @@ contract ClientChainGateway is
     using OptionsBuilder for bytes;
 
     /// @notice euqal to bytes32(bytes("REWARD_VAULT"))
-    bytes32 private constant REWARD_VAULT_SALT =
-        hex"5245574152445f5641554c540000000000000000000000000000000000000000";
+    bytes32 private constant REWARD_VAULT_SALT = hex"5245574152445f5641554c540000000000000000000000000000000000000000";
 
     /// @notice This constructor initializes only immutable state variables
     /// @param endpoint_ is the layerzero endpoint address deployed on this chain
@@ -66,7 +65,7 @@ contract ClientChainGateway is
         }
 
         _whiteListFunctionSelectors[Action.REQUEST_ADD_WHITELIST_TOKEN] =
-            this.afterReceiveAddWhitelistTokenRequest.selector;
+        this.afterReceiveAddWhitelistTokenRequest.selector;
         // overwrite the bootstrap function selector
         _whiteListFunctionSelectors[Action.REQUEST_MARK_BOOTSTRAP] = this.afterReceiveMarkBootstrapRequest.selector;
 

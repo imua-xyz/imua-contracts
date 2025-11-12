@@ -652,10 +652,10 @@ contract Bootstrap is
     /// contract.
     /// @param _clientChainInitializationData The initialization data to be used when setting up
     /// the new logic contract.
-    function setClientChainGatewayLogic(
-        address _clientChainGatewayLogic,
-        bytes calldata _clientChainInitializationData
-    ) public onlyOwner {
+    function setClientChainGatewayLogic(address _clientChainGatewayLogic, bytes calldata _clientChainInitializationData)
+        public
+        onlyOwner
+    {
         _setClientChainGatewayLogic(_clientChainGatewayLogic, _clientChainInitializationData);
     }
 

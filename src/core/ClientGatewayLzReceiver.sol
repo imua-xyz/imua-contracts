@@ -91,7 +91,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
                 (, address staker, uint256 amount) = _decodeCachedRequest(cachedRequest);
                 IImuaCapsule capsule = _getCapsule(staker);
                 capsule.endClaimNST(); // we should end the claim progress to set the inClaimProgress flag to false no
-                    // matter the success or failure of the request
+                // matter the success or failure of the request
                 if (requestSuccess) {
                     capsule.unlockETHPrincipal(amount);
                 }

@@ -188,7 +188,7 @@ contract ImuachainDeployer is Test {
         uint256 nativeFee;
         for (; outboundNonces[imuachainChainId] < whitelistTokens.length + 1; outboundNonces[imuachainChainId]++) {
             uint256 i = outboundNonces[imuachainChainId] - 1; // only one var in the loop is allowed
-                // estimate the fee from the payload
+            // estimate the fee from the payload
             payloads[i] = abi.encodePacked(
                 Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokens[i], tvlLimits[i])
             );
@@ -214,9 +214,9 @@ contract ImuachainDeployer is Test {
                 nonce, // nonce
                 nativeFee
             );
-            imuachainGateway.addWhitelistToken{
-                value: nativeFee
-            }(clientChainId, whitelistTokens[i], decimals[i], names[i], metaDatas[i], oracleInfos[i], tvlLimits[i]);
+            imuachainGateway.addWhitelistToken{value: nativeFee}(
+                clientChainId, whitelistTokens[i], decimals[i], names[i], metaDatas[i], oracleInfos[i], tvlLimits[i]
+            );
         }
 
         // second layerzero relayers should watch the request message packet and relay the message to destination

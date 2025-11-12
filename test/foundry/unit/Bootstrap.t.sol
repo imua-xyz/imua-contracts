@@ -1540,9 +1540,9 @@ contract BootstrapTest is Test {
         vm.startPrank(addrs[0]);
         vm.deal(addrs[0], 1 ether);
         vm.expectRevert(Errors.NonZeroValue.selector);
-        bootstrap.delegateTo{
-            value: 0.1 ether
-        }("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0]);
+        bootstrap.delegateTo{value: 0.1 ether}(
+            "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0]
+        );
         vm.stopPrank();
     }
 
@@ -1550,9 +1550,9 @@ contract BootstrapTest is Test {
         vm.startPrank(addrs[0]);
         vm.deal(addrs[0], 1 ether);
         vm.expectRevert(Errors.NonZeroValue.selector);
-        bootstrap.undelegateFrom{
-            value: 0.1 ether
-        }("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0], true);
+        bootstrap.undelegateFrom{value: 0.1 ether}(
+            "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0], true
+        );
         vm.stopPrank();
     }
 
@@ -1560,9 +1560,9 @@ contract BootstrapTest is Test {
         vm.startPrank(addrs[0]);
         vm.deal(addrs[0], 1 ether);
         vm.expectRevert(Errors.NonZeroValue.selector);
-        bootstrap.depositThenDelegateTo{
-            value: 0.1 ether
-        }(address(myToken), amounts[0], "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla");
+        bootstrap.depositThenDelegateTo{value: 0.1 ether}(
+            address(myToken), amounts[0], "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla"
+        );
         vm.stopPrank();
     }
 
