@@ -36,6 +36,7 @@ contract UTXOGatewayTest is Test {
     address relayer;
     Player[3] witnesses;
     bytes btcAddress;
+    bytes dogeAddress;
     string operator;
 
     address public constant IMUACHAIN_WITNESS = address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
@@ -57,6 +58,15 @@ contract UTXOGatewayTest is Test {
     string public constant BTC_NAME = "BTC";
     string public constant BTC_METADATA = "BTC";
     string public constant BTC_ORACLE_INFO = "BTC,BITCOIN,8";
+
+    uint8 public constant DOGE_ACCOUNT_LENGTH = 20;
+    string public constant DOGE_CHAIN_NAME = "DOGE";
+    string public constant DOGE_CHAIN_METADATA = "DOGE";
+    string public constant DOGE_SIGNATURE_SCHEME = "ECDSA";
+    uint8 public constant DOGE_DECIMALS = 8;
+    string public constant DOGE_NAME = "DOGE";
+    string public constant DOGE_METADATA = "DOGE";
+    string public constant DOGE_ORACLE_INFO = "DOGE,DOGE,8";
 
     uint256 public initialRequiredProofs = 3;
     uint256 public constant PROOF_TIMEOUT = 1 days;
@@ -145,6 +155,7 @@ contract UTXOGatewayTest is Test {
         witnesses[2] = Player({privateKey: 0xc, addr: vm.addr(0xc)});
 
         btcAddress = bytes("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa");
+        dogeAddress = bytes("DAbt4r1jYfFKNu1Xq5xP2nR4TestAddr");
         operator = "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla";
 
         // Deploy and initialize gateway
@@ -684,6 +695,80 @@ contract UTXOGatewayTest is Test {
         vm.stopPrank();
     }
 
+    function test_ActivateStakingForClientChain_DogeSuccess() public {
+        vm.startPrank(owner);
+
+        bytes memory chainRegisterCall = abi.encodeWithSelector(
+            IAssets.registerOrUpdateClientChain.selector,
+            uint32(uint8(UTXOGatewayStorage.ClientChainID.DOGE)),
+            DOGE_ACCOUNT_LENGTH,
+            DOGE_CHAIN_NAME,
+            DOGE_CHAIN_METADATA,
+            DOGE_SIGNATURE_SCHEME
+        );
+        vm.mockCall(ASSETS_PRECOMPILE_ADDRESS, chainRegisterCall, abi.encode(true, false));
+
+        bytes memory tokenRegisterCall = abi.encodeWithSelector(
+            IAssets.registerToken.selector,
+            uint32(uint8(UTXOGatewayStorage.ClientChainID.DOGE)),
+            VIRTUAL_TOKEN,
+            DOGE_DECIMALS,
+            DOGE_NAME,
+            DOGE_METADATA,
+            DOGE_ORACLE_INFO
+        );
+        vm.mockCall(ASSETS_PRECOMPILE_ADDRESS, tokenRegisterCall, abi.encode(true));
+
+        vm.expectEmit(true, false, false, false);
+        emit ClientChainRegistered(UTXOGatewayStorage.ClientChainID.DOGE);
+        vm.expectEmit(true, false, false, false);
+        emit WhitelistTokenAdded(UTXOGatewayStorage.ClientChainID.DOGE, VIRTUAL_TOKEN_ADDRESS);
+
+        gateway.activateStakingForClientChain(UTXOGatewayStorage.ClientChainID.DOGE);
+        vm.stopPrank();
+    }
+
+    function test_ActivateStakingForClientChain_DogeUpdateExisting() public {
+        vm.startPrank(owner);
+
+        bytes memory chainRegisterCall = abi.encodeWithSelector(
+            IAssets.registerOrUpdateClientChain.selector,
+            uint32(uint8(UTXOGatewayStorage.ClientChainID.DOGE)),
+            DOGE_ACCOUNT_LENGTH,
+            DOGE_CHAIN_NAME,
+            DOGE_CHAIN_METADATA,
+            DOGE_SIGNATURE_SCHEME
+        );
+        vm.mockCall(ASSETS_PRECOMPILE_ADDRESS, chainRegisterCall, abi.encode(true, true));
+
+        bytes memory tokenRegisterCall = abi.encodeWithSelector(
+            IAssets.registerToken.selector,
+            uint32(uint8(UTXOGatewayStorage.ClientChainID.DOGE)),
+            VIRTUAL_TOKEN,
+            DOGE_DECIMALS,
+            DOGE_NAME,
+            DOGE_METADATA,
+            DOGE_ORACLE_INFO
+        );
+        vm.mockCall(ASSETS_PRECOMPILE_ADDRESS, tokenRegisterCall, abi.encode(false));
+
+        bytes memory tokenUpdateCall = abi.encodeWithSelector(
+            IAssets.updateToken.selector,
+            uint32(uint8(UTXOGatewayStorage.ClientChainID.DOGE)),
+            VIRTUAL_TOKEN,
+            DOGE_METADATA
+        );
+        vm.mockCall(ASSETS_PRECOMPILE_ADDRESS, tokenUpdateCall, abi.encode(true));
+
+        vm.expectEmit(true, false, false, false);
+        emit ClientChainUpdated(UTXOGatewayStorage.ClientChainID.DOGE);
+        vm.expectEmit(true, false, false, false);
+        emit WhitelistTokenUpdated(UTXOGatewayStorage.ClientChainID.DOGE, VIRTUAL_TOKEN_ADDRESS);
+
+        gateway.activateStakingForClientChain(UTXOGatewayStorage.ClientChainID.DOGE);
+        vm.stopPrank();
+    }
+
     function test_SubmitProofForStakeMsg_Success() public {
         _addAllWitnesses();
         _activateConsensus();
@@ -1085,6 +1170,38 @@ contract UTXOGatewayTest is Test {
         gateway.processStakeMessage(witnesses[0].addr, stakeMsg, signature);
     }
 
+    function test_ProcessStakeMessage_Doge_WithDelegation() public {
+        _deactivateConsensus();
+
+        UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
+            clientChainId: UTXOGatewayStorage.ClientChainID.DOGE,
+            nonce: 1,
+            clientTxId: bytes32(uint256(456)),
+            clientAddress: dogeAddress,
+            imuachainAddress: user,
+            operator: operator,
+            amount: 1 ether
+        });
+
+        vm.mockCall(
+            ASSETS_PRECOMPILE_ADDRESS,
+            abi.encodeWithSelector(IAssets.depositLST.selector),
+            abi.encode(true, stakeMsg.amount)
+        );
+        vm.mockCall(
+            DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IDelegation.delegate.selector), abi.encode(true)
+        );
+
+        bytes memory signature = _generateSignature(stakeMsg, witnesses[0].privateKey);
+
+        vm.prank(relayer);
+        vm.expectEmit(true, true, true, true);
+        emit DelegationCompleted(UTXOGatewayStorage.ClientChainID.DOGE, user, operator, 1 ether);
+        gateway.processStakeMessage(witnesses[0].addr, stakeMsg, signature);
+
+        assertEq(gateway.getClientAddress(UTXOGatewayStorage.ClientChainID.DOGE, user), dogeAddress);
+    }
+
     function test_ProcessStakeMessage_DelegationFailureNotRevert() public {
         UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
             clientChainId: UTXOGatewayStorage.ClientChainID.BITCOIN,
@@ -1327,6 +1444,20 @@ contract UTXOGatewayTest is Test {
         gateway.delegateTo(UTXOGatewayStorage.Token.BTC, operator, 1 ether);
     }
 
+    function test_DelegateTo_Doge_Success() public {
+        _mockRegisterAddressForChain(UTXOGatewayStorage.ClientChainID.DOGE, user, dogeAddress);
+
+        vm.mockCall(
+            DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IDelegation.delegate.selector), abi.encode(true)
+        );
+
+        vm.prank(user);
+        vm.expectEmit(true, true, true, true);
+        emit DelegationCompleted(UTXOGatewayStorage.ClientChainID.DOGE, user, operator, 1 ether);
+
+        gateway.delegateTo(UTXOGatewayStorage.Token.DOGE, operator, 1 ether);
+    }
+
     function test_UndelegateFrom_Success() public {
         // Setup: Register user's client chain address first
         _mockRegisterAddress(user, btcAddress);
@@ -1419,6 +1550,21 @@ contract UTXOGatewayTest is Test {
         assertEq(gateway.pegOutNonce(UTXOGatewayStorage.ClientChainID.BITCOIN), 1);
     }
 
+    function test_WithdrawPrincipal_Doge_Success() public {
+        _mockRegisterAddressForChain(UTXOGatewayStorage.ClientChainID.DOGE, user, dogeAddress);
+
+        vm.mockCall(
+            ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IAssets.withdrawLST.selector), abi.encode(true, 2 ether)
+        );
+
+        vm.prank(user);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawPrincipalRequested(UTXOGatewayStorage.ClientChainID.DOGE, 1, user, dogeAddress, 1 ether, 2 ether);
+
+        gateway.withdrawPrincipal(UTXOGatewayStorage.Token.DOGE, 1 ether);
+        assertEq(gateway.pegOutNonce(UTXOGatewayStorage.ClientChainID.DOGE), 1);
+    }
+
     function test_WithdrawPrincipal_RevertWhenPaused() public {
         _mockRegisterAddress(user, btcAddress);
 
@@ -1505,6 +1651,21 @@ contract UTXOGatewayTest is Test {
 
         // Verify pegOutNonce increment
         assertEq(gateway.pegOutNonce(UTXOGatewayStorage.ClientChainID.BITCOIN), 1);
+    }
+
+    function test_WithdrawReward_Doge_Success() public {
+        _mockRegisterAddressForChain(UTXOGatewayStorage.ClientChainID.DOGE, user, dogeAddress);
+
+        vm.mockCall(
+            REWARD_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IReward.claimReward.selector), abi.encode(true, 2 ether)
+        );
+
+        vm.prank(user);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawRewardRequested(UTXOGatewayStorage.ClientChainID.DOGE, 1, user, dogeAddress, 1 ether, 2 ether);
+
+        gateway.withdrawReward(UTXOGatewayStorage.Token.DOGE, 1 ether);
+        assertEq(gateway.pegOutNonce(UTXOGatewayStorage.ClientChainID.DOGE), 1);
     }
 
     function test_WithdrawReward_RevertWhenPaused() public {
@@ -1674,10 +1835,49 @@ contract UTXOGatewayTest is Test {
         gateway.processNextPegOutRequest(UTXOGatewayStorage.ClientChainID.BITCOIN);
     }
 
+    function test_ProcessNextPegOutRequest_Doge_Success() public {
+        _setupPegOutRequestForChain(
+            UTXOGatewayStorage.ClientChainID.DOGE, UTXOGatewayStorage.Token.DOGE, user, dogeAddress
+        );
+
+        vm.prank(witnesses[0].addr);
+        vm.expectEmit(true, true, true, true);
+        emit PegOutRequestProcessing(
+            uint8(UTXOGatewayStorage.WithdrawType.WITHDRAW_PRINCIPAL),
+            UTXOGatewayStorage.ClientChainID.DOGE,
+            1,
+            user,
+            dogeAddress,
+            1 ether
+        );
+
+        UTXOGatewayStorage.PegOutRequest memory request =
+            gateway.processNextPegOutRequest(UTXOGatewayStorage.ClientChainID.DOGE);
+
+        assertEq(uint8(request.clientChainId), uint8(UTXOGatewayStorage.ClientChainID.DOGE));
+        assertEq(request.nonce, 1);
+        assertEq(request.requester, user);
+        assertEq(request.clientAddress, dogeAddress);
+        assertEq(request.amount, 1 ether);
+        assertEq(uint8(request.withdrawType), uint8(UTXOGatewayStorage.WithdrawType.WITHDRAW_PRINCIPAL));
+        assertEq(gateway.outboundNonce(UTXOGatewayStorage.ClientChainID.DOGE), 1);
+    }
+
     // Helper function to setup a peg-out request
     function _setupPegOutRequest() internal {
-        if (gateway.getClientAddress(UTXOGatewayStorage.ClientChainID.BITCOIN, user).length == 0) {
-            _mockRegisterAddress(user, btcAddress);
+        _setupPegOutRequestForChain(
+            UTXOGatewayStorage.ClientChainID.BITCOIN, UTXOGatewayStorage.Token.BTC, user, btcAddress
+        );
+    }
+
+    function _setupPegOutRequestForChain(
+        UTXOGatewayStorage.ClientChainID clientChainId,
+        UTXOGatewayStorage.Token token,
+        address imuachainAddr,
+        bytes memory clientAddr
+    ) internal {
+        if (gateway.getClientAddress(clientChainId, imuachainAddr).length == 0) {
+            _mockRegisterAddressForChain(clientChainId, imuachainAddr, clientAddr);
         }
 
         // mock withdrawLST success
@@ -1685,18 +1885,26 @@ contract UTXOGatewayTest is Test {
             ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IAssets.withdrawLST.selector), abi.encode(true, 2 ether)
         );
 
-        vm.prank(user);
-        gateway.withdrawPrincipal(UTXOGatewayStorage.Token.BTC, 1 ether);
-        assertEq(gateway.getPegOutRequest(UTXOGatewayStorage.ClientChainID.BITCOIN, 1).amount, 1 ether);
+        vm.prank(imuachainAddr);
+        gateway.withdrawPrincipal(token, 1 ether);
+        assertEq(gateway.getPegOutRequest(clientChainId, 1).amount, 1 ether);
     }
 
     // Helper functions
     function _mockRegisterAddress(address imuachainAddr, bytes memory btcAddr) internal {
+        _mockRegisterAddressForChain(UTXOGatewayStorage.ClientChainID.BITCOIN, imuachainAddr, btcAddr);
+    }
+
+    function _mockRegisterAddressForChain(
+        UTXOGatewayStorage.ClientChainID clientChainId,
+        address imuachainAddr,
+        bytes memory clientAddr
+    ) internal {
         UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
-            clientChainId: UTXOGatewayStorage.ClientChainID.BITCOIN,
-            nonce: gateway.nextInboundNonce(UTXOGatewayStorage.ClientChainID.BITCOIN),
+            clientChainId: clientChainId,
+            nonce: gateway.nextInboundNonce(clientChainId),
             clientTxId: bytes32(uint256(123)),
-            clientAddress: btcAddr,
+            clientAddress: clientAddr,
             imuachainAddress: imuachainAddr,
             operator: "",
             amount: 1 ether
@@ -1715,14 +1923,14 @@ contract UTXOGatewayTest is Test {
         bytes memory signature = _generateSignature(stakeMsg, witnesses[0].privateKey);
 
         vm.expectEmit(true, true, true, true, address(gateway));
-        emit AddressRegistered(UTXOGatewayStorage.ClientChainID.BITCOIN, btcAddr, imuachainAddr);
+        emit AddressRegistered(clientChainId, clientAddr, imuachainAddr);
 
         vm.prank(relayer);
         gateway.processStakeMessage(witnesses[0].addr, stakeMsg, signature);
 
         // Verify address registration
-        assertEq(gateway.getClientAddress(UTXOGatewayStorage.ClientChainID.BITCOIN, imuachainAddr), btcAddr);
-        assertEq(gateway.getImuachainAddress(UTXOGatewayStorage.ClientChainID.BITCOIN, btcAddr), imuachainAddr);
+        assertEq(gateway.getClientAddress(clientChainId, imuachainAddr), clientAddr);
+        assertEq(gateway.getImuachainAddress(clientChainId, clientAddr), imuachainAddr);
     }
 
     function _addAllWitnesses() internal {

@@ -102,6 +102,13 @@ contract UTXOGateway is
                 clientChainId, XRPL_ACCOUNT_LENGTH, XRPL_NAME, XRPL_METADATA, XRPL_SIGNATURE_SCHEME
             );
             _registerOrUpdateToken(clientChainId, VIRTUAL_TOKEN, XRP_DECIMALS, XRP_NAME, XRP_METADATA, XRP_ORACLE_INFO);
+        } else if (clientChainId == ClientChainID.DOGE) {
+            _registerOrUpdateClientChain(
+                clientChainId, DOGE_ACCOUNT_LENGTH, DOGE_CHAIN_NAME, DOGE_CHAIN_METADATA, DOGE_SIGNATURE_SCHEME
+            );
+            _registerOrUpdateToken(
+                clientChainId, VIRTUAL_TOKEN, DOGE_DECIMALS, DOGE_NAME, DOGE_METADATA, DOGE_ORACLE_INFO
+            );
         } else {
             revert Errors.InvalidClientChain();
         }
