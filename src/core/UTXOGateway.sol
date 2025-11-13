@@ -663,7 +663,9 @@ contract UTXOGateway is
         if (!registered) {
             bool updated = ASSETS_CONTRACT.updateToken(clientChainIdUint32, token, metadata);
             if (!updated) {
-                revert Errors.AddWhitelistTokenFailed(clientChainIdUint32, _bytesMemoryToBytes32(token));
+                // we use VIRTUAL_TOKEN to represent all existing tokens, and it is 32 bytes long, so it is safe to cast
+                // to bytes32 forge-lint: disable-next-line(unsafe-typecast)
+                revert Errors.AddWhitelistTokenFailed(clientChainIdUint32, bytes32(token));
             }
             emit WhitelistTokenUpdated(clientChainId, VIRTUAL_TOKEN_ADDRESS);
         } else {
@@ -711,15 +713,6 @@ contract UTXOGateway is
 
         if (bytes(_msg.operator).length > 0 && !isValidOperatorAddress(_msg.operator)) {
             revert Errors.InvalidOperator();
-        }
-    }
-
-    function _bytesMemoryToBytes32(bytes memory data) private pure returns (bytes32 result) {
-        if (data.length != 32) {
-            revert Errors.InvalidWhitelistTokensInput();
-        }
-        assembly {
-            result := mload(add(data, 32))
         }
     }
 

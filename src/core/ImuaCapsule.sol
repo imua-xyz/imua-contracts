@@ -447,8 +447,10 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         // According to EIP-7002, fee starts at 1 wei and increases dynamically
         // Try to query dynamic fee from precompile
         (bool success, bytes memory data) = getBeaconWithdrawalPrecompile().staticcall("");
-        if (success && data.length >= 32) {
-            fee = _bytesToUint256(data);
+        if (success) {
+            // the data is uint256 encoded so it is safe to cast to bytes32 and then to uint256
+            // forge-lint: disable-next-line(unsafe-typecast)
+            fee = uint256(bytes32(data));
             if (fee < MIN_WITHDRAWAL_FEE) {
                 fee = MIN_WITHDRAWAL_FEE;
             }
