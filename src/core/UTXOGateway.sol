@@ -664,7 +664,8 @@ contract UTXOGateway is
             bool updated = ASSETS_CONTRACT.updateToken(clientChainIdUint32, token, metadata);
             if (!updated) {
                 // we use VIRTUAL_TOKEN to represent all existing tokens, and it is 32 bytes long, so it is safe to cast
-                // to bytes32 forge-lint: disable-next-line(unsafe-typecast)
+                // to bytes32
+                // forge-lint: disable-next-line(unsafe-typecast)
                 revert Errors.AddWhitelistTokenFailed(clientChainIdUint32, bytes32(token));
             }
             emit WhitelistTokenUpdated(clientChainId, VIRTUAL_TOKEN_ADDRESS);
