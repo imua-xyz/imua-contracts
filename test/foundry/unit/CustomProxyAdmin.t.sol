@@ -90,8 +90,7 @@ contract CustomProxyAdminTest is Test {
 
     enum Stage {
         A,
-        B,
-        C
+        B
     }
 
     CustomProxyAdmin proxyAdmin;
@@ -121,20 +120,21 @@ contract CustomProxyAdminTest is Test {
     function _validate(Stage stage) private {
         if (stage == Stage.A) {
             assertTrue(implementationA.a() == 1);
-            vm.expectRevert();
-            uint256 b = ImplementationB(address(implementationA)).b();
-            vm.expectRevert();
-            uint256 c = ImplementationC(address(implementationA)).c();
+            // message-less revert == EVMError
+            vm.expectRevert(bytes(""));
+            ImplementationB(address(implementationA)).b();
+            vm.expectRevert(bytes(""));
+            ImplementationC(address(implementationA)).c();
+            // no check on proxyAdmin.proxy() since it may or may not be set yet
         } else if (stage == Stage.B) {
             assertTrue(implementationA.a() == 2);
             assertTrue(ImplementationB(address(implementationA)).b() == 1);
-            vm.expectRevert();
-            uint256 c = ImplementationC(address(implementationA)).c();
-        } else if (stage == Stage.C) {
-            assertTrue(implementationA.a() == 3);
-            assertTrue(ImplementationB(address(implementationA)).b() == 2);
-            assertTrue(ImplementationC(address(implementationA)).c() == 1);
+            vm.expectRevert(bytes(""));
+            ImplementationC(address(implementationA)).c();
+            // post upgrade, the proxy should be set to 0
+            assertTrue(proxyAdmin.proxy() == address(0));
         } else {
+            // we do not add a check for C since it cannot be reached!
             revert("Invalid stage");
         }
     }
@@ -178,7 +178,7 @@ contract CustomProxyAdminTest is Test {
         test02_ChangeImplementation();
         // now try to do a new upgrade
         ImplementationC target = new ImplementationC();
-        vm.expectRevert();
+        vm.expectRevert(Errors.CustomProxyAdminNoProxySet.selector);
         implementationA.upgradeSelfToAndCall(address(proxyAdmin), address(target));
         // validate that we are at stage B not C even though we tried to upgrade to C
         _validate(Stage.B);
