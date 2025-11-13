@@ -461,10 +461,4 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         return fee;
     }
 
-    function _bytesToUint256(bytes memory input) private pure returns (uint256 result) {
-        assembly {
-            result := mload(add(input, 32))
-        }
-    }
-
 }
