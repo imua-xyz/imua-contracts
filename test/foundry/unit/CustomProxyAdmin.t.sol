@@ -156,6 +156,9 @@ contract CustomProxyAdminTest is Test {
         _initialize(address(implementationA));
         implementationA.upgradeSelfToAndCall(address(proxyAdmin), targetImpl);
         _validate(Stage.B);
+        // try to set proxy again, which will revert
+        vm.expectRevert("Initializable: contract is already initialized");
+        _initialize(address(implementationA));
     }
 
     function test02_ChangeImplementation_NoProxySet() public {
@@ -179,6 +182,9 @@ contract CustomProxyAdminTest is Test {
         implementationA.upgradeSelfToAndCall(address(proxyAdmin), address(target));
         // validate that we are at stage B not C even though we tried to upgrade to C
         _validate(Stage.B);
+        // try to set proxy again, which will revert
+        vm.expectRevert("Initializable: contract is already initialized");
+        _initialize(address(implementationA));
     }
 
 }
