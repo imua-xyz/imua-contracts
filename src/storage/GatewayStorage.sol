@@ -58,7 +58,7 @@ contract GatewayStorage {
     }
 
     function _isValidBech32Address(string calldata addressToValidate) internal pure {
-        require(isValidImAddress(addressToValidate), "BootstrapStorage: invalid bech32 encoded Imuachain address");
+        require(isValidImAddress(addressToValidate), "GatewayStorage: invalid bech32 encoded Imuachain address");
     }
 
     /// @notice Checks if the provided string is a valid Imuachain account address.
