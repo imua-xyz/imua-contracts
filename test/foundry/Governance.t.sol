@@ -77,11 +77,11 @@ contract GovernanceTest is Test {
     uint32 imuachainChainId = 2;
     uint32 clientChainId = 1;
 
-    uint256 holeskyFork;
+    uint256 hoodiFork;
 
     function setUp() public {
-        // Fork Holesky testnet
-        holeskyFork = vm.createSelectFork("https://rpc.hoodi.ethpandaops.io");
+        // Fork hoodi testnet
+        hoodiFork = vm.createSelectFork("https://rpc.hoodi.ethpandaops.io");
 
         // Use already deployed Gnosis Safe contracts on Holesky
         safeImplementation = GnosisSafeL2(payable(0x3E5c63644E683549055b9Be8653de26E0B4CD36E));
@@ -177,7 +177,7 @@ contract GovernanceTest is Test {
         vm.assume(signersMask > 0 && signersMask < 8); // Ensure at least one signer and constrain to 3 bits
 
         // Fork Holesky testnet
-        vm.selectFork(holeskyFork);
+        vm.selectFork(hoodiFork);
 
         // Prepare multisig transaction to call pause on timelock
         bytes memory pauseData = abi.encodeWithSelector(CustomTimelockController.pause.selector, address(clientGateway));
@@ -236,7 +236,7 @@ contract GovernanceTest is Test {
         vm.assume(executeSignersMask > 0 && executeSignersMask < 8);
 
         // Fork Holesky testnet
-        vm.selectFork(holeskyFork);
+        vm.selectFork(hoodiFork);
 
         // First, pause the gateway
         bytes memory pauseData = abi.encodeWithSelector(CustomTimelockController.pause.selector, address(clientGateway));
