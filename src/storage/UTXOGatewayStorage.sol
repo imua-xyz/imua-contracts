@@ -16,7 +16,8 @@ contract UTXOGatewayStorage {
     enum Token {
         NONE, // 0: Invalid/uninitialized token
         BTC, // 1: Bitcoin token, matches with ClientChainID.Bitcoin
-        XRP // 2: XRPL token, matches with ClientChainID.XRPL
+        XRP, // 2: XRPL token, matches with ClientChainID.XRPL
+        DOGE // 3: DOGE token, matches with ClientChainID.DOGE
     }
 
     /**
@@ -26,7 +27,8 @@ contract UTXOGatewayStorage {
     enum ClientChainID {
         NONE, // 0: Invalid/uninitialized chain
         BITCOIN, // 1: Bitcoin chain, matches with Token.BTC
-        XRPL // 2: XRPL chain, matches with Token.XRP
+        XRPL, // 2: XRPL chain, matches with Token.XRP
+        DOGE // 3: DOGE chain, matches with Token.DOGE
     }
 
     /**
@@ -101,7 +103,7 @@ contract UTXOGatewayStorage {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                                  Constants                                 */
+    /* Constants */
     /* -------------------------------------------------------------------------- */
     /// @notice the app version
     uint256 public constant APP_VERSION = 1;
@@ -134,6 +136,17 @@ contract UTXOGatewayStorage {
     string public constant XRP_NAME = "XRP";
     string public constant XRP_METADATA = "XRP TOKEN";
     string public constant XRP_ORACLE_INFO = "XRP,XRPL,8";
+
+    /* ---------------------- DOGE Chain and Token Meta Data --------------------- */
+    string public constant DOGE_CHAIN_NAME = "DOGE";
+    string public constant DOGE_CHAIN_METADATA = "DOGE";
+    string public constant DOGE_SIGNATURE_SCHEME = "ECDSA";
+    uint8 public constant DOGE_ACCOUNT_LENGTH = 20;
+
+    uint8 public constant DOGE_DECIMALS = 8;
+    string public constant DOGE_NAME = "DOGE";
+    string public constant DOGE_METADATA = "DOGE";
+    string public constant DOGE_ORACLE_INFO = "DOGE,DOGE,8";
 
     uint256 public constant PROOF_TIMEOUT = 1 days;
     uint256 public bridgeFeeRate; // e.g., 100 (basis points) means 1%
@@ -455,16 +468,12 @@ contract UTXOGatewayStorage {
      * @param amount The amount to check
      */
     modifier isValidAmount(uint256 amount) {
-        if (amount == 0) {
-            revert Errors.ZeroAmount();
-        }
+        _isValidAmount(amount);
         _;
     }
 
     modifier isRegistered(Token token, address imAddress) {
-        if (outboundRegistry[ClientChainID(uint8(token))][imAddress].length == 0) {
-            revert Errors.AddressNotRegistered();
-        }
+        _isRegistered(token, imAddress);
         _;
     }
 
@@ -472,10 +481,26 @@ contract UTXOGatewayStorage {
      * @dev Modifier to restrict access to authorized witnesses only.
      */
     modifier onlyAuthorizedWitness() {
+        _onlyAuthorizedWitness();
+        _;
+    }
+
+    function _isValidAmount(uint256 amount) internal pure {
+        if (amount == 0) {
+            revert Errors.ZeroAmount();
+        }
+    }
+
+    function _isRegistered(Token token, address imAddress) internal view {
+        if (outboundRegistry[ClientChainID(uint8(token))][imAddress].length == 0) {
+            revert Errors.AddressNotRegistered();
+        }
+    }
+
+    function _onlyAuthorizedWitness() internal view {
         if (!authorizedWitnesses[msg.sender]) {
             revert Errors.UnauthorizedWitness();
         }
-        _;
     }
 
     /// @notice Checks if the provided string is a valid Imuachain address.

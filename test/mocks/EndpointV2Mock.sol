@@ -143,10 +143,9 @@ contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
         bytes memory payload = PacketV1Codec.encodePayload(packet);
         bytes32 payloadHash = keccak256(payload);
 
-        EndpointV2Mock(lzEndpoint)
-        .receivePayload{
-            value: dstAmount
-        }(origin, packet.receiver.bytes32ToAddress(), payloadHash, packet.message, totalGas, dstAmount, packet.guid);
+        EndpointV2Mock(lzEndpoint).receivePayload{value: dstAmount}(
+            origin, packet.receiver.bytes32ToAddress(), payloadHash, packet.message, totalGas, dstAmount, packet.guid
+        );
     }
 
     function receivePayload(
@@ -160,8 +159,9 @@ contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
     ) external payable receiveNonReentrant {
         inboundPayloadHash[_receiver][_origin.srcEid][_origin.sender][_origin.nonce] = _payloadHash;
         if (_msgValue > 0) {
-            try ILayerZeroReceiver(_receiver)
-            .lzReceive{value: _msgValue, gas: _gas}(_origin, _guid, _message, address(0), "") {}
+            try ILayerZeroReceiver(_receiver).lzReceive{value: _msgValue, gas: _gas}(
+                _origin, _guid, _message, address(0), ""
+            ) {}
                 catch (bytes memory /*reason*/
                 ) {}
         } else {
@@ -187,9 +187,10 @@ contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
 
         // pricePerByte = (dstGasPriceInWei * gasPerBytes) * tokenConversionRate
         uint256 pricePerByte =
-            ((relayerFeeConfig.dstGasPriceInWei * relayerFeeConfig.gasPerByte * relayerFeeConfig.dstPriceRatio)
-                / 10
-                ** 10) * _payloadSize;
+            (relayerFeeConfig.dstGasPriceInWei
+                    * relayerFeeConfig.gasPerByte
+                    * relayerFeeConfig.dstPriceRatio
+                    * _payloadSize) / (10 ** 10);
 
         return basePrice + pricePerByte;
     }
@@ -807,7 +808,7 @@ contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
     {
         return _origin.nonce > _lazyInboundNonce // either initializing an empty slot or reverifying
             || inboundPayloadHash[_receiver][_origin.srcEid][_origin.sender][_origin.nonce] != EMPTY_PAYLOAD_HASH; // only
-            // allow reverifying if it hasn't been executed
+        // allow reverifying if it hasn't been executed
     }
 
     // ========================= VIEW FUNCTIONS FOR OFFCHAIN ONLY =========================

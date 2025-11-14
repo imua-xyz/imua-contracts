@@ -53,7 +53,8 @@ contract RewardVaultTest is Test {
         withdrawer = address(0x2);
         avs = address(0x3);
 
-        token.transfer(depositor, 1000 * 10 ** 18);
+        bool fundedDepositor = token.transfer(depositor, 1000 * 10 ** 18);
+        assertTrue(fundedDepositor, "token funding failed");
     }
 
     function testInitialize() public {

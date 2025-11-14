@@ -17,10 +17,14 @@ abstract contract BootstrapLzReceiver is PausableUpgradeable, OAppReceiverUpgrad
 
     /// @dev Allows only this contract to call the function via low level call.
     modifier onlyCalledFromThis() {
+        _onlyCalledFromThis();
+        _;
+    }
+
+    function _onlyCalledFromThis() internal view {
         if (msg.sender != address(this)) {
             revert Errors.BootstrapLzReceiverOnlyCalledFromThis();
         }
-        _;
     }
 
     /// @inheritdoc OAppReceiverUpgradeable

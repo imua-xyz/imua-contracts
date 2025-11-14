@@ -24,8 +24,11 @@ contract SimulateReceive is Script, StdCheats {
         string memory json = vm.readFile("./scanApiResponse.json");
         uint32 srcEid = uint32(json.readUint(".data[0].pathway.srcEid"));
         require(srcEid != 0, "srcEid should not be empty");
+        require(srcEid <= type(uint16).max, "srcEid must fit in uint16");
         // always monkey-patch a precompile, since with LZ we need them
         // TODO: AssetsMock may still complain about a few things.
+        // casting to 'uint16' is safe because we verify the srcEid fits within uint16 above
+        // forge-lint: disable-next-line(unsafe-typecast)
         deployCodeTo("AssetsMock.sol", abi.encode(uint16(srcEid)), ASSETS_PRECOMPILE_ADDRESS);
         deployCodeTo("DelegationMock.sol", DELEGATION_PRECOMPILE_ADDRESS);
         address senderAddress = json.readAddress(".data[0].pathway.sender.address");

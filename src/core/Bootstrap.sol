@@ -118,10 +118,14 @@ contract Bootstrap is
     /// @dev Modifier to restrict operations based on the contract's defined timeline, that is,
     /// during the offset duration before Imuachain's spawn time.
     modifier beforeLocked() {
+        _beforeLocked();
+        _;
+    }
+
+    function _beforeLocked() internal view {
         if (isLocked()) {
             revert Errors.BootstrapBeforeLocked();
         }
-        _;
     }
 
     /// @notice Pauses the contract.
@@ -648,10 +652,10 @@ contract Bootstrap is
     /// contract.
     /// @param _clientChainInitializationData The initialization data to be used when setting up
     /// the new logic contract.
-    function setClientChainGatewayLogic(
-        address _clientChainGatewayLogic,
-        bytes calldata _clientChainInitializationData
-    ) public onlyOwner {
+    function setClientChainGatewayLogic(address _clientChainGatewayLogic, bytes calldata _clientChainInitializationData)
+        public
+        onlyOwner
+    {
         _setClientChainGatewayLogic(_clientChainGatewayLogic, _clientChainInitializationData);
     }
 

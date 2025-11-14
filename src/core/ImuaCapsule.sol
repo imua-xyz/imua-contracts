@@ -119,10 +119,14 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
 
     /// @dev Ensures that the caller is the gateway.
     modifier onlyGateway() {
+        _onlyGateway();
+        _;
+    }
+
+    function _onlyGateway() internal view {
         if (msg.sender != address(gateway)) {
             revert InvalidCaller(address(gateway), msg.sender);
         }
-        _;
     }
 
     /// @notice Constructor to create the ImuaCapsule contract.
@@ -444,6 +448,8 @@ contract ImuaCapsule is ReentrancyGuardUpgradeable, ImuaCapsuleStorage, IImuaCap
         // Try to query dynamic fee from precompile
         (bool success, bytes memory data) = getBeaconWithdrawalPrecompile().staticcall("");
         if (success) {
+            // the data is uint256 encoded so it is safe to cast to bytes32 and then to uint256
+            // forge-lint: disable-next-line(unsafe-typecast)
             fee = uint256(bytes32(data));
             if (fee < MIN_WITHDRAWAL_FEE) {
                 fee = MIN_WITHDRAWAL_FEE;
