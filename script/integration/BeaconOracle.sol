@@ -69,7 +69,13 @@ contract BeaconOracle is IBeaconChainOracle {
         uint256 slot = (_targetTimestamp - GENESIS_BLOCK_TIMESTAMP) / SECONDS_PER_SLOT;
 
         // Find the block root for the target timestamp.
-        bytes32 blockRoot = findBlockRoot(uint64(slot));
+        if (slot > type(uint64).max) {
+            revert TimestampOutOfRange();
+        }
+        // casting to 'uint64' is safe because we ensure the slot fits within the uint64 range above
+        // forge-lint: disable-next-line(unsafe-typecast)
+        uint64 slot64 = uint64(slot);
+        bytes32 blockRoot = findBlockRoot(slot64);
 
         // Add the block root to the mapping.
         timestampToBlockRoot[_targetTimestamp] = blockRoot;

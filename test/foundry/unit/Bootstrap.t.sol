@@ -258,7 +258,8 @@ contract BootstrapTest is Test {
         for (uint256 i = 0; i < 6; i++) {
             // from constructor logic, some initial balance is present.
             uint256 prevBalance = myToken.balanceOf(addrs[i]);
-            myToken.transfer(addrs[i], amounts[i]);
+            bool funded = myToken.transfer(addrs[i], amounts[i]);
+            assertTrue(funded, "token funding failed");
             uint256 newBalance = myToken.balanceOf(addrs[i]);
             assertTrue(newBalance == prevBalance + amounts[i]);
         }
@@ -316,7 +317,8 @@ contract BootstrapTest is Test {
     function test02_Deposit_WithoutApproval() public {
         // make a transfer
         vm.startPrank(deployer);
-        myToken.transfer(addrs[0], amounts[0]);
+        bool funded = myToken.transfer(addrs[0], amounts[0]);
+        assertTrue(funded, "token funding failed");
         vm.stopPrank();
         assertTrue(myToken.balanceOf(addrs[0]) >= amounts[0]);
 
@@ -349,7 +351,8 @@ contract BootstrapTest is Test {
 
         // now transfer it to address[0]
         vm.startPrank(cloneDeployer);
-        myTokenClone.transfer(addrs[0], amounts[0]);
+        bool cloneFunded = myTokenClone.transfer(addrs[0], amounts[0]);
+        assertTrue(cloneFunded, "token funding failed");
 
         // now try to deposit
         myToken.approve(address(bootstrap), amounts[0]);
@@ -368,7 +371,8 @@ contract BootstrapTest is Test {
 
         // now transfer it to address[0]
         vm.startPrank(cloneDeployer);
-        myTokenClone.transfer(addrs[0], amounts[0]);
+        bool fundedClone = myTokenClone.transfer(addrs[0], amounts[0]);
+        assertTrue(fundedClone, "token funding failed");
         vm.stopPrank();
 
         // now add it to the whitelist
@@ -1536,9 +1540,9 @@ contract BootstrapTest is Test {
         vm.startPrank(addrs[0]);
         vm.deal(addrs[0], 1 ether);
         vm.expectRevert(Errors.NonZeroValue.selector);
-        bootstrap.delegateTo{
-            value: 0.1 ether
-        }("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0]);
+        bootstrap.delegateTo{value: 0.1 ether}(
+            "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0]
+        );
         vm.stopPrank();
     }
 
@@ -1546,9 +1550,9 @@ contract BootstrapTest is Test {
         vm.startPrank(addrs[0]);
         vm.deal(addrs[0], 1 ether);
         vm.expectRevert(Errors.NonZeroValue.selector);
-        bootstrap.undelegateFrom{
-            value: 0.1 ether
-        }("im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0], true);
+        bootstrap.undelegateFrom{value: 0.1 ether}(
+            "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla", address(myToken), amounts[0], true
+        );
         vm.stopPrank();
     }
 
@@ -1556,9 +1560,9 @@ contract BootstrapTest is Test {
         vm.startPrank(addrs[0]);
         vm.deal(addrs[0], 1 ether);
         vm.expectRevert(Errors.NonZeroValue.selector);
-        bootstrap.depositThenDelegateTo{
-            value: 0.1 ether
-        }(address(myToken), amounts[0], "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla");
+        bootstrap.depositThenDelegateTo{value: 0.1 ether}(
+            address(myToken), amounts[0], "im13hasr43vvq8v44xpzh0l6yuym4kca98fhq3xla"
+        );
         vm.stopPrank();
     }
 

@@ -102,6 +102,13 @@ contract UTXOGateway is
                 clientChainId, XRPL_ACCOUNT_LENGTH, XRPL_NAME, XRPL_METADATA, XRPL_SIGNATURE_SCHEME
             );
             _registerOrUpdateToken(clientChainId, VIRTUAL_TOKEN, XRP_DECIMALS, XRP_NAME, XRP_METADATA, XRP_ORACLE_INFO);
+        } else if (clientChainId == ClientChainID.DOGE) {
+            _registerOrUpdateClientChain(
+                clientChainId, DOGE_ACCOUNT_LENGTH, DOGE_CHAIN_NAME, DOGE_CHAIN_METADATA, DOGE_SIGNATURE_SCHEME
+            );
+            _registerOrUpdateToken(
+                clientChainId, VIRTUAL_TOKEN, DOGE_DECIMALS, DOGE_NAME, DOGE_METADATA, DOGE_ORACLE_INFO
+            );
         } else {
             revert Errors.InvalidClientChain();
         }
@@ -711,7 +718,10 @@ contract UTXOGateway is
         if (!registered) {
             bool updated = ASSETS_CONTRACT.updateToken(clientChainIdUint32, token, metadata);
             if (!updated) {
-                revert Errors.AddWhitelistTokenFailed(clientChainIdUint32, bytes32(token));
+                // we use VIRTUAL_TOKEN to represent all existing tokens, and it is 32 bytes long, so it is safe to cast
+                // to bytes32
+                // forge-lint: disable-next-line(unsafe-typecast)
+                revert Errors.AddWhitelistTokenFailed(clientChainIdUint32, bytes32(VIRTUAL_TOKEN));
             }
             emit WhitelistTokenUpdated(clientChainId, VIRTUAL_TOKEN_ADDRESS);
         } else {

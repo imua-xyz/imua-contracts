@@ -63,7 +63,8 @@ contract DepositThenDelegateToTest is ImuachainDeployer {
 
         // ensure there is enough balance
         vm.startPrank(owner.addr);
-        restakeToken.transfer(delegator, delegateAmount);
+        bool fundedDelegator = restakeToken.transfer(delegator, delegateAmount);
+        assertTrue(fundedDelegator, "restake token funding failed");
         vm.stopPrank();
 
         // // approve it
@@ -91,7 +92,8 @@ contract DepositThenDelegateToTest is ImuachainDeployer {
 
         // ensure there is enough balance
         vm.startPrank(owner.addr);
-        restakeToken.transfer(delegator, delegateAmount);
+        bool fundedDelegatorAgain = restakeToken.transfer(delegator, delegateAmount);
+        assertTrue(fundedDelegatorAgain, "restake token funding failed");
         vm.stopPrank();
 
         // approve it
@@ -141,9 +143,9 @@ contract DepositThenDelegateToTest is ImuachainDeployer {
         );
 
         vm.startPrank(delegator);
-        clientGateway.depositThenDelegateTo{
-            value: requestNativeFee
-        }(address(restakeToken), delegateAmount, operatorAddress);
+        clientGateway.depositThenDelegateTo{value: requestNativeFee}(
+            address(restakeToken), delegateAmount, operatorAddress
+        );
         vm.stopPrank();
 
         // check that the balance changed

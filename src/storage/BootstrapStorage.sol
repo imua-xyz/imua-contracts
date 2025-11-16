@@ -346,31 +346,47 @@ contract BootstrapStorage is GatewayStorage {
 
     /// @dev Ensures that native restaking is enabled for this contract.
     modifier nativeRestakingEnabled() {
-        if (!isWhitelistedToken[VIRTUAL_NST_ADDRESS]) {
-            revert Errors.NativeRestakingControllerNotWhitelisted();
-        }
+        _nativeRestakingEnabled();
         _;
     }
 
     /// @notice Checks if the token is whitelisted.
     /// @param token The address of the token to check.
     modifier isTokenWhitelisted(address token) {
-        require(isWhitelistedToken[token], "BootstrapStorage: token is not whitelisted");
+        _isTokenWhitelisted(token);
         _;
     }
 
     /// @notice Ensures the amount is greater than zero.
     /// @param amount The amount to check.
     modifier isValidAmount(uint256 amount) {
-        require(amount > 0, "BootstrapStorage: amount should be greater than zero");
+        _isValidAmount(amount);
         _;
     }
 
     /// @notice Checks if a vault exists for the given token.
     /// @param token The address of the token to check.
     modifier vaultExists(address token) {
-        require(address(tokenToVault[token]) != address(0), "BootstrapStorage: no vault added for this token");
+        _vaultExists(token);
         _;
+    }
+
+    function _nativeRestakingEnabled() internal view {
+        if (!isWhitelistedToken[VIRTUAL_NST_ADDRESS]) {
+            revert Errors.NativeRestakingControllerNotWhitelisted();
+        }
+    }
+
+    function _isTokenWhitelisted(address token) internal view {
+        require(isWhitelistedToken[token], "BootstrapStorage: token is not whitelisted");
+    }
+
+    function _isValidAmount(uint256 amount) internal pure {
+        require(amount > 0, "BootstrapStorage: amount should be greater than zero");
+    }
+
+    function _vaultExists(address token) internal view {
+        require(address(tokenToVault[token]) != address(0), "BootstrapStorage: no vault added for this token");
     }
 
     /// @notice Initializes the contract with the given parameters.

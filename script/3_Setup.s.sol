@@ -134,9 +134,7 @@ contract SetupScript is BaseScript {
                     Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokensBytes32[i], tvlLimits[i])
                 )
             );
-            imuachainGateway.addWhitelistToken{
-                value: nativeFee
-            }(
+            imuachainGateway.addWhitelistToken{value: nativeFee}(
                 clientChainEndpointId,
                 whitelistTokensBytes32[i],
                 decimals[i],

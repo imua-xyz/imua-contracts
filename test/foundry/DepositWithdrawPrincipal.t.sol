@@ -39,7 +39,8 @@ contract DepositWithdrawPrincipalTest is ImuachainDeployer {
     function test_LSTDepositWithdrawByLayerZero() public {
         Player memory depositor = players[0];
         vm.startPrank(owner.addr);
-        restakeToken.transfer(depositor.addr, 1_000_000);
+        bool fundedDepositor = restakeToken.transfer(depositor.addr, 1_000_000);
+        assertTrue(fundedDepositor, "restake token funding failed");
         vm.stopPrank();
 
         // transfer some gas fee to depositor
@@ -174,9 +175,9 @@ contract DepositWithdrawPrincipalTest is ImuachainDeployer {
         emit MessageSent(
             Action.REQUEST_WITHDRAW_LST, withdrawRequestId, outboundNonces[clientChainId]++, withdrawRequestNativeFee
         );
-        clientGateway.claimPrincipalFromImuachain{
-            value: withdrawRequestNativeFee
-        }(address(restakeToken), withdrawAmount);
+        clientGateway.claimPrincipalFromImuachain{value: withdrawRequestNativeFee}(
+            address(restakeToken), withdrawAmount
+        );
 
         // second layerzero relayers should watch the request message packet and relay the message to destination
         // endpoint
@@ -524,7 +525,8 @@ contract DepositWithdrawPrincipalTest is ImuachainDeployer {
         address addr = players[0].addr;
         deal(addr, 1e22); // for gas
         vm.startPrank(owner.addr);
-        restakeToken.transfer(addr, 1_000_000);
+        bool fundedAddress = restakeToken.transfer(addr, 1_000_000);
+        assertTrue(fundedAddress, "restake token funding failed");
         vm.stopPrank();
 
         uint256 depositAmount = restakeToken.balanceOf(addr);

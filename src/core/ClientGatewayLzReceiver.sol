@@ -22,10 +22,14 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
 
     /// @dev Ensure that the function is called only from this contract.
     modifier onlyCalledFromThis() {
+        _onlyCalledFromThis();
+        _;
+    }
+
+    function _onlyCalledFromThis() internal view {
         if (msg.sender != address(this)) {
             revert Errors.ClientGatewayLzReceiverOnlyCalledFromThis();
         }
-        _;
     }
 
     /// @inheritdoc OAppReceiverUpgradeable
@@ -87,7 +91,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
                 (, address staker, uint256 amount) = _decodeCachedRequest(cachedRequest);
                 IImuaCapsule capsule = _getCapsule(staker);
                 capsule.endClaimNST(); // we should end the claim progress to set the inClaimProgress flag to false no
-                    // matter the success or failure of the request
+                // matter the success or failure of the request
                 if (requestSuccess) {
                     capsule.unlockETHPrincipal(amount);
                 }
@@ -201,6 +205,9 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     /// @return value The uint128 value
     function _decodeTokenUint128(bytes calldata payload) internal view returns (address, uint128) {
         bytes32 tokenAsBytes32 = bytes32(payload[:32]);
+        // The whitelist token address is encoded in the first 20 bytes (left-padded) of the 32-byte slot.
+        // Truncating to bytes20 is therefore safe and restores the original address encoding.
+        // forge-lint: disable-next-line(unsafe-typecast)
         address token = address(bytes20(tokenAsBytes32));
         if (token == address(0)) {
             // cannot happen since the precompiles check for this

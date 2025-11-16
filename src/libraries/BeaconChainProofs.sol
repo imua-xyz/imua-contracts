@@ -36,7 +36,7 @@ library BeaconChainProofs {
     // VALIDATOR_REGISTRY_LIMIT = 2 ** 40, so tree height is 40
     uint256 internal constant VALIDATOR_TREE_HEIGHT = 40;
     // MAX_VALIDATOR_INDEX = 2 ** 40 - 1
-    uint256 internal constant MAX_VALIDATOR_INDEX = (1 << VALIDATOR_TREE_HEIGHT) - 1;
+    uint256 internal constant MAX_VALIDATOR_INDEX = (uint256(1) << VALIDATOR_TREE_HEIGHT) - 1;
     // MAX_WITHDRAWALS_PER_PAYLOAD = 2**4, making tree height = 4
     uint256 internal constant WITHDRAWALS_TREE_HEIGHT = 4;
 

@@ -174,7 +174,8 @@ contract BaseScript is Script, StdCheats {
         } else {
             uint256 currentBalance = IERC20(token).balanceOf(recipient);
             if (currentBalance < targetBalance) {
-                IERC20(token).transfer(recipient, targetBalance - currentBalance);
+                bool sent = IERC20(token).transfer(recipient, targetBalance - currentBalance);
+                require(sent, "Failed to send tokens");
             }
         }
         vm.stopBroadcast();

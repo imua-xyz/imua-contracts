@@ -196,9 +196,9 @@ contract DelegateTest is ImuachainDeployer {
 
         /// delegator call clientGateway to send undelegation request
         vm.startPrank(delegator.addr);
-        clientGateway.undelegateFrom{
-            value: requestNativeFee
-        }(operatorAddress, address(restakeToken), undelegateAmount, true);
+        clientGateway.undelegateFrom{value: requestNativeFee}(
+            operatorAddress, address(restakeToken), undelegateAmount, true
+        );
         vm.stopPrank();
 
         // 2. second layerzero relayers should watch the request message packet and relay the message to destination

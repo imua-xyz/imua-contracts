@@ -12,12 +12,23 @@ ignored_error_codes = [5667]
 ignored_warnings_from = ["script", "test"]
 # fail compilation if the warnings are not fixed.
 # this is super useful for the code size warning.
-# deny_warnings = true
+deny = "warnings"
 # optimization is no longer enabled by default
 optimizer = true
 optimizer_runs = 100
 solc = "0.8.28"
 libraries = ["src/libraries/NetworkConstants.sol:NetworkConstants:0xf718DcEC914835d47a5e428A5397BF2F7276808b"]
+
+[lint]
+# we only omit info level notes to avoid overwhelming the user with too many notes.
+# but notes about code size and gas are still reserved and logged because they are important.
+severity = [
+    "high",
+    "med",
+    "low",
+    "codesize",
+    "gas"
+]
 
 [profile.test]
 # for tests, use the Eth mainnet chain_id for NetworkConstants to work.
