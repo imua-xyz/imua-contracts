@@ -34,9 +34,8 @@ contract StorageC is StorageB {
 abstract contract ImplementationChanger {
 
     function upgradeSelfToAndCall(address customProxyAdmin, address newImplementation) public {
-        ICustomProxyAdmin(customProxyAdmin).upgradeSelfToAndCall(
-            newImplementation, abi.encodeCall(ImplementationChanger.initialize, ())
-        );
+        ICustomProxyAdmin(customProxyAdmin)
+            .upgradeSelfToAndCall(newImplementation, abi.encodeCall(ImplementationChanger.initialize, ()));
     }
 
     function initialize() external virtual;

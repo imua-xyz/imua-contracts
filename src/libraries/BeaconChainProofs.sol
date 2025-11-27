@@ -84,8 +84,8 @@ library BeaconChainProofs {
     ) public view returns (bool) {
         return isValidStateRoot(stateRoot, beaconBlockRoot, stateRootProof)
             && isValidVCRootAgainstStateRoot(
-                validatorContainerRoot, stateRoot, validatorContainerRootProof, validatorIndex, isElectra
-            );
+            validatorContainerRoot, stateRoot, validatorContainerRootProof, validatorIndex, isElectra
+        );
     }
 
     // the below functions can be internal-only but we keep them public for testing purposes
@@ -98,10 +98,7 @@ library BeaconChainProofs {
         require(stateRootProof.length == BEACON_BLOCK_HEADER_FIELD_TREE_HEIGHT, "state root proof should have 3 nodes");
 
         return Merkle.verifyInclusionSha256({
-            proof: stateRootProof,
-            root: beaconBlockRoot,
-            leaf: stateRoot,
-            index: STATE_ROOT_INDEX
+            proof: stateRootProof, root: beaconBlockRoot, leaf: stateRoot, index: STATE_ROOT_INDEX
         });
     }
 
@@ -123,10 +120,7 @@ library BeaconChainProofs {
         uint256 leafIndex = (VALIDATOR_TREE_ROOT_INDEX << (VALIDATOR_TREE_HEIGHT + 1)) | uint256(validatorIndex);
 
         return Merkle.verifyInclusionSha256({
-            proof: validatorContainerRootProof,
-            root: stateRoot,
-            leaf: validatorContainerRoot,
-            index: leafIndex
+            proof: validatorContainerRootProof, root: stateRoot, leaf: validatorContainerRoot, index: leafIndex
         });
     }
 

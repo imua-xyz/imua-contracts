@@ -154,17 +154,15 @@ contract DelegateTest is ImuachainDeployer {
         vm.stopPrank();
 
         /// assert that DelegationMock contract should have recorded the delegate
-        uint256 actualDelegateAmount = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getDelegateAmount(
-            delegator.addr, operatorAddress, clientChainId, address(restakeToken)
-        );
+        uint256 actualDelegateAmount = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS)
+            .getDelegateAmount(delegator.addr, operatorAddress, clientChainId, address(restakeToken));
         assertEq(actualDelegateAmount, delegateAmount);
     }
 
     function _testUndelegate(uint256 undelegateAmount) internal {
         /* ------------------------- undelegate workflow test ------------------------- */
-        uint256 totalDelegate = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getDelegateAmount(
-            delegator.addr, operatorAddress, clientChainId, address(restakeToken)
-        );
+        uint256 totalDelegate = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS)
+            .getDelegateAmount(delegator.addr, operatorAddress, clientChainId, address(restakeToken));
         require(undelegateAmount <= totalDelegate, "undelegate amount overflow");
 
         // 1. first user call client chain gateway to undelegate
@@ -242,9 +240,8 @@ contract DelegateTest is ImuachainDeployer {
         );
         vm.stopPrank();
         /// assert that DelegationMock contract should have recorded the undelegation
-        uint256 actualDelegateAmount = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getDelegateAmount(
-            delegator.addr, operatorAddress, clientChainId, address(restakeToken)
-        );
+        uint256 actualDelegateAmount = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS)
+            .getDelegateAmount(delegator.addr, operatorAddress, clientChainId, address(restakeToken));
         assertEq(actualDelegateAmount, totalDelegate - undelegateAmount);
     }
 

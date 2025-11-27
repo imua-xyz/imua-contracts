@@ -287,9 +287,8 @@ contract LzReceive is SetUp {
             bytes("")
         );
 
-        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getAssociatedOperator(
-            clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr)))
-        );
+        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS)
+            .getAssociatedOperator(clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr))));
         assertEq(keccak256(associatedOperator), keccak256(bytes(operator)));
     }
 
@@ -326,9 +325,8 @@ contract LzReceive is SetUp {
             bytes("")
         );
 
-        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getAssociatedOperator(
-            anotherChainId, abi.encodePacked(bytes32(bytes20(staker.addr)))
-        );
+        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS)
+            .getAssociatedOperator(anotherChainId, abi.encodePacked(bytes32(bytes20(staker.addr))));
         assertEq(keccak256(associatedOperator), keccak256(bytes(anotherOperator)));
     }
 
@@ -731,9 +729,8 @@ contract AssociateOperatorWithEVMStaker is SetUp {
         vm.startPrank(staker.addr);
         imuachainGateway.associateOperatorWithEVMStaker(clientChainId, operator);
 
-        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getAssociatedOperator(
-            clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr)))
-        );
+        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS)
+            .getAssociatedOperator(clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr))));
         assertEq(keccak256(associatedOperator), keccak256(bytes(operator)));
     }
 
@@ -775,13 +772,11 @@ contract AssociateOperatorWithEVMStaker is SetUp {
         vm.startPrank(staker.addr);
         imuachainGateway.associateOperatorWithEVMStaker(anotherChainId, anotherOperator);
 
-        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getAssociatedOperator(
-            clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr)))
-        );
+        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS)
+            .getAssociatedOperator(clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr))));
         assertEq(keccak256(associatedOperator), keccak256(bytes(operator)));
-        associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getAssociatedOperator(
-            anotherChainId, abi.encodePacked(bytes32(bytes20(staker.addr)))
-        );
+        associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS)
+            .getAssociatedOperator(anotherChainId, abi.encodePacked(bytes32(bytes20(staker.addr))));
         assertEq(keccak256(associatedOperator), keccak256(bytes(anotherOperator)));
     }
 
@@ -792,9 +787,8 @@ contract AssociateOperatorWithEVMStaker is SetUp {
         vm.startPrank(staker.addr);
         imuachainGateway.dissociateOperatorFromEVMStaker(clientChainId);
 
-        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getAssociatedOperator(
-            clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr)))
-        );
+        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS)
+            .getAssociatedOperator(clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr))));
         assertEq(associatedOperator.length, 0);
     }
 

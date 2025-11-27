@@ -304,8 +304,9 @@ contract ImuachainGateway is
         string calldata metaInfo,
         string calldata signatureType
     ) internal returns (bool) {
-        (bool success, bool updated) =
-            ASSETS_CONTRACT.registerOrUpdateClientChain(clientChainId, addressLength, name, metaInfo, signatureType);
+        (bool success, bool updated) = ASSETS_CONTRACT.registerOrUpdateClientChain(
+            clientChainId, addressLength, name, metaInfo, signatureType
+        );
         if (!success) {
             revert Errors.RegisterClientChainToImuachainFailed(clientChainId);
         }

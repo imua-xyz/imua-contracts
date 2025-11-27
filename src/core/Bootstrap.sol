@@ -365,6 +365,7 @@ contract Bootstrap is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         nonReentrant // interacts with Vault
+
     {
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
@@ -405,6 +406,7 @@ contract Bootstrap is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         nonReentrant // interacts with Vault
+
     {
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
@@ -466,6 +468,7 @@ contract Bootstrap is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         nonReentrant // because it interacts with vault
+
     {
         if (recipient == address(0)) {
             revert Errors.ZeroAddress();
@@ -485,7 +488,8 @@ contract Bootstrap is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         isValidBech32Address(validator)
-    // does not need a reentrancy guard
+        // does not need a reentrancy guard
+
     {
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
@@ -534,7 +538,8 @@ contract Bootstrap is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         isValidBech32Address(validator)
-    // does not need a reentrancy guard
+        // does not need a reentrancy guard
+
     {
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
@@ -590,6 +595,7 @@ contract Bootstrap is
         isValidAmount(amount)
         isValidBech32Address(validator)
         nonReentrant // because it interacts with vault in deposit
+
     {
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
@@ -624,9 +630,8 @@ contract Bootstrap is
             emit BootstrappedAlready();
             return;
         }
-        try ICustomProxyAdmin(customProxyAdmin).upgradeSelfToAndCall(
-            clientChainGatewayLogic, clientChainInitializationData
-        ) {
+        try ICustomProxyAdmin(customProxyAdmin)
+            .upgradeSelfToAndCall(clientChainGatewayLogic, clientChainInitializationData) {
             emit Bootstrapped();
         } catch {
             // to allow retries, never fail

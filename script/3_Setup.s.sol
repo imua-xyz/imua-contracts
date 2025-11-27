@@ -63,9 +63,8 @@ contract SetupScript is BaseScript {
         vm.startBroadcast(owner.privateKey);
         // set the destination endpoint for corresponding destinations in endpoint mock if USE_ENDPOINT_MOCK is true
         if (useEndpointMock) {
-            NonShortCircuitEndpointV2Mock(address(clientChainLzEndpoint)).setDestLzEndpoint(
-                address(imuachainGateway), address(imuachainLzEndpoint)
-            );
+            NonShortCircuitEndpointV2Mock(address(clientChainLzEndpoint))
+                .setDestLzEndpoint(address(imuachainGateway), address(imuachainLzEndpoint));
         }
 
         // as LzReceivers, client chain gateway should set imuachainGateway as trusted remote to receive messages from
@@ -81,9 +80,8 @@ contract SetupScript is BaseScript {
         vm.startBroadcast(owner.privateKey);
         // set the destination endpoint for corresponding destinations in endpoint mock if USE_ENDPOINT_MOCK is true
         if (useEndpointMock) {
-            NonShortCircuitEndpointV2Mock(address(imuachainLzEndpoint)).setDestLzEndpoint(
-                address(clientGateway), address(clientChainLzEndpoint)
-            );
+            NonShortCircuitEndpointV2Mock(address(imuachainLzEndpoint))
+                .setDestLzEndpoint(address(clientGateway), address(clientChainLzEndpoint));
         }
         // register clientChainId to imuachain native module and set peer for client chain gateway to be ready for
         // messaging

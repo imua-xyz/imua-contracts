@@ -71,7 +71,12 @@ abstract contract OAppReceiverUpgradeable is IOAppReceiver, OAppCoreUpgradeable 
         uint32,
         /*_srcEid*/
         bytes32 /*_sender*/
-    ) public view virtual returns (uint64 nonce) {
+    )
+        public
+        view
+        virtual
+        returns (uint64 nonce)
+    {
         return 0;
     }
 

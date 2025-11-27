@@ -38,7 +38,6 @@ contract UTXOGatewayStorage {
         NOT_STARTED_OR_PROCESSED, // 0: transaction hasn't started collecting proofs or has been processed
         PENDING, // 1: Currently collecting witness proofs
         EXPIRED // 2: Failed due to timeout, but can be retried
-
     }
 
     /**

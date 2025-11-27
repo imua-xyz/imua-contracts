@@ -338,15 +338,13 @@ contract ImuachainDeployer is Test {
         clientGatewayLogic = new ClientChainGateway(address(clientChainLzEndpoint), config, address(rewardVaultBeacon));
 
         clientGateway = ClientChainGateway(
-            payable(
-                address(
+            payable(address(
                     new TransparentUpgradeableProxy(
                         address(clientGatewayLogic),
                         address(proxyAdmin),
                         abi.encodeWithSelector(clientGatewayLogic.initialize.selector, payable(owner.addr))
                     )
-                )
-            )
+                ))
         );
 
         // get the reward vault address since it would be deployed during initialization
@@ -359,24 +357,20 @@ contract ImuachainDeployer is Test {
         // deploy imuachain network contracts
         imuachainGatewayLogic = new ImuachainGateway(address(imuachainLzEndpoint));
         imuachainGateway = ImuachainGateway(
-            payable(
-                address(
+            payable(address(
                     new TransparentUpgradeableProxy(
                         address(imuachainGatewayLogic),
                         address(proxyAdmin),
                         abi.encodeWithSelector(imuachainGatewayLogic.initialize.selector, payable(owner.addr))
                     )
-                )
-            )
+                ))
         );
 
         // set the destination endpoint for corresponding destinations in endpoint mock
-        NonShortCircuitEndpointV2Mock(address(clientChainLzEndpoint)).setDestLzEndpoint(
-            address(imuachainGateway), address(imuachainLzEndpoint)
-        );
-        NonShortCircuitEndpointV2Mock(address(imuachainLzEndpoint)).setDestLzEndpoint(
-            address(clientGateway), address(clientChainLzEndpoint)
-        );
+        NonShortCircuitEndpointV2Mock(address(clientChainLzEndpoint))
+            .setDestLzEndpoint(address(imuachainGateway), address(imuachainLzEndpoint));
+        NonShortCircuitEndpointV2Mock(address(imuachainLzEndpoint))
+            .setDestLzEndpoint(address(clientGateway), address(clientChainLzEndpoint));
 
         vm.startPrank(owner.addr);
 
@@ -441,9 +435,8 @@ contract ImuachainDeployer is Test {
     }
 
     function _getPrincipalBalance(uint32 chainId, address depositor, address token) internal view returns (uint256) {
-        return AssetsMock(ASSETS_PRECOMPILE_ADDRESS).getPrincipalBalance(
-            chainId, _addressToBytes(token), _addressToBytes(depositor)
-        );
+        return AssetsMock(ASSETS_PRECOMPILE_ADDRESS)
+            .getPrincipalBalance(chainId, _addressToBytes(token), _addressToBytes(depositor));
     }
 
 }
