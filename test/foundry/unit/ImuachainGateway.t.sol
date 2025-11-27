@@ -507,8 +507,8 @@ contract SetPeer is SetUp {
     ImuachainGateway gateway;
 
     uint32 anotherClientChain = clientChainId + 1;
-    bytes32 anotherPeer = bytes32("0xabcdef");
-    bytes32 newPeer = bytes32("0x123");
+    bytes32 anotherPeer = 0x3078616263646566000000000000000000000000000000000000000000000000;
+    bytes32 newPeer = 0x3078313233000000000000000000000000000000000000000000000000000000;
 
     event PeerSet(uint32 eid, bytes32 peer);
 

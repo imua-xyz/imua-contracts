@@ -8,9 +8,9 @@ library ActionAttributes {
     // Message length constants
     uint256 internal constant LST_ASSET_OPERATION_LENGTH = 97;
     uint256 internal constant NST_DEPOSIT_LENGTH = 97; // 96 bytes for the staker address + amount + validator index, 1
-        // byte for action encoding
+    // byte for action encoding
     uint256 internal constant NST_WITHDRAWAL_LENGTH = 65; // 64 bytes for the staker address + amount, 1 byte for action
-        // encoding
+    // encoding
     uint256 internal constant DELEGATION_OPERATION_LENGTH = 138;
     // 1 + 32 + 32 + 32 + 41 + 1 = 139
     uint256 internal constant UNDELEGATION_OPERATION_LENGTH = 139;

@@ -94,6 +94,8 @@ contract DepositSetup is Test {
     }
 
     function _getCapsuleFromWithdrawalCredentials(bytes32 withdrawalCredentials) internal pure returns (address) {
+        // casting to 'bytes20' is safe because withdrawal credentials encode the ETH1 address in the low 20 bytes
+        // forge-lint: disable-next-line(unsafe-typecast)
         return address(bytes20(uint160(uint256(withdrawalCredentials))));
     }
 
@@ -449,6 +451,8 @@ contract WithdrawalSetup is Test {
     }
 
     function _getCapsuleFromWithdrawalCredentials(bytes32 withdrawalCredentials) internal pure returns (address) {
+        // casting to 'bytes20' is safe because withdrawal credentials encode the ETH1 address in the low 20 bytes
+        // forge-lint: disable-next-line(unsafe-typecast)
         return address(bytes20(uint160(uint256(withdrawalCredentials))));
     }
 
@@ -630,6 +634,8 @@ contract PectraWithdrawalSetup is Test {
     }
 
     function _getCapsuleFromWithdrawalCredentials(bytes32 withdrawalCredentials) internal pure returns (address) {
+        // casting to 'bytes20' is safe because withdrawal credentials encode the ETH1 address in the low 20 bytes
+        // forge-lint: disable-next-line(unsafe-typecast)
         return address(bytes20(uint160(uint256(withdrawalCredentials))));
     }
 

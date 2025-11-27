@@ -161,7 +161,9 @@ contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
         if (_msgValue > 0) {
             try ILayerZeroReceiver(_receiver).lzReceive{value: _msgValue, gas: _gas}(
                 _origin, _guid, _message, address(0), ""
-            ) {} catch (bytes memory) /*reason*/ {}
+            ) {}
+                catch (bytes memory /*reason*/
+                ) {}
         } else {
             try ILayerZeroReceiver(_receiver).lzReceive{gas: _gas}(_origin, _guid, _message, address(0), "") {}
                 catch (bytes memory) /*reason*/ {}
@@ -183,10 +185,11 @@ contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
         uint256 basePrice = (nativeFee * relayerFeeConfig.dstPriceRatio) / 10 ** 10;
 
         // pricePerByte = (dstGasPriceInWei * gasPerBytes) * tokenConversionRate
-        uint256 pricePerByte = (
-            (relayerFeeConfig.dstGasPriceInWei * relayerFeeConfig.gasPerByte * relayerFeeConfig.dstPriceRatio)
-                / 10 ** 10
-        ) * _payloadSize;
+        uint256 pricePerByte =
+            (relayerFeeConfig.dstGasPriceInWei
+                    * relayerFeeConfig.gasPerByte
+                    * relayerFeeConfig.dstPriceRatio
+                    * _payloadSize) / (10 ** 10);
 
         return basePrice + pricePerByte;
     }
@@ -718,7 +721,7 @@ contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
     {
         return _origin.nonce > _lazyInboundNonce // either initializing an empty slot or reverifying
             || inboundPayloadHash[_receiver][_origin.srcEid][_origin.sender][_origin.nonce] != EMPTY_PAYLOAD_HASH; // only
-            // allow reverifying if it hasn't been executed
+        // allow reverifying if it hasn't been executed
     }
 
     // ========================= VIEW FUNCTIONS FOR OFFCHAIN ONLY =========================

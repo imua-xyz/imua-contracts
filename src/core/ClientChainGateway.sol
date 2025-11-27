@@ -40,6 +40,9 @@ contract ClientChainGateway is
 
     using OptionsBuilder for bytes;
 
+    /// @notice euqal to bytes32(bytes("REWARD_VAULT"))
+    bytes32 private constant REWARD_VAULT_SALT = hex"5245574152445f5641554c540000000000000000000000000000000000000000";
+
     /// @notice This constructor initializes only immutable state variables
     /// @param endpoint_ is the layerzero endpoint address deployed on this chain
     /// @param config is the struct containing the immutable state variables
@@ -62,7 +65,7 @@ contract ClientChainGateway is
         }
 
         _whiteListFunctionSelectors[Action.REQUEST_ADD_WHITELIST_TOKEN] =
-            this.afterReceiveAddWhitelistTokenRequest.selector;
+        this.afterReceiveAddWhitelistTokenRequest.selector;
         // overwrite the bootstrap function selector
         _whiteListFunctionSelectors[Action.REQUEST_MARK_BOOTSTRAP] = this.afterReceiveMarkBootstrapRequest.selector;
 
@@ -152,7 +155,7 @@ contract ClientChainGateway is
         rewardVault = IRewardVault(
             Create2.deploy(
                 0,
-                bytes32(bytes("REWARD_VAULT")),
+                REWARD_VAULT_SALT,
                 // for clarity, this BEACON_PROXY is not related to beacon chain
                 // but rather it is the bytecode for the beacon proxy upgrade pattern.
                 abi.encodePacked(BEACON_PROXY_BYTECODE.getBytecode(), abi.encode(address(REWARD_VAULT_BEACON), ""))

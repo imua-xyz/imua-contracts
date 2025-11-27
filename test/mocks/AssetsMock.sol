@@ -40,7 +40,9 @@ contract AssetsMock is IAssets {
 
         // Validate the asset address
         // If the assetsAddress is not the virtual ETH/BTC address, check if the token is registered
+        // forge-lint: disable-next-line(unsafe-typecast)
         bool notEth = bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
+        // forge-lint: disable-next-line(unsafe-typecast)
         bool notBtc = bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_BTC_ADDRESS));
 
         if (notEth && notBtc) {
@@ -74,6 +76,8 @@ contract AssetsMock is IAssets {
         require(assetsAddress.length == 32, "invalid asset address");
         require(withdrawer.length == 32, "invalid staker address");
 
+        // both assetsAddress is truncated to 32 bytes, so it is safe to cast to bytes32
+        // forge-lint: disable-next-line(unsafe-typecast)
         bytes32 assetAddressBytes32 = bytes32(assetsAddress);
         bool isEth = assetAddressBytes32 == bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
         bool isBtc = assetAddressBytes32 == bytes32(bytes20(VIRTUAL_STAKED_BTC_ADDRESS));

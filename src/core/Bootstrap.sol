@@ -117,10 +117,14 @@ contract Bootstrap is
     /// @dev Modifier to restrict operations based on the contract's defined timeline, that is,
     /// during the offset duration before Imuachain's spawn time.
     modifier beforeLocked() {
+        _beforeLocked();
+        _;
+    }
+
+    function _beforeLocked() internal view {
         if (isLocked()) {
             revert Errors.BootstrapBeforeLocked();
         }
-        _;
     }
 
     /// @notice Pauses the contract.

@@ -30,7 +30,7 @@ jobs:
     with:
       # The below line does not accept environment variables,
       # so it becomes the single source of truth for the version.
-      foundry-version: v1.3.6
+      foundry-version: stable
 
   build:
     # Caching is slow; takes about 3 minutes.

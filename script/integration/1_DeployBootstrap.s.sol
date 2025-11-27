@@ -136,10 +136,14 @@ contract DeployContracts is Script {
         uint256 secondsPerSlot_ = vm.envUint("INTEGRATION_SECONDS_PER_SLOT");
         require(secondsPerSlot_ > 0, "Seconds per slot must be set");
         require(secondsPerSlot_ <= type(uint64).max, "Seconds per slot must be less than or equal to uint64 max");
+        // casting to 'uint64' is safe because we ensure the value does not exceed uint64 max above
+        // forge-lint: disable-next-line(unsafe-typecast)
         secondsPerSlot = uint64(secondsPerSlot_);
         uint256 slotsPerEpoch_ = vm.envUint("INTEGRATION_SLOTS_PER_EPOCH");
         require(slotsPerEpoch_ > 0, "Slots per epoch must be set");
         require(slotsPerEpoch_ <= type(uint64).max, "Slots per epoch must be less than or equal to uint64 max");
+        // casting to 'uint64' is safe because we ensure the value does not exceed uint64 max above
+        // forge-lint: disable-next-line(unsafe-typecast)
         slotsPerEpoch = uint64(slotsPerEpoch_);
         // then, the Ethereum-native validator configuration
         pubkey = vm.envOr(

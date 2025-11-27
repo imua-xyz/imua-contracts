@@ -386,6 +386,7 @@ contract ImuachainGatewayMock is
         if (isDeposit && !success) {
             revert Errors.DepositRequestShouldNotFail(srcChainId, lzNonce); // we should not let this happen
         }
+        // forge-lint: disable-next-line(unsafe-typecast)
         emit LSTTransfer(isDeposit, success, bytes32(token), bytes32(staker), amount);
 
         response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success);
@@ -423,6 +424,7 @@ contract ImuachainGatewayMock is
         if (isDeposit && !success) {
             revert Errors.DepositRequestShouldNotFail(srcChainId, lzNonce); // we should not let this happen
         }
+        // forge-lint: disable-next-line(unsafe-typecast)
         emit NSTTransfer(isDeposit, success, validatorID, bytes32(staker), amount);
 
         response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success);
@@ -452,6 +454,7 @@ contract ImuachainGatewayMock is
         } else {
             (success,) = REWARD_CONTRACT.claimReward(srcChainId, token, avsOrWithdrawer, amount);
         }
+        // forge-lint: disable-next-line(unsafe-typecast)
         emit RewardOperation(success, isSubmitReward, bytes32(token), bytes32(avsOrWithdrawer), amount);
 
         response = isSubmitReward ? bytes("") : abi.encodePacked(lzNonce, success);
@@ -479,10 +482,12 @@ contract ImuachainGatewayMock is
         bool accepted;
         if (isDelegate) {
             accepted = DELEGATION_CONTRACT.delegate(srcChainId, token, staker, operator, amount);
+            // forge-lint: disable-next-line(unsafe-typecast)
             emit DelegationRequest(accepted, bytes32(token), bytes32(staker), string(operator), amount);
         } else {
             bool instantUnbond = payload[137] == bytes1(0x01);
             accepted = DELEGATION_CONTRACT.undelegate(srcChainId, token, staker, operator, amount, instantUnbond);
+            // forge-lint: disable-next-line(unsafe-typecast)
             emit UndelegationRequest(accepted, bytes32(token), bytes32(staker), string(operator), amount, instantUnbond);
         }
     }
@@ -509,9 +514,11 @@ contract ImuachainGatewayMock is
         if (!success) {
             revert Errors.DepositRequestShouldNotFail(srcChainId, lzNonce); // we should not let this happen
         }
+        // forge-lint: disable-next-line(unsafe-typecast)
         emit LSTTransfer(true, success, bytes32(token), bytes32(depositor), amount);
 
         bool accepted = DELEGATION_CONTRACT.delegate(srcChainId, token, depositor, operator, amount);
+        // forge-lint: disable-next-line(unsafe-typecast)
         emit DelegationRequest(accepted, bytes32(token), bytes32(depositor), string(operator), amount);
     }
 
@@ -536,7 +543,7 @@ contract ImuachainGatewayMock is
         } else {
             success = DELEGATION_CONTRACT.dissociateOperatorFromStaker(srcChainId, staker);
         }
-
+        // forge-lint: disable-next-line(unsafe-typecast)
         emit AssociationResult(success, isAssociate, bytes32(staker));
     }
 

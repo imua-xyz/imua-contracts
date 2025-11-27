@@ -47,10 +47,14 @@ contract ImuachainGateway is
 
     /// @dev Ensures that the function is called only from this contract via low-level call.
     modifier onlyCalledFromThis() {
+        _onlyCalledFromThis();
+        _;
+    }
+
+    function _onlyCalledFromThis() internal view {
         if (msg.sender != address(this)) {
             revert Errors.ImuachainGatewayOnlyCalledFromThis();
         }
-        _;
     }
 
     /// @notice Creates the ImuachainGateway contract.
@@ -368,6 +372,9 @@ contract ImuachainGateway is
         if (isDeposit && !success) {
             revert Errors.DepositRequestShouldNotFail(srcChainId, lzNonce); // we should not let this happen
         }
+
+        // both token and staker are truncated to 32 bytes, so it is safe to cast to bytes32
+        // forge-lint: disable-next-line(unsafe-typecast)
         emit LSTTransfer(isDeposit, success, bytes32(token), bytes32(staker), amount);
 
         response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success);
@@ -399,10 +406,14 @@ contract ImuachainGateway is
             bytes calldata validatorID = payload[64:];
             (success,) = ASSETS_CONTRACT.depositNST(srcChainId, validatorID, staker, amount);
 
+            // the staker is truncated to 32 bytes, so it is safe to cast to bytes32
+            // forge-lint: disable-next-line(unsafe-typecast)
             emit NSTTransfer(true, success, validatorID, bytes32(staker), amount);
         } else {
             (success,) = ASSETS_CONTRACT.withdrawNST(srcChainId, staker, amount);
 
+            // the staker is truncated to 32 bytes, so it is safe to cast to bytes32
+            // forge-lint: disable-next-line(unsafe-typecast)
             emit NSTTransfer(false, success, bytes(""), bytes32(staker), amount);
         }
         if (isDeposit && !success) {
@@ -440,6 +451,9 @@ contract ImuachainGateway is
         if (isSubmitReward && !success) {
             revert Errors.DepositRequestShouldNotFail(srcChainId, lzNonce); // we should not let this happen
         }
+
+        // both token and avsOrWithdrawer are truncated to 32 bytes, so it is safe to cast to bytes32
+        // forge-lint: disable-next-line(unsafe-typecast)
         emit RewardOperation(isSubmitReward, success, bytes32(token), bytes32(avsOrWithdrawer), amount);
 
         response = isSubmitReward ? bytes("") : abi.encodePacked(lzNonce, success);
@@ -466,10 +480,16 @@ contract ImuachainGateway is
         bool accepted;
         if (isDelegate) {
             accepted = DELEGATION_CONTRACT.delegate(srcChainId, token, staker, operator, amount);
+
+            // both token and staker are truncated to 32 bytes, so it is safe to cast to bytes32
+            // forge-lint: disable-next-line(unsafe-typecast)
             emit DelegationRequest(accepted, bytes32(token), bytes32(staker), string(operator), amount);
         } else {
             bool instantUnbond = payload[137] == bytes1(0x01);
             accepted = DELEGATION_CONTRACT.undelegate(srcChainId, token, staker, operator, amount, instantUnbond);
+
+            // both token and staker are truncated to 32 bytes, so it is safe to cast to bytes32
+            // forge-lint: disable-next-line(unsafe-typecast)
             emit UndelegationRequest(accepted, bytes32(token), bytes32(staker), string(operator), amount, instantUnbond);
         }
     }
@@ -496,9 +516,15 @@ contract ImuachainGateway is
         if (!success) {
             revert Errors.DepositRequestShouldNotFail(srcChainId, lzNonce); // we should not let this happen
         }
+
+        // both token and depositor are truncated to 32 bytes, so it is safe to cast to bytes32
+        // forge-lint: disable-next-line(unsafe-typecast)
         emit LSTTransfer(true, success, bytes32(token), bytes32(depositor), amount);
 
         bool accepted = DELEGATION_CONTRACT.delegate(srcChainId, token, depositor, operator, amount);
+
+        // both token and depositor are truncated to 32 bytes, so it is safe to cast to bytes32
+        // forge-lint: disable-next-line(unsafe-typecast)
         emit DelegationRequest(accepted, bytes32(token), bytes32(depositor), string(operator), amount);
     }
 
@@ -524,6 +550,8 @@ contract ImuachainGateway is
             success = DELEGATION_CONTRACT.dissociateOperatorFromStaker(srcChainId, staker);
         }
 
+        // the staker is truncated to 32 bytes, so it is safe to cast to bytes32
+        // forge-lint: disable-next-line(unsafe-typecast)
         emit AssociationResult(success, isAssociate, bytes32(staker));
     }
 
