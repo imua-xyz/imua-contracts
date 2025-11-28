@@ -465,7 +465,7 @@ contract UTXOGatewayTest is Test {
 
     function test_UpdateBridgeFee_RevertExceedMax() public {
         vm.prank(owner);
-        vm.expectRevert("Fee cannot exceed max bridge fee rate");
+        vm.expectRevert(Errors.BridgeFeeRateExceedsMax.selector);
         gateway.updateBridgeFeeRate(1001); // 10.01%
     }
 
@@ -2239,6 +2239,7 @@ contract UTXOGatewayTest is Test {
         for (uint256 i = 0; i < entryCount; i++) {
             bootstrapData[i] = UTXOGatewayStorage.BootstrapEntry({
                 clientAddress: abi.encodePacked("client_address_", i),
+                // forge-lint: disable-next-line(unsafe-typecast)
                 imuachainAddress: address(uint160(0x1000 + i)),
                 clientTxId: bytes32(uint256(2000 + i))
             });
@@ -2246,6 +2247,7 @@ contract UTXOGatewayTest is Test {
 
         vm.prank(owner);
         vm.expectEmit(true, false, false, true);
+        // forge-lint: disable-next-line(unsafe-typecast)
         emit BootstrapCompleted(UTXOGatewayStorage.ClientChainID.BITCOIN, entryCount, uint64(entryCount));
 
         gateway.bootstrapHistoricalData(UTXOGatewayStorage.ClientChainID.BITCOIN, bootstrapData);
@@ -2256,7 +2258,9 @@ contract UTXOGatewayTest is Test {
         // Verify first and last entries
         assertEq(gateway.clientTxIdToNonce(UTXOGatewayStorage.ClientChainID.BITCOIN, bytes32(uint256(2000))), 1);
         assertEq(
-            gateway.clientTxIdToNonce(UTXOGatewayStorage.ClientChainID.BITCOIN, bytes32(uint256(2000 + entryCount - 1))),
+            gateway.clientTxIdToNonce(
+                UTXOGatewayStorage.ClientChainID.BITCOIN, bytes32(uint256(2000 + entryCount - 1))
+            ),
             entryCount
         );
 
@@ -2271,6 +2275,7 @@ contract UTXOGatewayTest is Test {
             gateway.getImuachainAddress(
                 UTXOGatewayStorage.ClientChainID.BITCOIN, abi.encodePacked("client_address_", entryCount - 1)
             ),
+            // forge-lint: disable-next-line(unsafe-typecast)
             address(uint160(0x1000 + entryCount - 1))
         );
     }

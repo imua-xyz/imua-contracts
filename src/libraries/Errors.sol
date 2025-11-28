@@ -407,4 +407,13 @@ library Errors {
     /// @dev UTXOGateway: tx id not found
     error TxIdNotFound(uint64 nonce);
 
+    /// @dev UTXOGateway: bridge fee rate exceeds max
+    error BridgeFeeRateExceedsMax();
+
+    /// @dev UTXOGateway: depositor address already registered
+    error DepositorAlreadyRegistered();
+
+    /// @dev UTXOGateway: imuachain address already registered
+    error ImuachainAddressAlreadyRegistered();
+
 }
