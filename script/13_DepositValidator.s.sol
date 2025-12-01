@@ -72,6 +72,7 @@ contract DepositScript is BaseScript {
         vm.startBroadcast(depositor.privateKey);
         (bool success,) = address(beaconOracle)
             .call(abi.encodeWithSelector(beaconOracle.addTimestamp.selector, validatorProof.beaconBlockTimestamp));
+        require(success, "addtimestamp failed");
         vm.stopBroadcast();
 
         vm.startBroadcast(depositor.privateKey);
