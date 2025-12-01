@@ -1111,7 +1111,7 @@ async function updateGenesisFile() {
               key: key,
               states: {
                 undelegatable_share: amount.toFixed(),
-                wait_undelegation_amount: "0"
+                pending_undelegation_amount: "0"
               },
             });
 
