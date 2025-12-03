@@ -59,9 +59,7 @@ contract UTXOGateway is
         if (owner_ == address(0) || witnesses.length == 0) {
             revert Errors.ZeroAddress();
         }
-        if (requiredProofs_ < MIN_REQUIRED_PROOFS || requiredProofs_ > MAX_REQUIRED_PROOFS) {
-            revert Errors.InvalidRequiredProofs();
-        }
+        _validateRequiredProofs(requiredProofs_);
 
         requiredProofs = requiredProofs_;
         for (uint256 i = 0; i < witnesses.length; i++) {
@@ -122,9 +120,7 @@ contract UTXOGateway is
      * @param newRequiredProofs The new required proofs.
      */
     function updateRequiredProofs(uint256 newRequiredProofs) external onlyOwner whenNotPaused {
-        if (newRequiredProofs < MIN_REQUIRED_PROOFS || newRequiredProofs > MAX_REQUIRED_PROOFS) {
-            revert Errors.InvalidRequiredProofs();
-        }
+        _validateRequiredProofs(newRequiredProofs);
 
         bool wasConsensusRequired = _isConsensusRequired();
         uint256 oldRequiredProofs = requiredProofs;
@@ -173,7 +169,9 @@ contract UTXOGateway is
      * @dev Can only be called by the contract owner.
      */
     function updateBridgeFeeRate(uint256 bridgeFeeRate_) external onlyOwner whenNotPaused {
-        require(bridgeFeeRate_ <= MAX_BRIDGE_FEE_RATE, "Fee cannot exceed max bridge fee rate");
+        if (bridgeFeeRate_ > MAX_BRIDGE_FEE_RATE) {
+            revert Errors.BridgeFeeRateExceedsMax();
+        }
         bridgeFeeRate = bridgeFeeRate_;
         emit BridgeFeeRateUpdated(bridgeFeeRate_);
     }
@@ -566,6 +564,67 @@ contract UTXOGateway is
     }
 
     /**
+     * @notice Bootstrap historical data for genesis initialization
+     * @dev Imports bootstrap phase data without executing precompile interfaces
+     * @dev Recommended to process around 250 entries per batch to avoid gas limit issues
+     * @param clientChainId The client chain ID
+     * @param bootstrapData Array of bootstrap entries containing address mappings and transaction data
+     */
+    function bootstrapHistoricalData(ClientChainID clientChainId, BootstrapEntry[] calldata bootstrapData)
+        external
+        onlyOwner
+        whenNotPaused
+    {
+        if (bootstrapData.length == 0) {
+            revert Errors.ZeroAmount();
+        }
+
+        // Disallow bootstrapping for invalid chain id
+        if (clientChainId == ClientChainID.NONE) {
+            revert Errors.InvalidClientChain();
+        }
+
+        // Start from current nonce to allow multiple batch imports
+        uint64 currentNonce = inboundNonce[clientChainId];
+
+        for (uint256 i = 0; i < bootstrapData.length; i++) {
+            BootstrapEntry calldata entry = bootstrapData[i];
+
+            // Validate entry data
+            if (entry.clientAddress.length == 0 || entry.imuachainAddress == address(0)) {
+                revert Errors.ZeroAddress();
+            }
+
+            currentNonce++;
+
+            // Ensure clientTxId is unique; prevent overwriting within the same import
+            if (clientTxIdToNonce[clientChainId][entry.clientTxId] != 0) {
+                revert Errors.TxTagAlreadyProcessed();
+            }
+            clientTxIdToNonce[clientChainId][entry.clientTxId] = currentNonce;
+            nonceToClientTxId[clientChainId][currentNonce] = entry.clientTxId;
+
+            // Register address mapping if not already registered
+            if (
+                inboundRegistry[clientChainId][entry.clientAddress] == address(0)
+                    && outboundRegistry[clientChainId][entry.imuachainAddress].length == 0
+            ) {
+                _registerAddress(clientChainId, entry.clientAddress, entry.imuachainAddress);
+            }
+        }
+
+        // Persist final inbound nonce once
+        inboundNonce[clientChainId] = currentNonce;
+        emit BootstrapCompleted(clientChainId, bootstrapData.length, currentNonce);
+    }
+
+    function _validateRequiredProofs(uint256 proofs) internal pure {
+        if (proofs < MIN_REQUIRED_PROOFS || proofs > MAX_REQUIRED_PROOFS) {
+            revert Errors.InvalidRequiredProofs();
+        }
+    }
+
+    /**
      * @notice Checks if consensus is required for a stake message.
      * @return True if count of authorized witnesses is greater than or equal to REQUIRED_PROOFS, false otherwise.
      */
@@ -835,9 +894,15 @@ contract UTXOGateway is
     }
 
     function _registerAddress(ClientChainID clientChainId, bytes memory depositor, address imuachainAddress) internal {
-        require(depositor.length > 0 && imuachainAddress != address(0), "Invalid address");
-        require(inboundRegistry[clientChainId][depositor] == address(0), "Depositor address already registered");
-        require(outboundRegistry[clientChainId][imuachainAddress].length == 0, "Imuachain address already registered");
+        if (depositor.length == 0 || imuachainAddress == address(0)) {
+            revert Errors.ZeroAddress();
+        }
+        if (inboundRegistry[clientChainId][depositor] != address(0)) {
+            revert Errors.DepositorAlreadyRegistered();
+        }
+        if (outboundRegistry[clientChainId][imuachainAddress].length != 0) {
+            revert Errors.ImuachainAddressAlreadyRegistered();
+        }
 
         inboundRegistry[clientChainId][depositor] = imuachainAddress;
         outboundRegistry[clientChainId][imuachainAddress] = depositor;

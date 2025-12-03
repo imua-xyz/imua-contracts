@@ -213,3 +213,10 @@ export interface OperatorAssetUsdValue {
     amount: string;
   };
 }
+
+// Bootstrap data entry for UTXOGateway import
+export interface BootstrapEntry {
+  clientTxId: string;
+  clientAddress: string;
+  imuachainAddress: string;
+}

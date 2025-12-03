@@ -102,6 +102,18 @@ contract UTXOGatewayStorage {
         WithdrawType withdrawType;
     }
 
+    /**
+     * @dev Struct for bootstrap historical data entry
+     * @param clientAddress The client chain address (e.g., Bitcoin address)
+     * @param imuachainAddress The corresponding Imuachain address
+     * @param clientTxId The client chain transaction ID
+     */
+    struct BootstrapEntry {
+        bytes clientAddress;
+        address imuachainAddress;
+        bytes32 clientTxId;
+    }
+
     /* -------------------------------------------------------------------------- */
     /* Constants */
     /* -------------------------------------------------------------------------- */
@@ -462,6 +474,14 @@ contract UTXOGatewayStorage {
     /// @param requiredWitnessesCount The number of required witnesses
     /// @param authorizedWitnessesCount The number of authorized witnesses
     event ConsensusDeactivated(uint256 requiredWitnessesCount, uint256 authorizedWitnessesCount);
+
+    /**
+     * @dev Emitted when bootstrap historical data is imported
+     * @param clientChainId The client chain ID
+     * @param entriesCount The number of bootstrap entries imported
+     * @param finalNonce The final nonce after bootstrap
+     */
+    event BootstrapCompleted(ClientChainID indexed clientChainId, uint256 entriesCount, uint64 finalNonce);
 
     /**
      * @dev Modifier to check if an amount is valid
