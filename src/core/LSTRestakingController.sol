@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol";
 
 import {IVault} from "../interfaces/IVault.sol";
+import {Errors} from "../libraries/Errors.sol";
 
 import {Action} from "../storage/GatewayStorage.sol";
 import {BaseRestakingController} from "./BaseRestakingController.sol";
@@ -52,7 +53,13 @@ abstract contract LSTRestakingController is
     {
         // If we can get the vault, the token cannot be VIRTUAL_STAKED_ETH_ADDRESS, so that staker cannot bypass the
         // beacon chain merkle proof check to withdraw natively staked ETH
-        _getVault(token);
+        IVault vault = _getVault(token);
+
+        // If the amount to be unlocked would exceed the total deposited amount for the user, we should fail early
+        // before sending the message to Imuachain.
+        if (vault.wouldUnlockPrincipalExceedDeposit(msg.sender, principalAmount)) {
+            revert Errors.VaultPrincipalExceedsTotalDeposit();
+        }
 
         bytes memory actionArgs =
             abi.encodePacked(bytes32(bytes20(msg.sender)), principalAmount, bytes32(bytes20(token)));

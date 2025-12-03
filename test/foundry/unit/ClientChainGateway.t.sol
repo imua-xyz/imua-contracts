@@ -115,7 +115,7 @@ contract SetUp is Test {
 
         beaconProxyBytecode = new BeaconProxyBytecode();
 
-        restakeToken = new ERC20PresetFixedSupply("rest", "rest", 1e16, owner.addr);
+        restakeToken = new ERC20PresetFixedSupply("rest", "rest", 1e34, owner.addr);
         whitelistTokens.push(address(restakeToken));
 
         clientChainLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, owner.addr);
@@ -304,14 +304,17 @@ contract WithdrawalPrincipalFromImuachain is SetUp {
 
     address internal constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     uint256 constant WITHDRAWAL_AMOUNT = 1 ether;
+    uint256 constant DEPOSIT_AMOUNT = 10 ether;
+    uint256 constant MOCK_NATIVE_FEE = 0.01 ether; // Mock LayerZero fee
 
     address payable user;
+    Vault vault;
 
     function setUp() public override {
         super.setUp();
 
         user = payable(players[0].addr);
-        vm.deal(user, 10 ether);
+        vm.deal(user, 100 ether);
 
         bytes32[] memory tokens = new bytes32[](2);
         tokens[0] = bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
@@ -334,6 +337,17 @@ contract WithdrawalPrincipalFromImuachain is SetUp {
         vm.prank(address(clientChainLzEndpoint));
         clientGateway.lzReceive(origin, bytes32(0), message, address(0), bytes(""));
         assertTrue(clientGateway.isWhitelistedToken(address(restakeToken)));
+
+        // Get the vault for restakeToken
+        vault = Vault(address(clientGateway.tokenToVault(address(restakeToken))));
+
+        // Mock the endpoint.quote function to return a fixed fee for all messages
+        // This is what ClientChainGateway._quote() calls internally
+        vm.mockCall(
+            address(clientChainLzEndpoint),
+            abi.encodeWithSelector(ILayerZeroEndpointV2.quote.selector),
+            abi.encode(MOCK_NATIVE_FEE, 0) // MessagingFee has nativeFee and lzTokenFee
+        );
     }
 
     function test_revert_withdrawVirtualStakedETH() public {
@@ -355,6 +369,94 @@ contract WithdrawalPrincipalFromImuachain is SetUp {
         vm.prank(user);
         vm.expectRevert("BootstrapStorage: amount should be greater than zero");
         clientGateway.claimPrincipalFromImuachain(address(restakeToken), 0);
+    }
+
+    function test_revert_claimPrincipalExceedsTotalDeposit() public {
+        // Deposit some tokens first
+        vm.startPrank(owner.addr);
+        bool sent = restakeToken.transfer(user, DEPOSIT_AMOUNT);
+        assertTrue(sent);
+        vm.stopPrank();
+
+        vm.startPrank(user);
+        restakeToken.approve(address(vault), DEPOSIT_AMOUNT);
+        clientGateway.deposit{value: MOCK_NATIVE_FEE}(address(restakeToken), DEPOSIT_AMOUNT);
+
+        // Try to claim more than deposited - should fail before sending message
+        vm.expectRevert(Errors.VaultPrincipalExceedsTotalDeposit.selector);
+        clientGateway.claimPrincipalFromImuachain{value: MOCK_NATIVE_FEE}(address(restakeToken), DEPOSIT_AMOUNT + 1);
+        vm.stopPrank();
+    }
+
+    function test_revert_claimPrincipalExceedsTotalDeposit_WithPreviousUnlock() public {
+        // Deposit some tokens first
+        vm.startPrank(owner.addr);
+        bool sent = restakeToken.transfer(user, DEPOSIT_AMOUNT);
+        assertTrue(sent);
+        vm.stopPrank();
+
+        vm.startPrank(user);
+        restakeToken.approve(address(vault), DEPOSIT_AMOUNT);
+        clientGateway.deposit{value: MOCK_NATIVE_FEE}(address(restakeToken), DEPOSIT_AMOUNT);
+        vm.stopPrank();
+
+        // Simulate a previous unlock by directly calling vault.unlockPrincipal as gateway
+        // In reality this would happen via lzReceive with a RESPOND action from Imuachain
+        uint256 firstUnlockAmount = DEPOSIT_AMOUNT / 2;
+        vm.prank(address(clientGateway));
+        vault.unlockPrincipal(user, firstUnlockAmount);
+
+        // Verify first unlock was successful
+        assertEq(vault.getWithdrawableBalance(user), firstUnlockAmount);
+        assertEq(vault.totalUnlockPrincipalAmount(user), firstUnlockAmount);
+
+        // Try to claim more than remaining deposit (should fail at validation)
+        vm.startPrank(user);
+        vm.expectRevert(Errors.VaultPrincipalExceedsTotalDeposit.selector);
+        clientGateway.claimPrincipalFromImuachain{value: MOCK_NATIVE_FEE}(
+            address(restakeToken), (DEPOSIT_AMOUNT / 2) + 1
+        );
+        vm.stopPrank();
+    }
+
+    function test_success_claimPrincipalWithinDeposit() public {
+        // Deposit some tokens first
+        vm.startPrank(owner.addr);
+        bool sent = restakeToken.transfer(user, DEPOSIT_AMOUNT);
+        assertTrue(sent);
+        vm.stopPrank();
+
+        vm.startPrank(user);
+        restakeToken.approve(address(vault), DEPOSIT_AMOUNT);
+        clientGateway.deposit{value: MOCK_NATIVE_FEE}(address(restakeToken), DEPOSIT_AMOUNT);
+
+        // Claim within deposited amount should succeed (message sent)
+        clientGateway.claimPrincipalFromImuachain{value: MOCK_NATIVE_FEE}(address(restakeToken), DEPOSIT_AMOUNT / 2);
+        vm.stopPrank();
+    }
+
+    function test_success_claimExactDepositAmount() public {
+        // Deposit some tokens first
+        vm.startPrank(owner.addr);
+        bool sent = restakeToken.transfer(user, DEPOSIT_AMOUNT);
+        assertTrue(sent);
+        vm.stopPrank();
+
+        vm.startPrank(user);
+        restakeToken.approve(address(vault), DEPOSIT_AMOUNT);
+        clientGateway.deposit{value: MOCK_NATIVE_FEE}(address(restakeToken), DEPOSIT_AMOUNT);
+
+        // Claim exact deposited amount should succeed
+        clientGateway.claimPrincipalFromImuachain{value: MOCK_NATIVE_FEE}(address(restakeToken), DEPOSIT_AMOUNT);
+        vm.stopPrank();
+    }
+
+    function test_revert_claimWithNoDeposit() public {
+        // Try to claim without any deposit
+        vm.startPrank(user);
+        vm.expectRevert(Errors.VaultPrincipalExceedsTotalDeposit.selector);
+        clientGateway.claimPrincipalFromImuachain{value: MOCK_NATIVE_FEE}(address(restakeToken), WITHDRAWAL_AMOUNT);
+        vm.stopPrank();
     }
 
 }

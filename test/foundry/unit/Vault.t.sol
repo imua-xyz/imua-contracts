@@ -173,7 +173,9 @@ contract VaultTest is Test {
 
         vm.startPrank(address(gateway));
         vault.deposit(depositor, amount);
-        vm.expectRevert(Errors.VaultPrincipalExceedsTotalDeposit.selector);
+        // After refactoring, this now reverts with VaultTotalUnlockPrincipalExceedsDeposit
+        // since we removed the redundant check and use the internal function
+        vm.expectRevert(Errors.VaultTotalUnlockPrincipalExceedsDeposit.selector);
         vault.unlockPrincipal(depositor, amount + 1);
         vm.stopPrank();
     }
@@ -190,6 +192,92 @@ contract VaultTest is Test {
         vm.expectRevert(Errors.VaultTotalUnlockPrincipalExceedsDeposit.selector);
         vault.unlockPrincipal(depositor, (amount / 2) + 1);
         vm.stopPrank();
+    }
+
+    // Tests for wouldUnlockPrincipalExceedDeposit view function
+
+    function testWouldUnlockPrincipalExceedDeposit_ReturnsFalse_WhenUnlockIsValid() public {
+        uint256 amount = 100 * 10 ** 18;
+        vm.startPrank(depositor);
+        token.approve(address(vault), amount);
+        vm.stopPrank();
+
+        vm.startPrank(address(gateway));
+        vault.deposit(depositor, amount);
+        vm.stopPrank();
+
+        // Should return false when unlock amount is within limits
+        assertFalse(vault.wouldUnlockPrincipalExceedDeposit(depositor, amount));
+        assertFalse(vault.wouldUnlockPrincipalExceedDeposit(depositor, amount / 2));
+    }
+
+    function testWouldUnlockPrincipalExceedDeposit_ReturnsTrue_WhenAmountExceedsTotalDeposit() public {
+        uint256 amount = 100 * 10 ** 18;
+        vm.startPrank(depositor);
+        token.approve(address(vault), amount);
+        vm.stopPrank();
+
+        vm.startPrank(address(gateway));
+        vault.deposit(depositor, amount);
+        vm.stopPrank();
+
+        // Should return true when unlock amount exceeds total deposit
+        assertTrue(vault.wouldUnlockPrincipalExceedDeposit(depositor, amount + 1));
+        assertTrue(vault.wouldUnlockPrincipalExceedDeposit(depositor, amount * 2));
+    }
+
+    function testWouldUnlockPrincipalExceedDeposit_ReturnsTrue_WhenCumulativeUnlockExceedsDeposit() public {
+        uint256 amount = 100 * 10 ** 18;
+        vm.startPrank(depositor);
+        token.approve(address(vault), amount);
+        vm.stopPrank();
+
+        vm.startPrank(address(gateway));
+        vault.deposit(depositor, amount);
+        vault.unlockPrincipal(depositor, amount / 2);
+        vm.stopPrank();
+
+        // Should return true when cumulative unlock would exceed deposit
+        // After unlocking amount/2, trying to unlock (amount/2 + 1) would exceed
+        assertTrue(vault.wouldUnlockPrincipalExceedDeposit(depositor, (amount / 2) + 1));
+        // After unlocking amount/2, trying to unlock (amount/2 + 2) would also exceed
+        assertTrue(vault.wouldUnlockPrincipalExceedDeposit(depositor, (amount / 2) + 2));
+    }
+
+    function testWouldUnlockPrincipalExceedDeposit_ReturnsFalse_WhenCumulativeUnlockIsWithinLimit() public {
+        uint256 amount = 100 * 10 ** 18;
+        vm.startPrank(depositor);
+        token.approve(address(vault), amount);
+        vm.stopPrank();
+
+        vm.startPrank(address(gateway));
+        vault.deposit(depositor, amount);
+        vault.unlockPrincipal(depositor, amount / 2);
+        vm.stopPrank();
+
+        // Should return false when cumulative unlock is still within limit
+        assertFalse(vault.wouldUnlockPrincipalExceedDeposit(depositor, amount / 2 - 1));
+        assertFalse(vault.wouldUnlockPrincipalExceedDeposit(depositor, 1));
+    }
+
+    function testWouldUnlockPrincipalExceedDeposit_ReturnsFalse_WhenNoDeposit() public {
+        // Should return true (would exceed) when user has no deposit
+        assertTrue(vault.wouldUnlockPrincipalExceedDeposit(depositor, 1));
+        assertTrue(vault.wouldUnlockPrincipalExceedDeposit(depositor, 100 * 10 ** 18));
+    }
+
+    function testWouldUnlockPrincipalExceedDeposit_ReturnsFalse_WhenExactAmountMatchesDeposit() public {
+        uint256 amount = 100 * 10 ** 18;
+        vm.startPrank(depositor);
+        token.approve(address(vault), amount);
+        vm.stopPrank();
+
+        vm.startPrank(address(gateway));
+        vault.deposit(depositor, amount);
+        vm.stopPrank();
+
+        // Should return false when unlock amount exactly matches deposit (totalUnlock + amount = deposit, not >)
+        assertFalse(vault.wouldUnlockPrincipalExceedDeposit(depositor, amount));
     }
 
 }

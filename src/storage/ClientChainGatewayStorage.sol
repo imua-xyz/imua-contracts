@@ -32,7 +32,7 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     uint256 internal constant ADD_TOKEN_WHITELIST_REQUEST_LENGTH = 48;
 
     /// @dev The gas limit for all the destination chains.
-    uint128 internal constant DESTINATION_GAS_LIMIT = 500_000;
+    uint128 internal constant DESTINATION_GAS_LIMIT = 700_000;
 
     /// @dev The msg.value for all the destination chains.
     uint128 internal constant DESTINATION_MSG_VALUE = 0;

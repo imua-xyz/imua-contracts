@@ -44,4 +44,10 @@ interface IVault {
     // This is a function so that IVault can be used in other contracts without importing the Vault contract.
     function getConsumedTvl() external returns (uint256);
 
+    /// @notice Checks if unlocking the given amount would exceed the total deposited amount for the user.
+    /// @param user The address of the user.
+    /// @param amount The amount to be unlocked.
+    /// @return True if unlocking would exceed the total deposited amount, false otherwise.
+    function wouldUnlockPrincipalExceedDeposit(address user, uint256 amount) external view returns (bool);
+
 }
