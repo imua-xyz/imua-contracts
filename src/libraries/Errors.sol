@@ -415,5 +415,11 @@ library Errors {
 
     /// @dev UTXOGateway: imuachain address already registered
     error ImuachainAddressAlreadyRegistered();
+    
+    /// @dev UTXOGateway: withdrawal amount is below dust threshold
+    /// @param token The token for which the withdrawal is attempted.
+    /// @param amount The amount attempted to withdraw.
+    /// @param dustThreshold The minimum amount required for withdrawal.
+    error WithdrawalAmountBelowDustThreshold(uint8 token, uint256 amount, uint256 dustThreshold);
 
 }

@@ -160,6 +160,16 @@ contract UTXOGatewayStorage {
     string public constant DOGE_METADATA = "DOGE";
     string public constant DOGE_ORACLE_INFO = "DOGE,DOGE,8";
 
+    /* ---------------------- Dust threshold for withdrawal --------------------- */
+    // The minimum UTXO amount for bitcoin network is 546 satoshis, while user needs to pay for the withdrawal network
+    // fee, which is likely to be 421 satoshis in average. So 546 * 2 = 1092 satoshis should be safe enough for the
+    // withdrawal.
+    uint256 public constant BTC_DUST_THRESHOLD = 1092;
+    // The minimum UTXO amount for dogecoin network is 0.01 DOGE, while user needs to pay for the withdrawal network
+    // fee, which might be 0.13 or even higher in average according to https://coin.space/dogecoin-network-fee/
+    // so 0.5 DOGE = 50000000 should be safe enough for the withdrawal.
+    uint256 public constant DOGE_DUST_THRESHOLD = 50_000_000;
+
     uint256 public constant PROOF_TIMEOUT = 1 days;
     uint256 public bridgeFeeRate; // e.g., 100 (basis points) means 1%
     uint256 public constant BASIS_POINTS = 10_000; // 100% = 10000 basis points
@@ -508,6 +518,28 @@ contract UTXOGatewayStorage {
     function _isValidAmount(uint256 amount) internal pure {
         if (amount == 0) {
             revert Errors.ZeroAmount();
+        }
+    }
+
+    /**
+     * @dev Internal function to check if withdrawal amount meets dust threshold
+     * @param token The token type
+     * @param amount The amount to check
+     */
+    function _checkDustThreshold(Token token, uint256 amount) internal pure {
+        uint256 dustThreshold;
+
+        if (token == Token.BTC) {
+            dustThreshold = BTC_DUST_THRESHOLD;
+        } else if (token == Token.DOGE) {
+            dustThreshold = DOGE_DUST_THRESHOLD;
+        } else {
+            // For other tokens (XRP, etc.), no dust threshold check
+            return;
+        }
+
+        if (amount < dustThreshold) {
+            revert Errors.WithdrawalAmountBelowDustThreshold(uint8(token), amount, dustThreshold);
         }
     }
 
