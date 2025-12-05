@@ -383,7 +383,7 @@ contract WithdrawalPrincipalFromImuachain is SetUp {
         clientGateway.deposit{value: MOCK_NATIVE_FEE}(address(restakeToken), DEPOSIT_AMOUNT);
 
         // Try to claim more than deposited - should fail before sending message
-        vm.expectRevert(Errors.VaultPrincipalExceedsTotalDeposit.selector);
+        vm.expectRevert(Errors.VaultTotalUnlockPrincipalExceedsDeposit.selector);
         clientGateway.claimPrincipalFromImuachain{value: MOCK_NATIVE_FEE}(address(restakeToken), DEPOSIT_AMOUNT + 1);
         vm.stopPrank();
     }
@@ -412,7 +412,7 @@ contract WithdrawalPrincipalFromImuachain is SetUp {
 
         // Try to claim more than remaining deposit (should fail at validation)
         vm.startPrank(user);
-        vm.expectRevert(Errors.VaultPrincipalExceedsTotalDeposit.selector);
+        vm.expectRevert(Errors.VaultTotalUnlockPrincipalExceedsDeposit.selector);
         clientGateway.claimPrincipalFromImuachain{value: MOCK_NATIVE_FEE}(
             address(restakeToken), (DEPOSIT_AMOUNT / 2) + 1
         );
@@ -454,7 +454,7 @@ contract WithdrawalPrincipalFromImuachain is SetUp {
     function test_revert_claimWithNoDeposit() public {
         // Try to claim without any deposit
         vm.startPrank(user);
-        vm.expectRevert(Errors.VaultPrincipalExceedsTotalDeposit.selector);
+        vm.expectRevert(Errors.VaultTotalUnlockPrincipalExceedsDeposit.selector);
         clientGateway.claimPrincipalFromImuachain{value: MOCK_NATIVE_FEE}(address(restakeToken), WITHDRAWAL_AMOUNT);
         vm.stopPrank();
     }

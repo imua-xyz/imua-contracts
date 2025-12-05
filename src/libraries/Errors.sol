@@ -304,9 +304,6 @@ library Errors {
     error VaultWithdrawalAmountExceeds();
 
     /// @dev Vault: total principal unlock amount is larger than the total deposited amount
-    error VaultPrincipalExceedsTotalDeposit();
-
-    /// @dev Vault: total principal unlock amount is larger than the total deposited amount
     error VaultTotalUnlockPrincipalExceedsDeposit();
 
     /// @dev Vault: TVL limit exceeded.

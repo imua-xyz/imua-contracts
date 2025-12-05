@@ -58,7 +58,7 @@ abstract contract LSTRestakingController is
         // If the amount to be unlocked would exceed the total deposited amount for the user, we should fail early
         // before sending the message to Imuachain.
         if (vault.wouldUnlockPrincipalExceedDeposit(msg.sender, principalAmount)) {
-            revert Errors.VaultPrincipalExceedsTotalDeposit();
+            revert Errors.VaultTotalUnlockPrincipalExceedsDeposit();
         }
 
         bytes memory actionArgs =
