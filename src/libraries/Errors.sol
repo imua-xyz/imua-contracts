@@ -304,9 +304,6 @@ library Errors {
     error VaultWithdrawalAmountExceeds();
 
     /// @dev Vault: total principal unlock amount is larger than the total deposited amount
-    error VaultPrincipalExceedsTotalDeposit();
-
-    /// @dev Vault: total principal unlock amount is larger than the total deposited amount
     error VaultTotalUnlockPrincipalExceedsDeposit();
 
     /// @dev Vault: TVL limit exceeded.
@@ -415,5 +412,11 @@ library Errors {
 
     /// @dev UTXOGateway: imuachain address already registered
     error ImuachainAddressAlreadyRegistered();
+
+    /// @dev UTXOGateway: withdrawal amount is below dust threshold
+    /// @param token The token for which the withdrawal is attempted.
+    /// @param amount The amount attempted to withdraw.
+    /// @param dustThreshold The minimum amount required for withdrawal.
+    error WithdrawalAmountBelowDustThreshold(uint8 token, uint256 amount, uint256 dustThreshold);
 
 }

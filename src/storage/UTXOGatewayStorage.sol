@@ -160,6 +160,33 @@ contract UTXOGatewayStorage {
     string public constant DOGE_METADATA = "DOGE";
     string public constant DOGE_ORACLE_INFO = "DOGE,DOGE,8";
 
+    /* ---------------------- Dust threshold for withdrawal --------------------- */
+    // These thresholds serve as conservative baseline safeguards to prevent users from attempting
+    // withdrawals with amounts too small to be economical on the respective UTXO networks.
+    //
+    // Two-layer validation approach:
+    // 1. Contract layer (this threshold): Static, conservative constants that act as a safety net
+    // 2. Frontend layer: Dynamic checks based on real-time network fees for optimal UX
+    //
+    // BTC_DUST_THRESHOLD rationale:
+    // The minimum UTXO amount for Bitcoin network is 546 satoshis. Accounting for typical withdrawal
+    // network fees (historically ~421 satoshis, though subject to market volatility), we use 546 * 2 =
+    // 1092 satoshis as a conservative threshold. The frontend provides additional dynamic validation
+    // based on current network conditions.
+    uint256 public constant BTC_DUST_THRESHOLD = 1092;
+
+    // DOGE_DUST_THRESHOLD rationale:
+    // The minimum UTXO amount for Dogecoin network is 0.01 DOGE. Withdrawal network fees may average
+    // 0.13 DOGE or higher (see https://coin.space/dogecoin-network-fee/). We use 0.5 DOGE = 50,000,000
+    // base units as a conservative threshold with significant safety margin.
+    uint256 public constant DOGE_DUST_THRESHOLD = 50_000_000;
+
+    // Note on risk profile:
+    // In extreme cases where network fees spike dramatically above these thresholds, users may
+    // experience unsuccessful withdrawals or lose a small amount in fees. However, these thresholds
+    // do not pose protocol-level security risks - they are purely user protection mechanisms. The
+    // frontend's dynamic validation provides the primary defense against adverse network conditions.
+
     uint256 public constant PROOF_TIMEOUT = 1 days;
     uint256 public bridgeFeeRate; // e.g., 100 (basis points) means 1%
     uint256 public constant BASIS_POINTS = 10_000; // 100% = 10000 basis points
@@ -508,6 +535,28 @@ contract UTXOGatewayStorage {
     function _isValidAmount(uint256 amount) internal pure {
         if (amount == 0) {
             revert Errors.ZeroAmount();
+        }
+    }
+
+    /**
+     * @dev Internal function to check if withdrawal amount meets dust threshold
+     * @param token The token type
+     * @param amount The amount to check
+     */
+    function _checkDustThreshold(Token token, uint256 amount) internal pure {
+        uint256 dustThreshold;
+
+        if (token == Token.BTC) {
+            dustThreshold = BTC_DUST_THRESHOLD;
+        } else if (token == Token.DOGE) {
+            dustThreshold = DOGE_DUST_THRESHOLD;
+        } else {
+            // For other tokens (XRP, etc.), no dust threshold check
+            return;
+        }
+
+        if (amount < dustThreshold) {
+            revert Errors.WithdrawalAmountBelowDustThreshold(uint8(token), amount, dustThreshold);
         }
     }
 

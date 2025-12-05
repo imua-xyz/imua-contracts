@@ -324,6 +324,9 @@ contract UTXOGateway is
      * @param amount The amount to withdraw.
      */
     function withdrawPrincipal(Token token, uint256 amount) external nonReentrant whenNotPaused isValidAmount(amount) {
+        // Check dust threshold for withdrawal
+        _checkDustThreshold(token, amount);
+
         ClientChainID clientChainId = ClientChainID(uint8(token));
 
         bytes memory clientAddress = outboundRegistry[clientChainId][msg.sender];
@@ -349,6 +352,9 @@ contract UTXOGateway is
      * @param amount The amount to withdraw.
      */
     function withdrawReward(Token token, uint256 amount) external nonReentrant whenNotPaused isValidAmount(amount) {
+        // Check dust threshold for withdrawal
+        _checkDustThreshold(token, amount);
+
         ClientChainID clientChainId = ClientChainID(uint8(token));
         bytes memory clientAddress = outboundRegistry[clientChainId][msg.sender];
         if (clientAddress.length == 0) {
