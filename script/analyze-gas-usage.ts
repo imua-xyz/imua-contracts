@@ -23,7 +23,9 @@ if (!RPC_URL) {
 const ENDPOINT_ADDRESS = "0x6EDCE65403992e310A62460808c4b910D972f10f";
 const ASSETS_PRECOMPILE = "0x0000000000000000000000000000000000000804";
 const DELEGATION_PRECOMPILE = "0x0000000000000000000000000000000000000805";
-const LZ_RECEIVE_SELECTOR = "0x13137d65"; // lzReceive selector
+const OAPP_LZ_RECEIVE_SELECTOR = "0x13137d65"; // lzReceive on OApp
+const ENDPOINT_LZ_RECEIVE_SELECTOR = "0x0c0c389e"; // lzReceive on Endpoint
+const EXECUTE_302_SELECTOR = "0x761f7480"; // execute302 on Endpoint
 
 // Action enum mapping (from GatewayStorage.sol)
 const Action = {
@@ -109,13 +111,12 @@ interface GasAnalysis {
   guid: string;
   messageType: string;
   actionValue: number;
-  executionType: "execute302" | "direct_lzReceive";
+  executionType: "execute302" | "endpoint_lzReceive";
   txGasLimit: string;
-  endpointLzReceiveGasUsed: string;
   endpointLzReceiveGasUsedDecimal: number;
-  assetsPrecompileGasUsed?: string;
+  oappLzReceiveGasUsedDecimal: number;
+  protocolOverheadGasDecimal: number;
   assetsPrecompileGasUsedDecimal?: number;
-  delegationPrecompileGasUsed?: string;
   delegationPrecompileGasUsedDecimal?: number;
   totalPrecompileGasUsed: number;
   rawTrace?: TraceResult;
@@ -254,28 +255,37 @@ async function getTransactionReceipt(provider: ethers.Provider, txHash: string):
   }
 }
 
-function findLzReceiveCall(call: TraceCall): TraceCall | null {
-  // Case 1: Direct call to endpoint.lzReceive (root call)
+function findEndpointLzReceiveCall(call: TraceCall): TraceCall | null {
+  // Check if this call is to the endpoint address with the lzReceive selector
   if (call.to.toLowerCase() === ENDPOINT_ADDRESS.toLowerCase() && 
-      call.input.startsWith(LZ_RECEIVE_SELECTOR)) {
-    return call;
-  }
-  
-  // Case 2: execute302 path - endpoint calls gateway.lzReceive
-  // The entry point is the call FROM endpoint TO gateway with lzReceive selector
-  // This represents endpoint.lzReceive's work (it calls gateway internally)
-  if (call.from.toLowerCase() === ENDPOINT_ADDRESS.toLowerCase() &&
-      call.input.startsWith(LZ_RECEIVE_SELECTOR)) {
+      call.input.startsWith(ENDPOINT_LZ_RECEIVE_SELECTOR)) {
     return call;
   }
   
   // Recursively search in nested calls
   if (call.calls) {
     for (const nestedCall of call.calls) {
-      const found = findLzReceiveCall(nestedCall);
+      const found = findEndpointLzReceiveCall(nestedCall);
       if (found) {
         return found;
       }
+    }
+  }
+  
+  return null;
+}
+
+function findOAppReceiveCall(endpointCall: TraceCall): TraceCall | null {
+  // Search nested calls for the endpoint calling the OApp's lzReceive
+  if (endpointCall.calls) {
+    for (const call of endpointCall.calls) {
+      if (call.to.toLowerCase() === RECEIVER_ADDRESS.toLowerCase() && 
+          call.input.startsWith(OAPP_LZ_RECEIVE_SELECTOR)) {
+        return call;
+      }
+      // Recursively search in case there are intermediate proxy/wrapper calls
+      const found = findOAppReceiveCall(call);
+      if (found) return found;
     }
   }
   
@@ -317,30 +327,28 @@ function decodeActionFromPayload(payload: string): { action: number; actionName:
   }
 }
 
-function determineExecutionType(trace: TraceResult): "execute302" | "direct_lzReceive" {
-  // Check if root call is execute302 (selector: 0x0c0c389e)
-  // execute302 can be called on endpoint or executor
-  if (trace.input.startsWith("0x0c0c389e")) {
+function determineExecutionType(trace: TraceResult): "execute302" | "endpoint_lzReceive" {
+  // Check if root call is to Endpoint.lzReceive (selector: 0x0c0c389e) or execute302 (0x761f7480)
+  if (trace.input.startsWith(EXECUTE_302_SELECTOR)) {
     return "execute302";
   }
-  
-  // Check if root call is directly to endpoint.lzReceive
-  if (trace.to.toLowerCase() === ENDPOINT_ADDRESS.toLowerCase() && 
-      trace.input.startsWith(LZ_RECEIVE_SELECTOR)) {
-    return "direct_lzReceive";
+  if (trace.input.startsWith(ENDPOINT_LZ_RECEIVE_SELECTOR)) {
+    return "endpoint_lzReceive";
   }
   
-  // Check nested calls for execute302
+  // Check nested calls
   if (trace.calls) {
     for (const call of trace.calls) {
-      if (call.input && call.input.startsWith("0x0c0c389e")) {
+      if (call.input && call.input.startsWith(EXECUTE_302_SELECTOR)) {
         return "execute302";
+      }
+      if (call.input && call.input.startsWith(ENDPOINT_LZ_RECEIVE_SELECTOR)) {
+        return "endpoint_lzReceive";
       }
     }
   }
   
-  // Default to direct_lzReceive if we can't determine
-  return "direct_lzReceive";
+  return "execute302"; // Default
 }
 
 async function analyzeMessageGas(
@@ -384,35 +392,27 @@ async function analyzeMessageGas(
     txGasLimit = receipt.gasUsed.toString();
   }
   
-  // Find lzReceive call - search in root and all nested calls
-  let lzReceiveCall: TraceCall | null = null;
+  // 1. Find the Endpoint lzReceive gas (the outermost call we care about)
+  const endpointCall = findEndpointLzReceiveCall(trace as TraceCall);
   
-  // Check root call first
-  if (trace.to.toLowerCase() === ENDPOINT_ADDRESS.toLowerCase() && 
-      trace.input.startsWith(LZ_RECEIVE_SELECTOR)) {
-    lzReceiveCall = trace as TraceCall;
-  } else if (trace.from.toLowerCase() === ENDPOINT_ADDRESS.toLowerCase() &&
-             trace.input.startsWith(LZ_RECEIVE_SELECTOR)) {
-    lzReceiveCall = trace as TraceCall;
-  } else {
-    // Search in nested calls
-    if (trace.calls) {
-      for (const call of trace.calls) {
-        lzReceiveCall = findLzReceiveCall(call);
-        if (lzReceiveCall) break;
-      }
-    }
-  }
-  
-  if (!lzReceiveCall) {
-    console.warn(`  Could not find lzReceive call to endpoint in trace`);
+  if (!endpointCall) {
+    console.warn(`  Could not find endpoint lzReceive call in trace`);
     return null;
   }
   
-  // Find precompile calls within the lzReceive execution
-  // Search from the lzReceive call down to find all precompile calls made during message execution
-  const assetsCalls = findPrecompileCalls(lzReceiveCall, ASSETS_PRECOMPILE);
-  const delegationCalls = findPrecompileCalls(lzReceiveCall, DELEGATION_PRECOMPILE);
+  // 2. Find the OApp gas (Work done specifically by Gateway)
+  const oappCall = findOAppReceiveCall(endpointCall);
+  if (!oappCall) {
+    console.warn(`  Could not find OApp lzReceive call in trace`);
+  }
+
+  const endpointGas = parseInt(endpointCall.gasUsed, 16);
+  const oappGas = oappCall ? parseInt(oappCall.gasUsed, 16) : endpointGas;
+  const protocolOverhead = endpointGas - oappGas;
+
+  // Find precompile calls within the OApp execution
+  const assetsCalls = findPrecompileCalls(oappCall || endpointCall, ASSETS_PRECOMPILE);
+  const delegationCalls = findPrecompileCalls(oappCall || endpointCall, DELEGATION_PRECOMPILE);
   
   // Decode action from payload
   const payload = message.source.tx.resolvedPayload || message.source.tx.payload;
@@ -436,29 +436,27 @@ async function analyzeMessageGas(
     actionValue: action,
     executionType,
     txGasLimit,
-    endpointLzReceiveGasUsed: lzReceiveCall.gasUsed,
-    endpointLzReceiveGasUsedDecimal: parseInt(lzReceiveCall.gasUsed, 16),
+    endpointLzReceiveGasUsedDecimal: endpointGas,
+    oappLzReceiveGasUsedDecimal: oappGas,
+    protocolOverheadGasDecimal: protocolOverhead,
     totalPrecompileGasUsed: totalPrecompileGas,
   };
   
   if (assetsCalls.length > 0) {
-    const totalAssetsGas = assetsCalls.reduce((sum, call) => sum + parseInt(call.gasUsed, 16), 0);
-    analysis.assetsPrecompileGasUsed = `0x${totalAssetsGas.toString(16)}`;
-    analysis.assetsPrecompileGasUsedDecimal = totalAssetsGas;
+    analysis.assetsPrecompileGasUsedDecimal = assetsGas;
   }
   
   if (delegationCalls.length > 0) {
-    const totalDelegationGas = delegationCalls.reduce((sum, call) => sum + parseInt(call.gasUsed, 16), 0);
-    analysis.delegationPrecompileGasUsed = `0x${totalDelegationGas.toString(16)}`;
-    analysis.delegationPrecompileGasUsedDecimal = totalDelegationGas;
+    analysis.delegationPrecompileGasUsedDecimal = delegationGas;
   }
   
   console.log(`  ✓ Action: ${actionName} (${action})`);
   console.log(`  ✓ Execution type: ${executionType}`);
-  console.log(`  ✓ Endpoint lzReceive gas used: ${analysis.endpointLzReceiveGasUsedDecimal.toLocaleString()}`);
+  console.log(`  ✓ Endpoint lzReceive Gas: ${endpointGas.toLocaleString()}`);
+  console.log(`  ✓ OApp lzReceive Gas: ${oappGas.toLocaleString()}`);
+  console.log(`  ✓ Protocol Overhead: ${protocolOverhead.toLocaleString()}`);
   console.log(`  ✓ Assets precompile gas: ${assetsGas.toLocaleString()}`);
   console.log(`  ✓ Delegation precompile gas: ${delegationGas.toLocaleString()}`);
-  console.log(`  ✓ Total precompile gas: ${totalPrecompileGas.toLocaleString()}`);
   
   return analysis;
 }
@@ -525,10 +523,10 @@ async function main() {
   const minGas = Math.min(...gasUsages);
   const avgGas = gasUsages.reduce((sum, gas) => sum + gas, 0) / gasUsages.length;
   
-  console.log(`\n=== Statistics ===`);
-  console.log(`Max endpoint lzReceive gas: ${maxGas.toLocaleString()}`);
-  console.log(`Min endpoint lzReceive gas: ${minGas.toLocaleString()}`);
-  console.log(`Avg endpoint lzReceive gas: ${Math.round(avgGas).toLocaleString()}`);
+  console.log(`\n=== Statistics (Endpoint lzReceive) ===`);
+  console.log(`Max gas: ${maxGas.toLocaleString()}`);
+  console.log(`Min gas: ${minGas.toLocaleString()}`);
+  console.log(`Avg gas: ${Math.round(avgGas).toLocaleString()}`);
   
   // Group by message type
   const byType: Record<string, number[]> = {};
@@ -539,7 +537,7 @@ async function main() {
     byType[analysis.messageType].push(analysis.endpointLzReceiveGasUsedDecimal);
   }
   
-  console.log(`\n=== Gas Usage by Message Type ===`);
+  console.log(`\n=== Gas Usage by Message Type (Endpoint lzReceive) ===`);
   for (const [type, gasValues] of Object.entries(byType)) {
     const max = Math.max(...gasValues);
     const min = Math.min(...gasValues);
@@ -565,6 +563,8 @@ async function main() {
     "executionType",
     "txGasLimit",
     "endpointLzReceiveGasUsed",
+    "oappLzReceiveGasUsed",
+    "protocolOverhead",
     "assetsPrecompileGasUsed",
     "delegationPrecompileGasUsed",
     "totalPrecompileGasUsed"
@@ -581,6 +581,8 @@ async function main() {
     a.executionType,
     a.txGasLimit,
     a.endpointLzReceiveGasUsedDecimal,
+    a.oappLzReceiveGasUsedDecimal,
+    a.protocolOverheadGasDecimal,
     a.assetsPrecompileGasUsedDecimal || "",
     a.delegationPrecompileGasUsedDecimal || "",
     a.totalPrecompileGasUsed

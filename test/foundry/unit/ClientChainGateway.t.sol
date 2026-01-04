@@ -156,7 +156,7 @@ contract SetUp is Test {
 
 }
 
-contract Pausable is SetUp {
+contract ClientChainGatewayPausableTest is SetUp {
 
     using stdStorage for StdStorage;
 

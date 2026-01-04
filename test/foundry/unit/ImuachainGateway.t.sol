@@ -157,7 +157,7 @@ contract SetUp is Test {
 
 }
 
-contract Pausable is SetUp {
+contract ImuachainGatewayPausableTest is SetUp {
 
     using AddressCast for address;
 
