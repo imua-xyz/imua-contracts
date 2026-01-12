@@ -23,6 +23,7 @@
     "@evmos/address-converter": "^0.1.9",
     "@evmos/evmosjs": "github:evmos/evmosjs#main",
     "@evmos/proto": "^0.2.1",
+    "@imua-xyz/imuajs": "^0.0.2",
     "@nomicfoundation/hardhat-foundry": "^1.1.3",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "axios": "^1.7.9",

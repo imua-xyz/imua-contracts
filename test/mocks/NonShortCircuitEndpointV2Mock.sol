@@ -179,29 +179,8 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
             _origin.nonce == lazyInboundNonce[_receiver][_origin.srcEid][_origin.sender] + 1,
             "nonce should match expected inbound nonce"
         );
-        if (msg.value > 0) {
-            try ILayerZeroReceiver(_receiver).lzReceive{value: msg.value}(_origin, _guid, _message, address(0), "") {
-                lazyInboundNonce[_receiver][_origin.srcEid][_origin.sender]++;
-            } catch (bytes memory reason) /*reason*/ {
-                inboundPayloadHash[_receiver][_origin.srcEid][_origin.sender][_origin.nonce] = keccak256(_message);
-                emit PayloadStored(_origin.srcEid, _origin.sender, _receiver, _origin.nonce, _message, reason);
-            }
-        } else {
-            try ILayerZeroReceiver(_receiver).lzReceive(_origin, _guid, _message, address(0), "") {
-                lazyInboundNonce[_receiver][_origin.srcEid][_origin.sender]++;
-            } catch (bytes memory reason) /*reason*/ {
-                inboundPayloadHash[_receiver][_origin.srcEid][_origin.sender][_origin.nonce] = keccak256(_message);
-                emit PayloadStored(_origin.srcEid, _origin.sender, _receiver, _origin.nonce, _message, reason);
-            }
-        }
-    }
-
-    function _hasPayloadHash(address _receiver, uint32 _srcEid, bytes32 _sender, uint64 _nonce)
-        internal
-        view
-        returns (bool)
-    {
-        return inboundPayloadHash[_receiver][_srcEid][_sender][_nonce] != EMPTY_PAYLOAD_HASH;
+        ILayerZeroReceiver(_receiver).lzReceive{value: msg.value}(_origin, _guid, _message, address(0), "");
+        lazyInboundNonce[_receiver][_origin.srcEid][_origin.sender]++;
     }
 
     function getExecutorFee(uint256 _payloadSize, bytes calldata _options) public view returns (uint256) {

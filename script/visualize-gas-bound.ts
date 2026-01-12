@@ -2,9 +2,22 @@ import { promises as fs } from "fs";
 import path from "path";
 
 interface GasBoundData {
+  action: string;
   nonce: number;
   txHash: string;
   gasUsed: number;
+}
+
+interface ActionStats {
+  action: string;
+  count: number;
+  minGas: number;
+  maxGas: number;
+  avgGas: number;
+  p50: number;
+  p95: number;
+  p99: number;
+  records: GasBoundData[];
 }
 
 function parseCSV(csvContent: string): GasBoundData[] {
@@ -40,6 +53,23 @@ function parseCSV(csvContent: string): GasBoundData[] {
   return records;
 }
 
+function calculateStats(action: string, records: GasBoundData[]): ActionStats {
+  const gasValues = records.map(r => r.gasUsed);
+  const sortedGas = [...gasValues].sort((a, b) => a - b);
+  
+  return {
+    action,
+    count: records.length,
+    minGas: Math.min(...gasValues),
+    maxGas: Math.max(...gasValues),
+    avgGas: Math.round(gasValues.reduce((sum, g) => sum + g, 0) / gasValues.length),
+    p50: sortedGas[Math.floor(sortedGas.length * 0.5)],
+    p95: sortedGas[Math.floor(sortedGas.length * 0.95)],
+    p99: sortedGas[Math.floor(sortedGas.length * 0.99)],
+    records
+  };
+}
+
 async function main() {
   console.log("=== Gas Bound Results Visualization Generator ===\n");
 
@@ -52,50 +82,85 @@ async function main() {
 
   console.log(`Loaded ${records.length} records`);
 
-  // Sort by nonce (chronological order)
-  records.sort((a, b) => a.nonce - b.nonce);
+  // Group records by action type
+  const actionGroups = new Map<string, GasBoundData[]>();
+  for (const record of records) {
+    if (!actionGroups.has(record.action)) {
+      actionGroups.set(record.action, []);
+    }
+    actionGroups.get(record.action)!.push(record);
+  }
 
-  // Prepare data for Chart.js
-  const chartData = records.map((record, index) => ({
-    x: index + 1, // Sequence number starting from 1
-    y: record.gasUsed,
-    nonce: record.nonce,
-    txHash: record.txHash,
+  // Sort records within each group by nonce
+  for (const [action, groupRecords] of actionGroups.entries()) {
+    groupRecords.sort((a, b) => a.nonce - b.nonce);
+  }
+
+  // Calculate statistics for each action type
+  const actionStats: ActionStats[] = [];
+  for (const [action, groupRecords] of actionGroups.entries()) {
+    actionStats.push(calculateStats(action, groupRecords));
+  }
+
+  // Sort action stats by average gas (for consistent ordering)
+  actionStats.sort((a, b) => a.avgGas - b.avgGas);
+
+  // Print statistics to console
+  console.log(`\n=== Statistics by Action Type ===`);
+  for (const stats of actionStats) {
+    console.log(`\n${stats.action}:`);
+    console.log(`  Count: ${stats.count}`);
+    console.log(`  Min Gas: ${stats.minGas.toLocaleString()}`);
+    console.log(`  Max Gas: ${stats.maxGas.toLocaleString()}`);
+    console.log(`  Avg Gas: ${stats.avgGas.toLocaleString()}`);
+    console.log(`  P50 (Median): ${stats.p50.toLocaleString()}`);
+    console.log(`  P95: ${stats.p95.toLocaleString()}`);
+    console.log(`  P99: ${stats.p99.toLocaleString()}`);
+  }
+
+  // Prepare data for comparison chart (bar chart showing average gas per action)
+  const comparisonData = actionStats.map(stats => ({
+    action: stats.action,
+    avgGas: stats.avgGas,
+    minGas: stats.minGas,
+    maxGas: stats.maxGas,
+    p95: stats.p95
   }));
 
-  // Calculate statistics
-  const gasValues = records.map(r => r.gasUsed);
-  const minGas = Math.min(...gasValues);
-  const maxGas = Math.max(...gasValues);
-  const avgGas = Math.round(gasValues.reduce((sum, g) => sum + g, 0) / gasValues.length);
-  
-  // Calculate percentiles
-  const sortedGas = [...gasValues].sort((a, b) => a - b);
-  const p50 = sortedGas[Math.floor(sortedGas.length * 0.5)];
-  const p95 = sortedGas[Math.floor(sortedGas.length * 0.95)];
-  const p99 = sortedGas[Math.floor(sortedGas.length * 0.99)];
+  // Prepare data for individual action charts - store directly in stats
+  for (const stats of actionStats) {
+    (stats as any).chartData = stats.records.map((record, index) => ({
+      x: index + 1,
+      y: record.gasUsed,
+      nonce: record.nonce,
+      txHash: record.txHash
+    }));
+  }
 
-  console.log(`\nStatistics:`);
-  console.log(`  Total Messages: ${records.length}`);
-  console.log(`  Min Gas: ${minGas.toLocaleString()}`);
-  console.log(`  Max Gas: ${maxGas.toLocaleString()}`);
-  console.log(`  Avg Gas: ${avgGas.toLocaleString()}`);
-  console.log(`  P50 (Median): ${p50.toLocaleString()}`);
-  console.log(`  P95: ${p95.toLocaleString()}`);
-  console.log(`  P99: ${p99.toLocaleString()}`);
+  // Color palette for different action types
+  const colors = [
+    'rgb(75, 192, 192)',   // Teal
+    'rgb(255, 99, 132)',    // Red
+    'rgb(54, 162, 235)',    // Blue
+    'rgb(255, 206, 86)',    // Yellow
+    'rgb(153, 102, 255)',   // Purple
+    'rgb(255, 159, 64)',    // Orange
+    'rgb(199, 199, 199)',   // Grey
+    'rgb(83, 102, 255)',    // Indigo
+    'rgb(255, 99, 255)',    // Magenta
+  ];
 
-  // Calculate Y-axis range with padding
-  const yPadding = (maxGas - minGas) * 0.1;
-  const yMin = Math.max(0, minGas - yPadding);
-  const yMax = maxGas + yPadding;
+  // Generate HTML with multiple charts
+  const actionStatsJson = JSON.stringify(actionStats);
+  const comparisonDataJson = JSON.stringify(comparisonData);
+  const colorsJson = JSON.stringify(colors);
 
-  // Generate HTML
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gas Usage Over Time - Delegation Gas Bound Test</title>
+    <title>Gas Usage Statistics - Delegation Gas Bound Test</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         body {
@@ -104,16 +169,24 @@ async function main() {
             background-color: #f5f5f5;
         }
         .container {
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
             background-color: white;
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
         }
         h1 {
             color: #333;
             margin-bottom: 10px;
+        }
+        h2 {
+            color: #333;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
         }
         .subtitle {
             color: #666;
@@ -123,144 +196,277 @@ async function main() {
             position: relative;
             height: 500px;
             margin-top: 20px;
+            margin-bottom: 40px;
         }
-        .stats {
-            margin-top: 30px;
-            padding: 20px;
-            background-color: #f9f9f9;
-            border-radius: 4px;
-        }
-        .stats h2 {
-            margin-top: 0;
-            color: #333;
-        }
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
-        }
-        .stat-card {
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
             background-color: white;
-            padding: 15px;
-            border-radius: 4px;
-            border: 1px solid #e0e0e0;
         }
-        .stat-label {
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 5px;
-        }
-        .stat-value {
-            font-size: 24px;
+        .stats-table th {
+            background-color: #f9f9f9;
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid #e0e0e0;
             font-weight: bold;
             color: #333;
         }
-        .trend-analysis {
-            margin-top: 20px;
+        .stats-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .stats-table tr:hover {
+            background-color: #f5f5f5;
+        }
+        .action-section {
+            margin-top: 50px;
+        }
+        .action-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .action-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+        .nav-links {
+            margin-bottom: 20px;
             padding: 15px;
-            background-color: #e8f4f8;
-            border-left: 4px solid #2196F3;
+            background-color: #f9f9f9;
             border-radius: 4px;
         }
-        .trend-analysis h3 {
-            margin-top: 0;
-            color: #1976D2;
+        .nav-links a {
+            color: #2196F3;
+            text-decoration: none;
+            margin-right: 15px;
+            padding: 5px 10px;
+            border-radius: 3px;
+        }
+        .nav-links a:hover {
+            background-color: #e3f2fd;
         }
     </style>
 </head>
 <body>
+    <div class="nav-links">
+        <strong>Quick Navigation:</strong>
+        ${actionStats.map((stats, idx) => `<a href="#action-${idx}">${stats.action}</a>`).join('')}
+    </div>
+
     <div class="container">
-        <h1>Gas Usage Over Time - Delegation Gas Bound Test</h1>
+        <h1>Gas Usage Statistics - Delegation Gas Bound Test</h1>
         <p class="subtitle">
-            This chart shows the gas usage for <code>REQUEST_DEPOSIT_THEN_DELEGATE_TO</code> messages over time.<br>
-            X-axis: Message sequence number (starting from 1 - oldest to newest)<br>
-            Y-axis: Gas Used<br>
-            Total messages: ${records.length}
+            Comprehensive gas usage analysis for all message types in the ImuachainGateway contract.<br>
+            Total messages analyzed: ${records.length}
         </p>
         
+        <h2>Comparison: Average Gas by Action Type</h2>
         <div class="chart-container">
-            <canvas id="gasChart"></canvas>
-        </div>
-        
-        <div class="stats">
-            <h2>Statistics</h2>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-label">Total Messages</div>
-                    <div class="stat-value">${records.length}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Min Gas</div>
-                    <div class="stat-value">${minGas.toLocaleString()}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Max Gas</div>
-                    <div class="stat-value">${maxGas.toLocaleString()}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Avg Gas</div>
-                    <div class="stat-value">${avgGas.toLocaleString()}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">P50 (Median)</div>
-                    <div class="stat-value">${p50.toLocaleString()}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">P95</div>
-                    <div class="stat-value">${p95.toLocaleString()}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">P99</div>
-                    <div class="stat-value">${p99.toLocaleString()}</div>
-                </div>
-            </div>
+            <canvas id="comparisonChart"></canvas>
         </div>
 
-        <div class="trend-analysis">
-            <h3>Trend Analysis</h3>
-            <p>
-                <strong>Gas Range:</strong> ${minGas.toLocaleString()} - ${maxGas.toLocaleString()} (${((maxGas - minGas) / minGas * 100).toFixed(2)}% variation)<br>
-                <strong>Average Gas:</strong> ${avgGas.toLocaleString()}<br>
-                <strong>95th Percentile:</strong> ${p95.toLocaleString()} (${((p95 - avgGas) / avgGas * 100).toFixed(2)}% above average)<br>
-                <strong>99th Percentile:</strong> ${p99.toLocaleString()} (${((p99 - avgGas) / avgGas * 100).toFixed(2)}% above average)
-            </p>
+        <h2>Statistics Summary</h2>
+        <table class="stats-table">
+            <thead>
+                <tr>
+                    <th>Action Type</th>
+                    <th>Count</th>
+                    <th>Min Gas</th>
+                    <th>Max Gas</th>
+                    <th>Avg Gas</th>
+                    <th>P50 (Median)</th>
+                    <th>P95</th>
+                    <th>P99</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${actionStats.map(stats => `
+                <tr>
+                    <td><strong>${stats.action}</strong></td>
+                    <td>${stats.count}</td>
+                    <td>${stats.minGas.toLocaleString()}</td>
+                    <td>${stats.maxGas.toLocaleString()}</td>
+                    <td>${stats.avgGas.toLocaleString()}</td>
+                    <td>${stats.p50.toLocaleString()}</td>
+                    <td>${stats.p95.toLocaleString()}</td>
+                    <td>${stats.p99.toLocaleString()}</td>
+                </tr>
+                `).join('')}
+            </tbody>
+        </table>
+
+        ${actionStats.map((stats, idx) => {
+            const chartData = (stats as any).chartData || [];
+            const color = colors[idx % colors.length];
+            // Handle case where all values are the same
+            const gasRange = stats.maxGas - stats.minGas;
+            const yPadding = gasRange > 0 ? gasRange * 0.1 : stats.minGas * 0.1 || 1000;
+            const yMin = Math.max(0, stats.minGas - yPadding);
+            const yMax = stats.maxGas + yPadding;
+            
+            return `
+        <div class="action-section" id="action-${idx}">
+            <div class="action-header">
+                <h2 class="action-name">${stats.action}</h2>
+            </div>
+            <div class="chart-container">
+                <canvas id="chart-${idx}"></canvas>
+            </div>
+            <table class="stats-table">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>Count</td><td>${stats.count}</td></tr>
+                    <tr><td>Min Gas</td><td>${stats.minGas.toLocaleString()}</td></tr>
+                    <tr><td>Max Gas</td><td>${stats.maxGas.toLocaleString()}</td></tr>
+                    <tr><td>Avg Gas</td><td>${stats.avgGas.toLocaleString()}</td></tr>
+                    <tr><td>P50 (Median)</td><td>${stats.p50.toLocaleString()}</td></tr>
+                    <tr><td>P95</td><td>${stats.p95.toLocaleString()}</td></tr>
+                    <tr><td>P99</td><td>${stats.p99.toLocaleString()}</td></tr>
+                    <tr><td>Variation</td><td>${((stats.maxGas - stats.minGas) / stats.minGas * 100).toFixed(2)}%</td></tr>
+                </tbody>
+            </table>
         </div>
+        <script>
+            (function() {
+                const ctx = document.getElementById('chart-${idx}').getContext('2d');
+                const chartData = ${JSON.stringify(chartData)};
+                
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        datasets: [{
+                            label: 'Gas Used',
+                            data: chartData.map(d => ({ x: d.x, y: d.y })),
+                            borderColor: '${color}',
+                            backgroundColor: '${color.replace('rgb(', 'rgba(').replace(')', ', 0.2)')}',
+                            fill: false,
+                            tension: 0.1,
+                            pointRadius: 2,
+                            pointHoverRadius: 6,
+                            pointBackgroundColor: '${color}',
+                            pointBorderColor: '${color}',
+                            showLine: true,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'nearest',
+                            intersect: false,
+                            axis: 'x'
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Gas Usage Over Time: ${stats.action}'
+                            },
+                            legend: {
+                                display: true,
+                                position: 'top'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    title: function(context) {
+                                        const dataPoint = chartData[context[0].dataIndex];
+                                        return 'Sequence #' + dataPoint.x + ' (Nonce: ' + dataPoint.nonce + ')';
+                                    },
+                                    label: function(context) {
+                                        const dataPoint = chartData[context.dataIndex];
+                                        return [
+                                            'Gas Used: ' + context.parsed.y.toLocaleString(),
+                                            'Tx Hash: ' + dataPoint.txHash.substring(0, 10) + '...'
+                                        ];
+                                    },
+                                    afterLabel: function(context) {
+                                        const dataPoint = chartData[context.dataIndex];
+                                        return 'Full Hash: ' + dataPoint.txHash;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                title: {
+                                    display: true,
+                                    text: 'Message Sequence Number'
+                                },
+                                min: 0,
+                                max: ${stats.count},
+                                ticks: {
+                                    stepSize: Math.max(1, Math.floor(${stats.count} / 20)),
+                                    callback: function(value) {
+                                        return Number.isInteger(value) ? value : '';
+                                    }
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Gas Used'
+                                },
+                                min: ${yMin},
+                                max: ${yMax},
+                                ticks: {
+                                    callback: function(value) {
+                                        return value.toLocaleString();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            })();
+        </script>
+            `;
+        }).join('')}
     </div>
 
     <script>
-        const ctx = document.getElementById('gasChart').getContext('2d');
-        const chartData = ${JSON.stringify(chartData)};
+        // Comparison chart
+        const comparisonCtx = document.getElementById('comparisonChart').getContext('2d');
+        const comparisonData = ${comparisonDataJson};
+        const colors = ${colorsJson};
         
-        new Chart(ctx, {
-            type: 'line',
+        new Chart(comparisonCtx, {
+            type: 'bar',
             data: {
-                datasets: [{
-                    label: 'Gas Used',
-                    data: chartData.map(d => ({ x: d.x, y: d.y })),
-                    borderColor: 'rgb(75, 192, 192)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                    fill: false,
-                    tension: 0.1,
-                    pointRadius: 2,
-                    pointHoverRadius: 6,
-                    pointBackgroundColor: 'rgb(75, 192, 192)',
-                    pointBorderColor: 'rgb(75, 192, 192)',
-                    showLine: true,
-                }]
+                labels: comparisonData.map(d => d.action),
+                datasets: [
+                    {
+                        label: 'Average Gas',
+                        data: comparisonData.map(d => d.avgGas),
+                        backgroundColor: colors.map((c, i) => c.replace('rgb(', 'rgba(').replace(')', ', 0.7)')),
+                        borderColor: colors,
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'P95 Gas',
+                        data: comparisonData.map(d => d.p95),
+                        backgroundColor: colors.map((c, i) => c.replace('rgb(', 'rgba(').replace(')', ', 0.4)')),
+                        borderColor: colors,
+                        borderWidth: 1,
+                        borderDash: [5, 5]
+                    }
+                ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                interaction: {
-                    mode: 'nearest',
-                    intersect: false,
-                    axis: 'x'
-                },
                 plugins: {
                     title: {
                         display: true,
-                        text: 'Gas Usage Over Time for REQUEST_DEPOSIT_THEN_DELEGATE_TO Messages'
+                        text: 'Gas Usage Comparison: Average vs P95 by Action Type'
                     },
                     legend: {
                         display: true,
@@ -268,51 +474,29 @@ async function main() {
                     },
                     tooltip: {
                         callbacks: {
-                            title: function(context) {
-                                const dataPoint = chartData[context[0].dataIndex];
-                                return 'Sequence #' + dataPoint.x + ' (Nonce: ' + dataPoint.nonce + ')';
-                            },
                             label: function(context) {
-                                const dataPoint = chartData[context.dataIndex];
-                                return [
-                                    'Gas Used: ' + context.parsed.y.toLocaleString(),
-                                    'Tx Hash: ' + dataPoint.txHash.substring(0, 10) + '...'
-                                ];
-                            },
-                            afterLabel: function(context) {
-                                const dataPoint = chartData[context.dataIndex];
-                                return 'Full Hash: ' + dataPoint.txHash;
+                                return context.dataset.label + ': ' + context.parsed.y.toLocaleString();
                             }
                         }
                     }
                 },
                 scales: {
-                    x: {
-                        type: 'linear',
-                        title: {
-                            display: true,
-                            text: 'Message Sequence Number (starting from 1)'
-                        },
-                        min: 0,
-                        max: ${records.length},
-                        ticks: {
-                            stepSize: Math.max(1, Math.floor(${records.length} / 20)),
-                            callback: function(value) {
-                                return Number.isInteger(value) ? value : '';
-                            }
-                        }
-                    },
                     y: {
                         title: {
                             display: true,
                             text: 'Gas Used'
                         },
-                        min: ${yMin},
-                        max: ${yMax},
+                        beginAtZero: true,
                         ticks: {
                             callback: function(value) {
                                 return value.toLocaleString();
                             }
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45
                         }
                     }
                 }
