@@ -111,16 +111,11 @@ contract Vault is Initializable, VaultStorage, IVault {
 
     /// @inheritdoc IVault
     function unlockPrincipal(address user, uint256 amount) external onlyGateway {
-        uint256 totalDeposited = totalDepositedPrincipalAmount[user];
-        if (amount > totalDeposited) {
-            revert Errors.VaultPrincipalExceedsTotalDeposit();
-        }
-
-        totalUnlockPrincipalAmount[user] += amount;
-        if (totalUnlockPrincipalAmount[user] > totalDeposited) {
+        if (_wouldUnlockPrincipalExceedDeposit(user, amount)) {
             revert Errors.VaultTotalUnlockPrincipalExceedsDeposit();
         }
 
+        totalUnlockPrincipalAmount[user] += amount;
         withdrawableBalances[user] = withdrawableBalances[user] + amount;
 
         emit PrincipalUnlocked(user, amount);
@@ -143,6 +138,22 @@ contract Vault is Initializable, VaultStorage, IVault {
     /// @inheritdoc IVault
     function getConsumedTvl() external view returns (uint256) {
         return consumedTvl;
+    }
+
+    /// @notice Checks if unlocking the given amount would exceed the total deposited amount for the user.
+    /// @param user The address of the user.
+    /// @param amount The amount to be unlocked.
+    /// @return True if unlocking would exceed the total deposited amount, false otherwise.
+    function wouldUnlockPrincipalExceedDeposit(address user, uint256 amount) external view returns (bool) {
+        return _wouldUnlockPrincipalExceedDeposit(user, amount);
+    }
+
+    /// @dev Checks if unlocking the given amount would exceed the total deposited amount for the user.
+    /// @param user The address of the user.
+    /// @param amount The amount to be unlocked.
+    /// @return True if unlocking would exceed the total deposited amount, false otherwise.
+    function _wouldUnlockPrincipalExceedDeposit(address user, uint256 amount) internal view returns (bool) {
+        return totalUnlockPrincipalAmount[user] + amount > totalDepositedPrincipalAmount[user];
     }
 
 }

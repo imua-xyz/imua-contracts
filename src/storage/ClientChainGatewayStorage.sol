@@ -32,6 +32,8 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     uint256 internal constant ADD_TOKEN_WHITELIST_REQUEST_LENGTH = 48;
 
     /// @dev The gas limit for all the destination chains.
+    /// @dev 50 K gas is fair enough for almost all types of messages, see
+    /// @dev https://github.com/imua-xyz/imua-contracts/blob/gas-bound-test/docs/GAS_BOUND_REPORT.md
     uint128 internal constant DESTINATION_GAS_LIMIT = 500_000;
 
     /// @dev The msg.value for all the destination chains.

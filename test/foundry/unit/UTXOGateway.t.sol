@@ -1587,6 +1587,78 @@ contract UTXOGatewayTest is Test {
         gateway.withdrawPrincipal(UTXOGatewayStorage.Token.BTC, 0);
     }
 
+    function test_WithdrawPrincipal_BTC_RevertBelowDustThreshold() public {
+        _mockRegisterAddress(user, btcAddress);
+
+        uint256 belowDustAmount = 1091; // BTC_DUST_THRESHOLD is 1092
+
+        vm.prank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.WithdrawalAmountBelowDustThreshold.selector,
+                uint8(UTXOGatewayStorage.Token.BTC),
+                belowDustAmount,
+                1092 // BTC_DUST_THRESHOLD
+            )
+        );
+        gateway.withdrawPrincipal(UTXOGatewayStorage.Token.BTC, belowDustAmount);
+    }
+
+    function test_WithdrawPrincipal_BTC_SuccessAtDustThreshold() public {
+        _mockRegisterAddress(user, btcAddress);
+
+        uint256 exactDustAmount = 1092; // BTC_DUST_THRESHOLD
+
+        // mock assets precompile withdrawLST success
+        vm.mockCall(
+            ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IAssets.withdrawLST.selector), abi.encode(true, 2 ether)
+        );
+
+        vm.prank(user);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawPrincipalRequested(
+            UTXOGatewayStorage.ClientChainID.BITCOIN, 1, user, btcAddress, exactDustAmount, 2 ether
+        );
+
+        gateway.withdrawPrincipal(UTXOGatewayStorage.Token.BTC, exactDustAmount);
+    }
+
+    function test_WithdrawPrincipal_DOGE_RevertBelowDustThreshold() public {
+        _mockRegisterAddressForChain(UTXOGatewayStorage.ClientChainID.DOGE, user, dogeAddress);
+
+        uint256 belowDustAmount = 49_999_999; // DOGE_DUST_THRESHOLD is 50000000
+
+        vm.prank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.WithdrawalAmountBelowDustThreshold.selector,
+                uint8(UTXOGatewayStorage.Token.DOGE),
+                belowDustAmount,
+                50_000_000 // DOGE_DUST_THRESHOLD
+            )
+        );
+        gateway.withdrawPrincipal(UTXOGatewayStorage.Token.DOGE, belowDustAmount);
+    }
+
+    function test_WithdrawPrincipal_DOGE_SuccessAtDustThreshold() public {
+        _mockRegisterAddressForChain(UTXOGatewayStorage.ClientChainID.DOGE, user, dogeAddress);
+
+        uint256 exactDustAmount = 50_000_000; // DOGE_DUST_THRESHOLD
+
+        // mock assets precompile withdrawLST success
+        vm.mockCall(
+            ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IAssets.withdrawLST.selector), abi.encode(true, 2 ether)
+        );
+
+        vm.prank(user);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawPrincipalRequested(
+            UTXOGatewayStorage.ClientChainID.DOGE, 1, user, dogeAddress, exactDustAmount, 2 ether
+        );
+
+        gateway.withdrawPrincipal(UTXOGatewayStorage.Token.DOGE, exactDustAmount);
+    }
+
     function test_WithdrawPrincipal_RevertWithdrawFailed() public {
         _mockRegisterAddress(user, btcAddress);
 
@@ -1688,6 +1760,116 @@ contract UTXOGatewayTest is Test {
         vm.prank(user);
         vm.expectRevert(Errors.ZeroAmount.selector);
         gateway.withdrawReward(UTXOGatewayStorage.Token.BTC, 0);
+    }
+
+    function test_WithdrawReward_BTC_RevertBelowDustThreshold() public {
+        _mockRegisterAddress(user, btcAddress);
+
+        uint256 belowDustAmount = 1091; // BTC_DUST_THRESHOLD is 1092
+
+        vm.prank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.WithdrawalAmountBelowDustThreshold.selector,
+                uint8(UTXOGatewayStorage.Token.BTC),
+                belowDustAmount,
+                1092 // BTC_DUST_THRESHOLD
+            )
+        );
+        gateway.withdrawReward(UTXOGatewayStorage.Token.BTC, belowDustAmount);
+    }
+
+    function test_WithdrawReward_BTC_SuccessAtDustThreshold() public {
+        _mockRegisterAddress(user, btcAddress);
+
+        uint256 exactDustAmount = 1092; // BTC_DUST_THRESHOLD
+
+        // mock reward precompile claimReward success
+        vm.mockCall(
+            REWARD_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IReward.claimReward.selector), abi.encode(true, 2 ether)
+        );
+
+        vm.prank(user);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawRewardRequested(
+            UTXOGatewayStorage.ClientChainID.BITCOIN, 1, user, btcAddress, exactDustAmount, 2 ether
+        );
+
+        gateway.withdrawReward(UTXOGatewayStorage.Token.BTC, exactDustAmount);
+    }
+
+    function test_WithdrawReward_DOGE_RevertBelowDustThreshold() public {
+        _mockRegisterAddressForChain(UTXOGatewayStorage.ClientChainID.DOGE, user, dogeAddress);
+
+        uint256 belowDustAmount = 49_999_999; // DOGE_DUST_THRESHOLD is 50000000
+
+        vm.prank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.WithdrawalAmountBelowDustThreshold.selector,
+                uint8(UTXOGatewayStorage.Token.DOGE),
+                belowDustAmount,
+                50_000_000 // DOGE_DUST_THRESHOLD
+            )
+        );
+        gateway.withdrawReward(UTXOGatewayStorage.Token.DOGE, belowDustAmount);
+    }
+
+    function test_WithdrawReward_DOGE_SuccessAtDustThreshold() public {
+        _mockRegisterAddressForChain(UTXOGatewayStorage.ClientChainID.DOGE, user, dogeAddress);
+
+        uint256 exactDustAmount = 50_000_000; // DOGE_DUST_THRESHOLD
+
+        // mock reward precompile claimReward success
+        vm.mockCall(
+            REWARD_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IReward.claimReward.selector), abi.encode(true, 2 ether)
+        );
+
+        vm.prank(user);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawRewardRequested(
+            UTXOGatewayStorage.ClientChainID.DOGE, 1, user, dogeAddress, exactDustAmount, 2 ether
+        );
+
+        gateway.withdrawReward(UTXOGatewayStorage.Token.DOGE, exactDustAmount);
+    }
+
+    function test_WithdrawPrincipal_BTC_SuccessAboveDustThreshold() public {
+        _mockRegisterAddress(user, btcAddress);
+
+        uint256 aboveDustAmount = 10_000; // Well above BTC_DUST_THRESHOLD
+
+        // mock assets precompile withdrawLST success
+        vm.mockCall(
+            ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IAssets.withdrawLST.selector), abi.encode(true, 2 ether)
+        );
+
+        vm.prank(user);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawPrincipalRequested(
+            UTXOGatewayStorage.ClientChainID.BITCOIN, 1, user, btcAddress, aboveDustAmount, 2 ether
+        );
+
+        gateway.withdrawPrincipal(UTXOGatewayStorage.Token.BTC, aboveDustAmount);
+    }
+
+    function test_WithdrawReward_DOGE_SuccessAboveDustThreshold() public {
+        _mockRegisterAddressForChain(UTXOGatewayStorage.ClientChainID.DOGE, user, dogeAddress);
+
+        uint256 aboveDustAmount = 100_000_000; // Well above DOGE_DUST_THRESHOLD
+
+        // mock reward precompile claimReward success
+        vm.mockCall(
+            REWARD_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IReward.claimReward.selector), abi.encode(true, 2 ether)
+        );
+
+        vm.prank(user);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawRewardRequested(
+            UTXOGatewayStorage.ClientChainID.DOGE, 1, user, dogeAddress, aboveDustAmount, 2 ether
+        );
+
+        gateway.withdrawReward(UTXOGatewayStorage.Token.DOGE, aboveDustAmount);
     }
 
     function test_WithdrawReward_RevertClaimFailed() public {
