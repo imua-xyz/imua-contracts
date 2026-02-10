@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
 import {IImuachainGateway} from "src/interfaces/IImuachainGateway.sol";
@@ -6,7 +7,7 @@ import {Action} from "src/storage/GatewayStorage.sol";
 import {IAssets} from "src/interfaces/precompiles/IAssets.sol";
 
 import {IDelegation} from "src/interfaces/precompiles/IDelegation.sol";
-import {IReward} from "src/interfaces/precompiles/IReward.sol";
+import {IReward, WithdrawRewardParams} from "src/interfaces/precompiles/IReward.sol";
 
 import {
     MessagingFee,
@@ -99,8 +100,8 @@ contract ImuachainGatewayMock is
         _whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_LST] = this.handleLSTTransfer.selector;
         _whiteListFunctionSelectors[Action.REQUEST_DEPOSIT_NST] = this.handleNSTTransfer.selector;
         _whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_NST] = this.handleNSTTransfer.selector;
-        _whiteListFunctionSelectors[Action.REQUEST_SUBMIT_REWARD] = this.handleRewardOperation.selector;
         _whiteListFunctionSelectors[Action.REQUEST_CLAIM_REWARD] = this.handleRewardOperation.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_FUND_AVS_REWARD] = this.handleRewardOperation.selector;
         _whiteListFunctionSelectors[Action.REQUEST_DELEGATE_TO] = this.handleDelegation.selector;
         _whiteListFunctionSelectors[Action.REQUEST_UNDELEGATE_FROM] = this.handleDelegation.selector;
         _whiteListFunctionSelectors[Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO] = this.handleDepositAndDelegate.selector;
@@ -431,34 +432,52 @@ contract ImuachainGatewayMock is
         response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success);
     }
 
-    /// @notice Handles rewards request from a client chain, submit reward or claim reward.
+    /// @notice Handles reward-related operations from a client chain.
     /// @dev Can only be called from this contract via low-level call.
-    /// @dev Returns the response to client chain including lzNonce and success flag.
+    /// @dev Handles both REQUEST_FUND_AVS_REWARD (no response) and REQUEST_CLAIM_REWARD (expects response).
     /// @param srcChainId The source chain id.
     /// @param lzNonce The layer zero nonce.
+    /// @param act The action type (REQUEST_FUND_AVS_REWARD or REQUEST_CLAIM_REWARD).
     /// @param payload The request payload.
+    /// @dev For REQUEST_FUND_AVS_REWARD: bytes32(token) + bytes32(avs) + amount
+    /// @dev For REQUEST_CLAIM_REWARD: bytes32(assetAddress) + bytes32(stakerAddress) + amount
     // slither-disable-next-line unused-return
     function handleRewardOperation(uint32 srcChainId, uint64 lzNonce, Action act, bytes calldata payload)
         public
         onlyCalledFromThis
         returns (bytes memory response)
     {
-        bytes calldata token = payload[:32];
-        // it could be either avsId or withdrawer, depending on the action
-        bytes calldata avsOrWithdrawer = payload[32:64];
+        bool isFundReward = act == Action.REQUEST_FUND_AVS_REWARD;
+        bytes memory data = payload[:32];
+        bytes memory addrBytes = payload[32:64];
         uint256 amount = uint256(bytes32(payload[64:96]));
-
-        bool isSubmitReward = act == Action.REQUEST_SUBMIT_REWARD;
         bool success;
-        if (isSubmitReward) {
-            (success,) = REWARD_CONTRACT.submitReward(srcChainId, token, avsOrWithdrawer, amount);
-        } else {
-            (success,) = REWARD_CONTRACT.claimReward(srcChainId, token, avsOrWithdrawer, amount);
-        }
-        // forge-lint: disable-next-line(unsafe-typecast)
-        emit RewardOperation(success, isSubmitReward, bytes32(token), bytes32(avsOrWithdrawer), amount);
 
-        response = isSubmitReward ? bytes("") : abi.encodePacked(lzNonce, success);
+        if (isFundReward) {
+            // REQUEST_FUND_AVS_REWARD: data=token, addrBytes=avs
+            // forge-lint: disable-next-line(unsafe-typecast)
+            success = REWARD_CONTRACT.fundAVSReward(srcChainId, address(bytes20(bytes32(addrBytes))), data, amount);
+            if (!success) {
+                revert Errors.DepositRequestShouldNotFail(srcChainId, lzNonce);
+            }
+            // forge-lint: disable-next-line(unsafe-typecast)
+            emit RewardOperation(true, success, bytes32(data), bytes32(addrBytes), amount);
+            return bytes("");
+        } else {
+            // REQUEST_CLAIM_REWARD: data=assetAddress, addrBytes=stakerAddress
+            WithdrawRewardParams memory params = WithdrawRewardParams({
+                doClaim: true,
+                clientChainLzID: srcChainId,
+                rewardAssetChainLzID: srcChainId,
+                assetAddress: data,
+                stakerAddress: addrBytes,
+                opAmount: amount
+            });
+            (success,) = REWARD_CONTRACT.withdrawReward(params);
+            // forge-lint: disable-next-line(unsafe-typecast)
+            emit RewardOperation(false, success, bytes32(data), bytes32(addrBytes), amount);
+            return abi.encodePacked(lzNonce, success);
+        }
     }
 
     /// @notice Handles delegation request from a client chain.

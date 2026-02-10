@@ -2,7 +2,7 @@ pragma solidity ^0.8.19;
 
 import "../src/core/ClientChainGateway.sol";
 import "../src/core/ImuaCapsule.sol";
-import "../src/core/ImuachainGateway.sol";
+import {ImuachainGateway} from "../src/core/ImuachainGateway.sol";
 
 import {RewardVault} from "../src/core/RewardVault.sol";
 import {Vault} from "../src/core/Vault.sol";

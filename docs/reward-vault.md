@@ -27,11 +27,11 @@ The Reward Vault is implemented using the beacon proxy pattern for upgradeabilit
 ### 3.1. Smart Contract: RewardVault.sol
 
 Key Functions:
-- `deposit(address token, address avs, uint256 amount)`: Allows the Gateway to deposit reward tokens on behalf of an AVS. Increases the total deposited rewards for the specified token and AVS.
-- `unlockReward(address token, address staker, uint256 amount)`: Allows the Gateway to unlock rewards for a staker after claim approval from Imuachain.
+- `deposit(address token, address avs, uint256 amount)`: Allows the Gateway to deposit reward tokens on behalf of an AVS. Increases the locked reward balance for the token.
+- `unlockReward(address token, address staker, uint256 amount)`: Allows the Gateway to unlock rewards for a staker after claim approval from Imuachain. Decreases the locked reward balance and increases the staker's withdrawable balance.
 - `withdraw(address token, address withdrawer, address recipient, uint256 amount)`: Allows the Gateway to withdraw claimed rewards for a staker.
 - `getWithdrawableBalance(address token, address staker)`: Returns the withdrawable balance of a specific reward token for a staker.
-- `getTotalDepositedRewards(address token, address avs)`: Returns the total deposited rewards of a specific token for an AVS.
+- `getLockedRewards(address token)`: Returns the locked reward balance for a token (amount deposited but not yet unlocked).
 
 Implementation:
 - The RewardVault contract is implemented as an upgradeable contract using the beacon proxy pattern.
@@ -40,7 +40,7 @@ Implementation:
 ### 3.2. Smart Contract: ClientChainGateway.sol (existing contract, modified)
 
 New Functions:
-- `submitReward(address token, uint256 amount, address avs)`: Receives reward submissions and calls RewardVault's `deposit`.
+- `fundAVSReward(address token, uint256 amount, address avs)`: Receives reward funding and calls RewardVault's `deposit`.
 - `claimRewardFromImuachain(address token, uint256 amount)`: Initiates a claim request to Imuachain.
 - `withdrawReward(address token, address recipient, uint256 amount)`: Calls RewardVault's `withdraw` to transfer claimed rewards to the staker.
 
@@ -60,16 +60,17 @@ This nested mapping tracks withdrawable reward balances:
 - Second key: Staker address
 - Value: Withdrawable balance amount
 
-#### 3.3.2. Total Deposited Rewards Mapping (in RewardVault.sol)
+#### 3.3.2. Locked Rewards Mapping (in RewardVault.sol)
 
 ```solidity
-mapping(address => mapping(address => uint256)) public totalDepositedRewards;
+mapping(address => uint256) public lockedRewards;
 ```
 
-This nested mapping tracks the total deposited rewards for each token and AVS:
-- First key: Token address
-- Second key: AVS address
-- Value: Total deposited amount
+This mapping tracks the locked reward balance for each token:
+- Key: Token address
+- Value: Locked reward amount (increases on deposit, decreases on unlock)
+
+The locked rewards represent the amount of tokens that have been deposited but not yet unlocked for withdrawal. This provides real-time tracking of the vault's locked balance, enabling efficient vault health checks and invariant validation.
 
 ### 3.4. Beacon Proxy Pattern
 
@@ -114,40 +115,86 @@ contract RewardVaultProxy {
 
 ## 4. Key Processes
 
-### 4.1. Reward Submission
+### 4.1. Reward Funding
 
-1. Depositor calls `submitReward` on the Gateway, specifying the token, amount, and AVS ID.
+1. Depositor calls `fundAVSReward` on the Gateway, specifying the token, amount, and AVS ID.
 2. Gateway calls RewardVault's `deposit`, which:
    a. Transfers the specified amount of tokens from the depositor to itself.
-   b. Increases the total deposited rewards for the specified token and AVS in the `totalDepositedRewards` mapping.
+   b. Increases the locked reward balance for the token in the `lockedRewards` mapping.
    c. Emits a `RewardDeposited` event.
 3. Gateway sends a message to Imuachain to account for the deposited rewards.
-4. Imuachain processes the request and emits a `RewardOperationResult` event to indicate the result of the submission.
+4. Imuachain processes the request and emits a `RewardOperationResult` event to indicate the result of the funding.
 
 ### 4.2. Reward Distribution and Accounting
 
-1. Imuachain handles the distribution and accounting of rewards to stakers based on their staking activities and the rewards submitted.
+1. Imuachain handles the distribution and accounting of rewards to stakers based on their staking activities and the rewards funded.
 2. Imuachain maintains the record of each staker's earned rewards.
 
-### 4.3. Reward Claiming and Withdrawal
+### 4.3. Reward Claiming and Withdrawal (Current Behavior)
 
-1. Staker calls `claimRewardFromImuachain` on the Gateway.
-2. Gateway sends a claim request to Imuachain.
-3. Imuachain verifies the request and sends a response back to the Gateway, emitting a `RewardOperation` event.
-4. If the claim is approved, Gateway calls RewardVault's `unlockReward`, which:
-   a. Increases the staker's withdrawable balance for the specified token.
-   b. Emits a `RewardUnlocked` event.
-5. At any time after unlocking, the staker can call `withdrawReward` on the Gateway.
-6. Gateway calls RewardVault's `withdraw`, which:
-   a. Transfers the tokens from the vault to the staker's address.
-   b. Decreases the staker's withdrawable balance.
-   c. Emits a `RewardWithdrawn` event.
+The current implementation supports the case where the staker and the reward token are on the **same client chain**. In this model:
+
+1. The staker (identified by `(clientChainId, stakerAddress)`) calls `claimRewardFromImuachain(address token, uint256 amount)` on the `ClientChainGateway` of their client chain.
+2. The gateway sends a claim request to Imuachain, including the client chain id, the staker’s address, and the reward token address.
+3. Imuachain processes the claim, computes the claimable amount, and sends a `REQUEST_CLAIM_REWARD` response **back to the same client chain** via `ImuachainGateway`, emitting a `RewardOperation` event.
+4. If the claim is successful, `ImuachainGateway` invokes `REWARD_CONTRACT.withdrawReward` with `rewardAssetChainLzID` set to the **same** `clientChainLzID`. The returned `actualWithdrawAmount` is then forwarded to the client chain via dedicated bridge.
+5. `ClientChainGateway` receives the response, looks up the original `(clientChainId, stakerAddress, assetAddress)` request, and calls `RewardVault.unlockReward(assetAddress, stakerAddress, actualWithdrawAmount)`, which:
+   - Decreases the locked reward balance for the token.
+   - Increases the staker's withdrawable balance for that token.
+   - Emits a `RewardUnlocked` event.
+6. At any time after unlocking, the staker calls `withdrawReward(address token, address recipient, uint256 amount)` on the `ClientChainGateway`.
+7. `ClientChainGateway` calls `RewardVault.withdraw(token, staker, recipient, amount)`, which:
+   - Checks `withdrawableBalances[token][staker]` is sufficient.
+   - Decreases the staker’s withdrawable balance.
+   - Transfers `amount` of `token` from the local `RewardVault` to `recipient`.
+   - Emits a `RewardWithdrawn` event.
+
+> **Limitation:** In this version, `clientChainLzID` and `rewardAssetChainLzID` are always set to the **same value**, meaning rewards are only withdrawn on the **originating client chain**. Scenarios where a staker on chain A earns rewards on chain B (e.g., an Ethereum staker earning SOL on Solana) are **not yet supported** end-to-end.
+
+### 4.4. Future Extensions for Generic Cross-Chain Rewards
+
+To support the general case where a staker on one chain earns rewards on a different chain, the protocol can evolve along (at least) two directions:
+
+#### 4.4.1. Option 1 – Explicit Reward Destination in `claimRewardFromImuachain`
+
+Extend the client-chain claim interface to carry explicit reward-destination information:
+
+- Add parameters to `claimRewardFromImuachain` (in `BaseRestakingController` / `ClientChainGateway`), for example:
+  - `uint32 rewardAssetChainLzID` – the LayerZero chain id where the reward asset is custodied (e.g., Solana).
+  - `bytes assetAddress` – the reward token address on the destination chain.
+  - `bytes recipient` – the destination-chain recipient address (e.g., a Solana pubkey).
+
+Updated flow:
+
+1. Staker on chain A calls `claimRewardFromImuachain(token, amount, rewardAssetChainLzID, assetAddress, recipient)`.
+2. `ClientChainGateway` encodes and forwards `(clientChainLzID_A, stakerAddress_A, rewardAssetChainLzID, assetAddress, recipient, amount)` to `ImuachainGateway` via `REQUEST_CLAIM_REWARD`.
+3. `ImuachainGateway.handleRewardOperation` passes `rewardAssetChainLzID` and `assetAddress` into `IReward.WithdrawRewardParams`, so Imuachain can withdraw rewards on the appropriate chain.
+4. `ImuachainGateway` sends the claim result to the `ClientChain` that hosts the reward asset (not necessarily the original staking chain).
+5. The destination chain’s gateway receives the response and calls its local `RewardVault.unlockReward(assetAddress, recipient, actualWithdrawAmount)`, crediting the correct recipient on the reward chain.
+6. The recipient on the reward chain calls `withdrawReward(assetAddress, recipient, amount)` on that chain’s gateway, which in turn calls its local `RewardVault.withdraw`.
+
+#### 4.4.2. Option 2 – Imuachain-Native Reward Recipients and Push-Based Unlocks
+
+An alternative (or complementary) approach is to decouple reward ownership from the client-chain address:
+
+- When staking, the user registers an **Imuachain address** as their canonical reward recipient (e.g., via a new `associateRewardAddress` call on `ClientChainGateway` or directly on Imuachain).
+- Imuachain tracks rewards by `(imuaAddress, rewardAssetChainLzID, assetAddress)` rather than by `(clientChainId, stakerAddress, assetAddress)`.
+
+In this model:
+
+1. Rewards accrue on Imuachain for the user’s `imuaAddress`, regardless of which client chain they used to stake.
+2. When the user wants to realize rewards on a destination chain B, they:
+   - Either call a new API (e.g., `withdrawRewardToChain(uint32 rewardAssetChainLzID, bytes assetAddress, bytes recipient)`) on `ImuachainGateway` or `ClientChainGateway`, or
+   - Imuachain autonomously initiates a `REQUEST_CLAIM_REWARD`/unlock to the appropriate `UTXOGateway` / `ClientChainGateway` on the destination chain.
+3. `ImuachainGateway` uses the `rewardAssetChainLzID` and `assetAddress` fields in `IReward.WithdrawRewardParams` to withdraw rewards on the target chain and sends a message to that chain’s gateway, which then calls its local `RewardVault` to credit and/or withdraw to the specified `recipient`.
+
+This “push-based” model enables true omni-chain reward distribution while keeping Imuachain as the single source of truth for reward accounting.
 
 ## 5. Security Considerations
 
 5.1. Access Control: 
 - Only the Gateway should be able to call RewardVault's functions.
-- Any address should be able to call `ClientChainGateway.submitReward`.
+- Any address should be able to call `ClientChainGateway.fundAVSReward`.
 - Only stakers should be able to call `ClientChainGateway.claimRewardFromImuachain` for their own rewards.
 
 5.2. Token Compatibility: While the system is permissionless, it is designed to work with standard ERC20 tokens to ensure consistent behavior and accounting.
@@ -158,7 +205,7 @@ contract RewardVaultProxy {
 
 ## 6. Gas Optimization
 
-6.1. Batch Operations: Consider implementing functions for batch reward submissions and claims to reduce gas costs.
+6.1. Batch Operations: Consider implementing functions for batch reward funding and claims to reduce gas costs.
 
 ## 7. Upgradability
 
@@ -172,12 +219,16 @@ Emit events for all significant actions in the RewardVault contract:
 - `RewardWithdrawn(address indexed token, address indexed staker, uint256 amount)`
 
 The ClientChainGateway contract will emit the following event (as previously defined):
-- `RewardOperation(bool isSubmitReward, bool indexed success, bytes32 indexed token, bytes32 indexed avsOrWithdrawer, uint256 amount)`
+- `RewardOperation(bool isFundReward, bool indexed success, bytes32 indexed token, bytes32 indexed avsOrWithdrawer, uint256 amount)` — `isFundReward` is true for fund-AVS-reward operations, false for claim-reward operations.
 
 ## 9. Future Considerations
 
-9.1. Emergency Withdrawal: Consider an emergency withdrawal function for unclaimed rewards, accessible only by governance in case of critical issues.
+9.1. **Emergency Withdrawal**: Consider an emergency withdrawal function for unclaimed rewards, accessible only by governance in case of critical issues.
 
-9.2. AVS Reward Tracking: Implement a function to report the total deposited rewards across all tokens for a given AVS, which could be useful for AVS providers to track their reward distribution.
+9.2. **AVS Reward Tracking**: While the current implementation tracks locked rewards per token (not per AVS), historical deposit data can be derived from `RewardDeposited` events if per-AVS analytics are needed.
 
-9.3. Multiple Reward Vaults: While currently a single Reward Vault is deployed, the beacon proxy pattern allows for easy deployment of multiple Reward Vaults if needed in the future, all sharing the same implementation but with separate storage.
+9.3. **Multiple Reward Vaults**: While currently a single Reward Vault is deployed per client chain, the beacon proxy pattern allows for easy deployment of multiple RewardVault instances (e.g., per reward asset or per AVS), each with its own storage but shared implementation.
+
+9.4. **Generic Cross-Chain Rewards**: As described in §4.4, future iterations may:
+   - Add `rewardAssetChainLzID` / `assetAddress` / `recipient` parameters to client-chain claim APIs to support explicit cross-chain reward destinations.
+   - Introduce Imuachain-native reward recipients and push-based unlock flows from `ImuachainGateway` to arbitrary client chains, enabling stakers on one chain to receive rewards on different chains.

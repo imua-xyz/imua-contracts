@@ -48,7 +48,7 @@ library ActionAttributes {
         } else if (action == Action.REQUEST_CLAIM_REWARD) {
             attributes = REWARD | WITHDRAWAL;
             messageLength = LST_ASSET_OPERATION_LENGTH;
-        } else if (action == Action.REQUEST_SUBMIT_REWARD) {
+        } else if (action == Action.REQUEST_FUND_AVS_REWARD) {
             // New action
             attributes = REWARD;
             messageLength = LST_ASSET_OPERATION_LENGTH;

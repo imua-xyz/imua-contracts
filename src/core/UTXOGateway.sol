@@ -6,8 +6,9 @@ import {ImuachainBytes} from "../libraries/ImuachainBytes.sol";
 
 import {ASSETS_CONTRACT} from "../interfaces/precompiles/IAssets.sol";
 import {DELEGATION_CONTRACT} from "../interfaces/precompiles/IDelegation.sol";
-import {REWARD_CONTRACT} from "../interfaces/precompiles/IReward.sol";
+import {REWARD_CONTRACT, WithdrawRewardParams} from "../interfaces/precompiles/IReward.sol";
 import {SignatureVerifier} from "../libraries/SignatureVerifier.sol";
+import {UTXOChainActivator} from "../libraries/UTXOChainActivator.sol";
 import {UTXOGatewayStorage} from "../storage/UTXOGatewayStorage.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -90,25 +91,18 @@ contract UTXOGateway is
      * @notice Activates token staking by registering or updating the chain and token with Imua
      */
     function activateStakingForClientChain(ClientChainID clientChainId) external onlyOwner whenNotPaused {
-        if (clientChainId == ClientChainID.BITCOIN) {
-            _registerOrUpdateClientChain(
-                clientChainId, STAKER_ACCOUNT_LENGTH, BITCOIN_NAME, BITCOIN_METADATA, BITCOIN_SIGNATURE_SCHEME
-            );
-            _registerOrUpdateToken(clientChainId, VIRTUAL_TOKEN, BTC_DECIMALS, BTC_NAME, BTC_METADATA, BTC_ORACLE_INFO);
-        } else if (clientChainId == ClientChainID.XRPL) {
-            _registerOrUpdateClientChain(
-                clientChainId, XRPL_ACCOUNT_LENGTH, XRPL_NAME, XRPL_METADATA, XRPL_SIGNATURE_SCHEME
-            );
-            _registerOrUpdateToken(clientChainId, VIRTUAL_TOKEN, XRP_DECIMALS, XRP_NAME, XRP_METADATA, XRP_ORACLE_INFO);
-        } else if (clientChainId == ClientChainID.DOGE) {
-            _registerOrUpdateClientChain(
-                clientChainId, DOGE_ACCOUNT_LENGTH, DOGE_CHAIN_NAME, DOGE_CHAIN_METADATA, DOGE_SIGNATURE_SCHEME
-            );
-            _registerOrUpdateToken(
-                clientChainId, VIRTUAL_TOKEN, DOGE_DECIMALS, DOGE_NAME, DOGE_METADATA, DOGE_ORACLE_INFO
-            );
+        (bool chainUpdated, bool tokenAdded) =
+            UTXOChainActivator.activateStakingForClientChain(clientChainId, VIRTUAL_TOKEN);
+
+        if (chainUpdated) {
+            emit ClientChainUpdated(clientChainId);
         } else {
-            revert Errors.InvalidClientChain();
+            emit ClientChainRegistered(clientChainId);
+        }
+        if (tokenAdded) {
+            emit WhitelistTokenAdded(clientChainId, VIRTUAL_TOKEN_ADDRESS);
+        } else {
+            emit WhitelistTokenUpdated(clientChainId, VIRTUAL_TOKEN_ADDRESS);
         }
     }
 
@@ -361,16 +355,24 @@ contract UTXOGateway is
             revert Errors.AddressNotRegistered();
         }
 
-        (bool success, uint256 updatedBalance) = REWARD_CONTRACT.claimReward(
-            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, msg.sender.toImuachainBytes(), amount
-        );
+        uint32 clientChainLzID = uint32(uint8(clientChainId));
+        WithdrawRewardParams memory params = WithdrawRewardParams({
+            doClaim: true,
+            clientChainLzID: clientChainLzID,
+            rewardAssetChainLzID: clientChainLzID, // same as clientChainLzID for UTXO chains
+            assetAddress: VIRTUAL_TOKEN,
+            stakerAddress: msg.sender.toImuachainBytes(),
+            opAmount: amount
+        });
+        (bool success, uint256 actualWithdrawAmount) = REWARD_CONTRACT.withdrawReward(params);
         if (!success) {
             revert Errors.WithdrawRewardFailed();
         }
 
-        uint64 requestId =
-            _initiatePegOut(clientChainId, amount, msg.sender, clientAddress, WithdrawType.WITHDRAW_REWARD);
-        emit WithdrawRewardRequested(clientChainId, requestId, msg.sender, clientAddress, amount, updatedBalance);
+        uint64 requestId = _initiatePegOut(
+            clientChainId, actualWithdrawAmount, msg.sender, clientAddress, WithdrawType.WITHDRAW_REWARD
+        );
+        emit WithdrawRewardRequested(clientChainId, requestId, msg.sender, clientAddress, actualWithdrawAmount);
     }
 
     /**
@@ -688,54 +690,6 @@ contract UTXOGateway is
         // Emit only when crossing the threshold from true to false
         if (wasConsensusRequired && !_isConsensusRequired()) {
             emit ConsensusDeactivated(requiredProofs, authorizedWitnessCount);
-        }
-    }
-
-    /**
-     * @notice Registers or updates the Bitcoin chain with Imua
-     */
-    function _registerOrUpdateClientChain(
-        ClientChainID clientChainId,
-        uint8 stakerAccountLength,
-        string memory name,
-        string memory metadata,
-        string memory signatureScheme
-    ) internal {
-        (bool success, bool updated) = ASSETS_CONTRACT.registerOrUpdateClientChain(
-            uint32(uint8(clientChainId)), stakerAccountLength, name, metadata, signatureScheme
-        );
-        if (!success) {
-            revert Errors.RegisterClientChainToImuachainFailed(uint32(uint8(clientChainId)));
-        }
-        if (updated) {
-            emit ClientChainUpdated(clientChainId);
-        } else {
-            emit ClientChainRegistered(clientChainId);
-        }
-    }
-
-    function _registerOrUpdateToken(
-        ClientChainID clientChainId,
-        bytes memory token,
-        uint8 decimals,
-        string memory name,
-        string memory metadata,
-        string memory oracleInfo
-    ) internal {
-        uint32 clientChainIdUint32 = uint32(uint8(clientChainId));
-        bool registered =
-            ASSETS_CONTRACT.registerToken(clientChainIdUint32, token, decimals, name, metadata, oracleInfo);
-        if (!registered) {
-            bool updated = ASSETS_CONTRACT.updateToken(clientChainIdUint32, token, metadata);
-            if (!updated) {
-                // we use VIRTUAL_TOKEN to represent all existing tokens, and it is 32 bytes long, so it is safe to cast
-                // to bytes32
-                // forge-lint: disable-next-line(unsafe-typecast)
-                revert Errors.AddWhitelistTokenFailed(clientChainIdUint32, bytes32(VIRTUAL_TOKEN));
-            }
-            emit WhitelistTokenUpdated(clientChainId, VIRTUAL_TOKEN_ADDRESS);
-        } else {
-            emit WhitelistTokenAdded(clientChainId, VIRTUAL_TOKEN_ADDRESS);
         }
     }
 

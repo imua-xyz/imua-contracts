@@ -266,6 +266,58 @@ contract Initialize is SetUp {
 
 }
 
+contract RewardFlows is SetUp {
+
+    using stdStorage for StdStorage;
+
+    // use a value well below the minted supply (1e34) to avoid balance errors
+    uint256 internal constant REWARD_AMOUNT = 1 ether;
+
+    function setUp() public override {
+        super.setUp();
+        // whitelist restakeToken so withdrawReward passes isTokenWhitelisted
+        bytes32 whitelistedSlot = bytes32(
+            stdstore.target(address(clientGatewayLogic)).sig("isWhitelistedToken(address)")
+                .with_key(address(restakeToken)).find()
+        );
+        vm.store(address(clientGateway), whitelistedSlot, bytes32(uint256(1)));
+    }
+
+    function test_withdrawReward_revertWhenRewardVaultNotDeployed() public {
+        vm.prank(owner.addr);
+        vm.expectRevert(Errors.ZeroAddress.selector);
+        clientGateway.withdrawReward(address(restakeToken), owner.addr, REWARD_AMOUNT);
+    }
+
+    function test_withdrawReward_success() public {
+        // deploy reward vault
+        vm.prank(owner.addr);
+        clientGateway.deployRewardVault();
+
+        // fund reward vault with locked rewards from depositor (owner)
+        vm.startPrank(owner.addr);
+        restakeToken.approve(address(clientGateway.rewardVault()), REWARD_AMOUNT);
+        vm.stopPrank();
+
+        vm.startPrank(address(clientGateway));
+        clientGateway.rewardVault().deposit(address(restakeToken), owner.addr, owner.addr, REWARD_AMOUNT);
+        vm.stopPrank();
+
+        // unlock rewards for user
+        vm.startPrank(address(clientGateway));
+        clientGateway.rewardVault().unlockReward(address(restakeToken), players[0].addr, REWARD_AMOUNT);
+        vm.stopPrank();
+
+        // user withdraws unlocked rewards
+        vm.prank(players[0].addr);
+        clientGateway.withdrawReward(address(restakeToken), players[0].addr, REWARD_AMOUNT);
+
+        assertEq(restakeToken.balanceOf(players[0].addr), REWARD_AMOUNT);
+        assertEq(clientGateway.rewardVault().getWithdrawableBalance(address(restakeToken), players[0].addr), 0);
+    }
+
+}
+
 contract WithdrawNonBeaconChainETHFromCapsule is SetUp {
 
     using stdStorage for StdStorage;

@@ -74,7 +74,7 @@ contract RewardVaultTest is Test {
         rewardVault.deposit(address(token), depositor, avs, amount);
 
         assertEq(token.balanceOf(address(rewardVault)), amount);
-        assertEq(rewardVault.getTotalDepositedRewards(address(token), avs), amount);
+        assertEq(rewardVault.getLockedRewards(address(token)), amount);
     }
 
     function testWithdraw() public {
@@ -85,9 +85,11 @@ contract RewardVaultTest is Test {
 
         vm.prank(address(gateway));
         rewardVault.deposit(address(token), depositor, avs, amount);
+        assertEq(rewardVault.getLockedRewards(address(token)), amount);
 
         vm.prank(address(gateway));
         rewardVault.unlockReward(address(token), withdrawer, amount);
+        assertEq(rewardVault.getLockedRewards(address(token)), 0);
 
         vm.expectEmit(true, true, true, true);
         emit RewardWithdrawn(address(token), withdrawer, withdrawer, amount);
@@ -97,10 +99,20 @@ contract RewardVaultTest is Test {
 
         assertEq(token.balanceOf(withdrawer), amount);
         assertEq(rewardVault.getWithdrawableBalance(address(token), withdrawer), 0);
+        assertEq(rewardVault.getLockedRewards(address(token)), 0);
     }
 
     function testUnlockReward() public {
         uint256 amount = 100 * 10 ** 18;
+
+        // First deposit to have locked rewards
+        vm.startPrank(depositor);
+        token.approve(address(rewardVault), amount);
+        vm.stopPrank();
+
+        vm.prank(address(gateway));
+        rewardVault.deposit(address(token), depositor, avs, amount);
+        assertEq(rewardVault.getLockedRewards(address(token)), amount);
 
         vm.expectEmit(true, true, false, true);
         emit RewardUnlocked(address(token), withdrawer, amount);
@@ -109,18 +121,13 @@ contract RewardVaultTest is Test {
         rewardVault.unlockReward(address(token), withdrawer, amount);
 
         assertEq(rewardVault.getWithdrawableBalance(address(token), withdrawer), amount);
+        assertEq(rewardVault.getLockedRewards(address(token)), 0);
     }
 
     function testGetWithdrawableBalance() public {
         uint256 amount = 100 * 10 ** 18;
-        vm.prank(address(gateway));
-        rewardVault.unlockReward(address(token), withdrawer, amount);
 
-        assertEq(rewardVault.getWithdrawableBalance(address(token), withdrawer), amount);
-    }
-
-    function testGetTotalDepositedRewards() public {
-        uint256 amount = 100 * 10 ** 18;
+        // First deposit to have locked rewards
         vm.startPrank(depositor);
         token.approve(address(rewardVault), amount);
         vm.stopPrank();
@@ -128,7 +135,63 @@ contract RewardVaultTest is Test {
         vm.prank(address(gateway));
         rewardVault.deposit(address(token), depositor, avs, amount);
 
-        assertEq(rewardVault.getTotalDepositedRewards(address(token), avs), amount);
+        vm.prank(address(gateway));
+        rewardVault.unlockReward(address(token), withdrawer, amount);
+
+        assertEq(rewardVault.getWithdrawableBalance(address(token), withdrawer), amount);
+    }
+
+    function testGetLockedRewards() public {
+        uint256 amount = 100 * 10 ** 18;
+        vm.startPrank(depositor);
+        token.approve(address(rewardVault), amount);
+        vm.stopPrank();
+
+        // Initially zero
+        assertEq(rewardVault.getLockedRewards(address(token)), 0);
+
+        vm.prank(address(gateway));
+        rewardVault.deposit(address(token), depositor, avs, amount);
+
+        assertEq(rewardVault.getLockedRewards(address(token)), amount);
+
+        // Unlock half
+        vm.prank(address(gateway));
+        rewardVault.unlockReward(address(token), withdrawer, amount / 2);
+
+        assertEq(rewardVault.getLockedRewards(address(token)), amount / 2);
+    }
+
+    function testLockedRewardsInvariant() public {
+        uint256 depositAmount = 200 * 10 ** 18;
+        uint256 unlockAmount1 = 50 * 10 ** 18;
+        uint256 unlockAmount2 = 100 * 10 ** 18;
+
+        vm.startPrank(depositor);
+        token.approve(address(rewardVault), depositAmount);
+        vm.stopPrank();
+
+        // Deposit
+        vm.prank(address(gateway));
+        rewardVault.deposit(address(token), depositor, avs, depositAmount);
+        assertEq(rewardVault.getLockedRewards(address(token)), depositAmount);
+
+        // Unlock first amount
+        vm.prank(address(gateway));
+        rewardVault.unlockReward(address(token), withdrawer, unlockAmount1);
+        assertEq(rewardVault.getLockedRewards(address(token)), depositAmount - unlockAmount1);
+
+        // Unlock second amount
+        address withdrawer2 = address(0x5);
+        vm.prank(address(gateway));
+        rewardVault.unlockReward(address(token), withdrawer2, unlockAmount2);
+        assertEq(rewardVault.getLockedRewards(address(token)), depositAmount - unlockAmount1 - unlockAmount2);
+
+        // Verify withdrawable balances sum doesn't exceed locked rewards
+        uint256 totalWithdrawable = rewardVault.getWithdrawableBalance(address(token), withdrawer)
+            + rewardVault.getWithdrawableBalance(address(token), withdrawer2);
+        assertEq(totalWithdrawable, unlockAmount1 + unlockAmount2);
+        assertEq(rewardVault.getLockedRewards(address(token)), depositAmount - totalWithdrawable);
     }
 
     function testOnlyGatewayModifier() public {
@@ -149,8 +212,27 @@ contract RewardVaultTest is Test {
 
     function testWithdrawVaultInsufficientTokenBalance() public {
         uint256 amount = 100 * 10 ** 18;
+
+        // 1) Normal flow: deposit into vault via gateway
+        vm.prank(depositor);
+        token.approve(address(rewardVault), amount);
+        vm.prank(address(gateway));
+        rewardVault.deposit(address(token), depositor, avs, amount);
+        assertEq(rewardVault.getLockedRewards(address(token)), amount);
+
+        // 2) Unlock full amount for withdrawer
         vm.prank(address(gateway));
         rewardVault.unlockReward(address(token), withdrawer, amount);
+        assertEq(rewardVault.getLockedRewards(address(token)), 0);
+        assertEq(rewardVault.getWithdrawableBalance(address(token), withdrawer), amount);
+
+        // 3) Simulate vault losing its ERC20 balance (e.g. external drain)
+        vm.prank(address(rewardVault));
+        bool drained = token.transfer(address(0xdead), amount);
+        assertTrue(drained, "token transfer failed");
+        assertEq(token.balanceOf(address(rewardVault)), 0);
+
+        // 4) Withdraw should now fail at ERC20 transfer level while mapping shows enough balance
         vm.expectRevert("ERC20: transfer amount exceeds balance");
         vm.prank(address(gateway));
         rewardVault.withdraw(address(token), withdrawer, withdrawer, amount);

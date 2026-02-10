@@ -61,11 +61,11 @@ contract ImuachainGatewayStorage is GatewayStorage {
 
     /* --------- asset operations results and staking operations results -------- */
 
-    /// @notice Emitted when a reward operation is executed, submit or claim.
-    /// @param isSubmitReward Whether the operation is a submit reward or a claim reward.
+    /// @notice Emitted when a reward operation is executed, fund or claim.
+    /// @param isSubmitReward Whether the operation is a fund AVS reward (true) or a claim reward (false).
     /// @param success Whether the operation was successful.
     /// @param token The address of the token.
-    /// @param avsOrWithdrawer The address of the avs or withdrawer, avs for submit reward, withdrawer for claim reward.
+    /// @param avsOrWithdrawer The address of the avs or withdrawer, avs for fund reward, withdrawer for claim reward.
     /// @param amount The amount of the token submitted or claimed.
     event RewardOperation(
         bool isSubmitReward,

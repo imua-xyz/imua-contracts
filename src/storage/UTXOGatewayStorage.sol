@@ -127,39 +127,6 @@ contract UTXOGatewayStorage {
     address public constant VIRTUAL_TOKEN_ADDRESS = 0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB;
     bytes public constant VIRTUAL_TOKEN = abi.encodePacked(bytes32(bytes20(VIRTUAL_TOKEN_ADDRESS)));
 
-    /* -------------------- Bitcoin Chain and Token Meta Data ------------------- */
-    string public constant BITCOIN_NAME = "Bitcoin";
-    string public constant BITCOIN_METADATA = "Bitcoin";
-    string public constant BITCOIN_SIGNATURE_SCHEME = "ECDSA";
-    uint8 public constant STAKER_ACCOUNT_LENGTH = 20;
-
-    uint8 public constant BTC_DECIMALS = 8;
-    string public constant BTC_NAME = "BTC";
-    string public constant BTC_METADATA = "BTC";
-    string public constant BTC_ORACLE_INFO = "BTC,BITCOIN,8";
-
-    /* ---------------------- XRP Chain and Token Meta Data --------------------- */
-    string public constant XRPL_NAME = "XRPL";
-    string public constant XRPL_METADATA = "XRP LEDGER";
-    string public constant XRPL_SIGNATURE_SCHEME = "ECDSA";
-    uint8 public constant XRPL_ACCOUNT_LENGTH = 20;
-
-    uint8 public constant XRP_DECIMALS = 6;
-    string public constant XRP_NAME = "XRP";
-    string public constant XRP_METADATA = "XRP TOKEN";
-    string public constant XRP_ORACLE_INFO = "XRP,XRPL,8";
-
-    /* ---------------------- DOGE Chain and Token Meta Data --------------------- */
-    string public constant DOGE_CHAIN_NAME = "DOGE";
-    string public constant DOGE_CHAIN_METADATA = "DOGE";
-    string public constant DOGE_SIGNATURE_SCHEME = "ECDSA";
-    uint8 public constant DOGE_ACCOUNT_LENGTH = 20;
-
-    uint8 public constant DOGE_DECIMALS = 8;
-    string public constant DOGE_NAME = "DOGE";
-    string public constant DOGE_METADATA = "DOGE";
-    string public constant DOGE_ORACLE_INFO = "DOGE,DOGE,8";
-
     /* ---------------------- Dust threshold for withdrawal --------------------- */
     // These thresholds serve as conservative baseline safeguards to prevent users from attempting
     // withdrawals with amounts too small to be economical on the respective UTXO networks.
@@ -343,15 +310,13 @@ contract UTXOGatewayStorage {
      * @param withdrawerImAddr The withdrawer's Imuachain
      * @param withdrawerClientChainAddr The withdrawer's client chain address
      * @param amount The amount to withdraw
-     * @param updatedBalance The updated balance after withdrawal request
      */
     event WithdrawRewardRequested(
         ClientChainID indexed clientChainId,
         uint64 indexed requestId,
         address indexed withdrawerImAddr,
         bytes withdrawerClientChainAddr,
-        uint256 amount,
-        uint256 updatedBalance
+        uint256 amount
     );
 
     /**

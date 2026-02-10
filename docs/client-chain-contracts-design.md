@@ -222,10 +222,11 @@ interface IBaseRestakingController {
     /// @param recipient The destination address that the assets would be transfered to.
     function withdrawPrincipal(address token, uint256 amount, address recipient) external;
 
-    /// @notice Submits reward to the reward module on behalf of the AVS
-    /// @param token The address of the specific token that the user wants to submit as a reward.
-    /// @param rewardAmount The amount of reward tokens that the user wants to submit.
-    function submitReward(address token, address avs, uint256 rewardAmount) external payable;
+    /// @notice Funds AVS reward: deposits reward tokens on behalf of an AVS for distribution.
+    /// @param token The address of the specific token that the user wants to fund as a reward.
+    /// @param avs The address of the AVS to fund the reward for.
+    /// @param rewardAmount The amount of reward tokens that the user wants to fund.
+    function fundAVSReward(address token, address avs, uint256 rewardAmount) external payable;
 
     /// @notice Claims reward tokens from Imuachain.
     /// @param token The address of the specific token that the user wants to claim as a reward.

@@ -85,21 +85,60 @@ abstract contract BaseRestakingController is
     }
 
     /// @inheritdoc IBaseRestakingController
-    /// @dev Reward functionalities are not yet activated
-    function submitReward(address, address, uint256) external payable {
-        revert Errors.NotYetSupported();
+    function fundAVSReward(address token, address avs, uint256 rewardAmount)
+        external
+        payable
+        isValidAmount(rewardAmount)
+        whenNotPaused
+        nonReentrant
+    {
+        if (address(rewardVault) == address(0)) {
+            revert Errors.ZeroAddress();
+        }
+        if (avs == address(0)) {
+            revert Errors.ZeroAddress();
+        }
+
+        // Deposit tokens into reward vault
+        rewardVault.deposit(token, msg.sender, avs, rewardAmount);
+
+        // Send cross-chain message to Imuachain
+        // Format: bytes32(token) + bytes32(avs) + amount (depositor is not needed on Imuachain side)
+        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(avs)), rewardAmount);
+
+        // fundAVSReward is supposed to be a must-succeed action, so we don't need to check the response
+        _processRequest(Action.REQUEST_FUND_AVS_REWARD, actionArgs, bytes(""));
     }
 
     /// @inheritdoc IBaseRestakingController
-    /// @dev Reward functionalities are not yet activated
-    function claimRewardFromImuachain(address, uint256) external payable {
-        revert Errors.NotYetSupported();
+    function claimRewardFromImuachain(address token, uint256 rewardAmount)
+        external
+        payable
+        isValidAmount(rewardAmount)
+        whenNotPaused
+        nonReentrant
+    {
+        // Send cross-chain message to Imuachain
+        // Format: bytes32(assetAddress) + bytes32(stakerAddress) + amount
+        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), rewardAmount);
+
+        // Cache the request to unlock rewards on response
+        bytes memory encodedRequest = abi.encode(token, msg.sender, rewardAmount);
+        _processRequest(Action.REQUEST_CLAIM_REWARD, actionArgs, encodedRequest);
     }
 
     /// @inheritdoc IBaseRestakingController
-    /// @dev Reward functionalities are not yet activated
-    function withdrawReward(address, address, uint256) external pure {
-        revert Errors.NotYetSupported();
+    function withdrawReward(address token, address recipient, uint256 rewardAmount)
+        external
+        isValidAmount(rewardAmount)
+        whenNotPaused
+        nonReentrant
+    {
+        if (address(rewardVault) == address(0) || recipient == address(0)) {
+            revert Errors.ZeroAddress();
+        }
+
+        rewardVault.withdraw(token, msg.sender, recipient, rewardAmount);
     }
 
     /// @dev Processes the request by sending it to Imuachain.

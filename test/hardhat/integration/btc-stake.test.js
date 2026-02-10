@@ -61,8 +61,16 @@ describe("BTC Stake", () => {
 
         // Deploy and initialize UTXOGateway only if contract hasn't been deployed yet
         if (!utxoGateway) {
-            // deploy the logic contract
-            const utxoGatewayFactory = await ethers.getContractFactory("UTXOGateway");
+            // Deploy UTXOChainActivator library first (UTXOGateway depends on it)
+            const utxoChainActivatorFactory = await ethers.getContractFactory("UTXOChainActivator");
+            const utxoChainActivator = await utxoChainActivatorFactory.connect(deployer).deploy();
+            await utxoChainActivator.waitForDeployment();
+            const utxoChainActivatorAddress = await utxoChainActivator.getAddress();
+
+            // Deploy the logic contract with library linked
+            const utxoGatewayFactory = await ethers.getContractFactory("UTXOGateway", {
+                libraries: { UTXOChainActivator: utxoChainActivatorAddress }
+            });
             utxoGatewayLogic = await utxoGatewayFactory.connect(deployer).deploy();
             await utxoGatewayLogic.waitForDeployment();
 

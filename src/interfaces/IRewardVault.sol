@@ -43,11 +43,10 @@ interface IRewardVault {
     function getWithdrawableBalance(address token, address withdrawer) external view returns (uint256);
 
     /**
-     * @notice Returns the total deposited rewards of a token for a specific avs.
+     * @notice Returns the locked reward balance for a token (amount deposited but not yet unlocked).
      * @param token The address of the token.
-     * @param avs The address of the avs.
-     * @return The total deposited rewards of the token for the avs.
+     * @return The locked reward balance for the token.
      */
-    function getTotalDepositedRewards(address token, address avs) external view returns (uint256);
+    function getLockedRewards(address token) external view returns (uint256);
 
 }

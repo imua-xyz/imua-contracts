@@ -443,7 +443,7 @@ contract Bootstrap is
 
     /// @inheritdoc IBaseRestakingController
     /// @dev This is not yet supported.
-    function submitReward(address, address, uint256) external payable beforeLocked whenNotPaused {
+    function fundAVSReward(address, address, uint256) external payable beforeLocked whenNotPaused {
         revert Errors.NotYetSupported();
     }
 
