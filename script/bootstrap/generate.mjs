@@ -808,18 +808,22 @@ async function updateGenesisFile() {
         continue;
       }
       const operatorInfo = await myContract.methods.validators(opAddressIm).call();
-      const operator_info = {
+      const operatorCleaned = {
         operator_addr: opAddressIm,
         description: {
           moniker: operatorInfo.name,
+          identity: "",
+          website: "",
+          security_contact: "",
+          details: "",
         },
         client_chain_earnings_addr: {
           earning_info_list: [
             {
-              lz_client_chain_id: clientChainInfo.layer_zero_chain_id,
+              lz_client_chain_id: clientChainInfo.layer_zero_chain_id.toString(),
               client_chain_earning_addr: opAddressHex,
-            }
-          ]
+            },
+          ],
         },
         commission: {
           commission_rates: {
@@ -834,9 +838,10 @@ async function updateGenesisFile() {
             ).div('1e18').toFixed(),
           },
           update_time: spawnDate,
-        }
-      }
-      operators.push(operator_info);
+        },
+        disable_compound_rewards: false,
+      };
+      operators.push(operatorCleaned);
       // dogfood: val_set
       // TODO: once the oracle module is set up, move away from this solution
       // and instead, load the asset prices into the oracle module genesis
@@ -927,7 +932,8 @@ async function updateGenesisFile() {
           opt_info: {
             opted_in_height: height,
             opted_out_height: DefaultOptedOutHeight.toString(),
-          }
+            jailed: false,
+          },
         });
         // USD value for the operators
         const usdValuekey = getJoinedStoreKey(dogfoodAddr, opAddressIm);
@@ -1065,7 +1071,7 @@ async function updateGenesisFile() {
 
     // iterate over all stakers, then all assets, then all operators
     const delegation_states = genesisJSON.app_state.delegation.delegation_states;
-    const stakers_by_operator = genesisJSON.app_state.delegation.stakers_by_operator;
+    const stakers_by_operator = genesisJSON.app_state.delegation.stakers_by_operator || [];
     const stakerListMap = new Map();
     for (let i = 0; i < depositorsCount; i++) {
       const staker = await myContract.methods.depositors(i).call();
@@ -1107,7 +1113,9 @@ async function updateGenesisFile() {
               key: key,
               states: {
                 undelegatable_share: amount.toFixed(),
-                pending_undelegation_amount: "0"
+                pending_undelegation_amount: "0",
+                reward_undelegatable_share: "0",
+                reward_pending_undelegation_amount: "0"
               },
             });
 
@@ -1133,19 +1141,14 @@ async function updateGenesisFile() {
       return 0;
     });
 
-    stakerListMap.forEach((value, key) => {
-      stakers_by_operator.push({
-        key: key,
-        stakers: value,
-      });
+    stakerListMap.forEach((stakers, key) => {
+      for (const staker of stakers) {
+        stakers_by_operator.push(`${key}/${staker}`);
+      }
     });
     stakers_by_operator.sort((a, b) => {
-      if (a.key < b.key) {
-        return -1;
-      }
-      if (a.key > b.key) {
-        return 1;
-      }
+      if (a < b) return -1;
+      if (a > b) return 1;
       return 0;
     });
     genesisJSON.app_state.delegation.delegation_states = delegation_states;
