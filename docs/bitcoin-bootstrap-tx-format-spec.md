@@ -45,6 +45,17 @@ Must include the following required outputs (in any order):
 
 ### Address Mapping Policy
 
+#### Bidirectional One-to-One Binding
+- The system enforces a bidirectional 1-1 binding:
+  - One Bitcoin address (sender) can only map to one Imuachain EVM address
+  - One Imuachain EVM address can only be mapped from one Bitcoin address (sender)
+
+#### Earliest Valid Transaction Wins (First-Wins)
+- For each Bitcoin sender, the binding is established by the **earliest valid** deposit transaction observed by the genesis generator, ordered by:
+  - `block_height` ascending (smaller height first)
+  - then `txIndex` ascending within the same block
+- Once established, the binding is permanent and immutable.
+
 #### First-time Stakes
 - If the Bitcoin address has no previous bootstrap stakes:
   - The OP_RETURN output establishes the Bitcoin → Imuachain address mapping
@@ -56,6 +67,10 @@ Must include the following required outputs (in any order):
   - OP_RETURN must contain the same Imuachain address as initially staked
   - Any mismatch will cause the transaction to be ignored during genesis
   - The stake will only be counted if the Imuachain address matches
+
+#### Uniqueness Check (Different Senders)
+- Different Bitcoin senders are **not allowed** to bind to the same Imuachain EVM address.
+- If an Imuachain EVM address is already bound by an earlier valid transaction, any later deposit transaction attempting to bind that same Imuachain EVM address from a different sender will be treated as **invalid** (rejected/ignored) and will not be included in genesis.
 
 #### Address Change Policy
 - Address mappings are permanent and immutable
