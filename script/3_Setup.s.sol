@@ -11,6 +11,7 @@ import {NonShortCircuitEndpointV2Mock} from "../test/mocks/NonShortCircuitEndpoi
 import {BaseScript} from "./BaseScript.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/AddressCast.sol";
+import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import {ERC20PresetFixedSupply} from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Script.sol";
 
@@ -128,12 +129,10 @@ contract SetupScript is BaseScript {
         vm.startBroadcast(owner.privateKey);
         uint256 nativeFee;
         for (uint256 i = 0; i < whitelistTokensBytes32.length; i++) {
-            nativeFee = imuachainGateway.quote(
-                clientChainEndpointId,
-                abi.encodePacked(
-                    Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokensBytes32[i], tvlLimits[i])
-                )
+            bytes memory msg_ = abi.encodePacked(
+                Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokensBytes32[i], tvlLimits[i])
             );
+            nativeFee = imuachainGateway.quote(clientChainEndpointId, msg_);
             imuachainGateway.addWhitelistToken{value: nativeFee}(
                 clientChainEndpointId,
                 whitelistTokensBytes32[i],
@@ -143,6 +142,32 @@ contract SetupScript is BaseScript {
                 oracleInfos[i],
                 tvlLimits[i]
             );
+
+            // In local mode with endpoint mock, we also need to simulate the message delivery to the client chain
+            // so that the client chain gateway deploys the vault (for LST tokens).
+            if (useEndpointMock) {
+                vm.stopBroadcast();
+                vm.selectFork(clientChain);
+                vm.startBroadcast(relayer.privateKey);
+                uint64 nonce = clientGateway.nextNonce(imuachainEndpointId, address(imuachainGateway).toBytes32());
+                // Vault deployment via Create2 can be gas-heavy; give it plenty of gas in local simulations.
+                clientChainLzEndpoint.lzReceive{gas: 5_000_000}(
+                    Origin(imuachainEndpointId, address(imuachainGateway).toBytes32(), nonce),
+                    address(clientGateway),
+                    GUID.generate(
+                        nonce,
+                        imuachainEndpointId,
+                        address(imuachainGateway),
+                        clientChainEndpointId,
+                        address(clientGateway).toBytes32()
+                    ),
+                    msg_,
+                    bytes("")
+                );
+                vm.stopBroadcast();
+                vm.selectFork(imuachain);
+                vm.startBroadcast(owner.privateKey);
+            }
         }
         vm.stopBroadcast();
     }

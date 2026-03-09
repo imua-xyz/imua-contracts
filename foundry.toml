@@ -30,6 +30,13 @@ severity = [
     "gas"
 ]
 
+[profile.local]
+# Local dev profile:
+# - Multi-fork scripts currently don't support library linking in Foundry.
+# - Keep libraries empty and ignore the OZ unreachable-code warning seen in some toolchains.
+ignored_error_codes = [5667, 5740]
+libraries = []
+
 [profile.test]
 # for tests, use the Eth mainnet chain_id for NetworkConstants to work.
 # do not specify this in the default profile to pacify forge script

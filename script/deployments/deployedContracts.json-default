@@ -1,0 +1,43 @@
+{
+  "sepolia": {
+    "beaconOracle": "0xd3D285cd1516038dAED61B8BF7Ae2daD63662492",
+    "beaconProxyBytecode": "0xA15Ce26ba8E50ac21ecDa1791BAa3bf22a95b575",
+    "bootstrap": "0x64B5B5A618072C1E4D137f91Af780e3B17A81f3f",
+    "bootstrapLogic": "0xaa8901063317BF66dfed363468b01A9FD08D1a79",
+    "capsuleBeacon": "0x1F91eD5F48E5Ad897E71Fa4559Be8fA1851F0696",
+    "capsuleImplementation": "0xEE40Bab74cB57A7787A2d75991b7f23b065788ee",
+    "clientGatewayLogic": "0x2c0dcD77922CBF685Df1Ac9bcab82ea2571665bc",
+    "erc20Token": "0xF79F563571f7D8122611D0219A0d5449B5304F79",
+    "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
+    "proxyAdmin": "0xDb8710Ba0A1F161747d9459947Fd3B23DbdaB4ED",
+    "rewardVaultBeacon": "0xB058fa6626Fcc56e44A1137a4CE2EFd8BD7f7711",
+    "rewardVaultImplementation": "0xcb6986a0ebF721e9a26C6F9427E58082e87E86F7",
+    "vaultBeacon": "0xa188242ec78894840E20979B6F5087FeB56a9f19",
+    "vaultImplementation": "0x8cdCC93823cCBed482cf20b22A78305CF0404DC4",
+    "wstETH": "0xB82381A3fBD3FaFA77B3a7bE693342618240067b"
+  },
+  "holesky": {
+    "beaconOracle": "0x80E5bb3A04554E54b40Dd6e14ca0F97212d9428d",
+    "beaconProxyBytecode": "0x76E4eF0feDE653FCa008C1DdB0784a54E1ee93ad",
+    "bootstrap": "0x38674073a3713dd2C46892f1d2C5Dadc5Bb14172",
+    "bootstrapLogic": "0xCdA750418AFE2d2aD0f1052E8e997a52C2AA6861",
+    "capsuleBeacon": "0xafc8e60Ab69735C5097c47e5E3A7ED5E63ce5001",
+    "capsuleImplementation": "0x5b04832d2D4Bf2fcFa69510860B273b5213DCA8A",
+    "clientGatewayLogic": "0x4Ff78FE5bb6F7697A4eef96e690CEB57317BA218",
+    "erc20Token": "0x2F9db0Fd41429199519Ad57ef4fD7CfecE98D32B",
+    "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
+    "proxyAdmin": "0x5cF0d7F7ae1085705DBD86f24b7E8000181a4190",
+    "rewardVaultBeacon": "0x1b4B4D6abE71a49e7bb13774F3e1cb721a21Af8B",
+    "rewardVaultImplementation": "0x1283b551058bC8303c04B578c9AbA4727714808b",
+    "vaultBeacon": "0x9a7bc99d90D5B8D8a47Bd6F8DBb5407fE3b51668",
+    "vaultImplementation": "0x9A6735c19f293500C24886cC829870cD725a98b6"
+  },
+  "imuachain": {
+    "imuachainGateway": "0xdDf5218Dbff297ADdF17fB7977E2469D774545ED",
+    "imuachainGatewayLogic": "0xD99eDF46a36F13cE59f547Be3525bF2b6A7363E9",
+    "imuachainProxyAdmin": "0x8464135c8F25Da09e49BC8782676a84730C318bC",
+    "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
+    "utxoGateway": "0x7c61a871071F91933a11567C14e056982aca93b4",
+    "utxoGatewayLogic": "0xEB4033a472AAc0066A86C19E44002a560Eeb6290"
+  }
+}

@@ -2,6 +2,7 @@ pragma solidity ^0.8.19;
 
 import "../src/interfaces/IClientChainGateway.sol";
 
+import "../src/core/ClientChainGateway.sol";
 import "../src/interfaces/IImuachainGateway.sol";
 import "../src/interfaces/IVault.sol";
 import {Action, GatewayStorage} from "../src/storage/GatewayStorage.sol";
@@ -38,7 +39,6 @@ contract DepositScript is BaseScript {
         require(address(restakeToken) != address(0), "restakeToken address should not be empty");
 
         vault = IVault(stdJson.readAddress(deployedContracts, string.concat(".", clientChainName, ".resVault")));
-        require(address(vault) != address(0), "vault address should not be empty");
 
         imuachainGateway =
             IImuachainGateway(payable(stdJson.readAddress(deployedContracts, ".imuachain.imuachainGateway")));
@@ -62,13 +62,20 @@ contract DepositScript is BaseScript {
     function run() public {
         bytes memory msg_ = abi.encodePacked(
             Action.REQUEST_DEPOSIT_LST,
-            abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
+            // ImuachainGateway expects: staker | amount | token
             abi.encodePacked(bytes32(bytes20(depositor.addr))),
-            uint256(DEPOSIT_AMOUNT)
+            uint256(DEPOSIT_AMOUNT),
+            abi.encodePacked(bytes32(bytes20(address(restakeToken))))
         );
 
         vm.selectFork(clientChain);
         vm.startBroadcast(depositor.privateKey);
+
+        // For local runs, vault might be deployed only after whitelisting is delivered; resolve it dynamically.
+        if (address(vault) == address(0)) {
+            vault = IVault(ClientChainGateway(payable(address(clientGateway))).tokenToVault(address(restakeToken)));
+        }
+        require(address(vault) != address(0), "vault address should not be empty");
 
         restakeToken.approve(address(vault), type(uint256).max);
 

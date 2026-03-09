@@ -94,6 +94,17 @@ library NetworkConstants {
                 // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7600.md
                 1_742_999_832
             );
+        } else if (chainId == 56 || chainId == 97) {
+            // BNB Smart Chain (mainnet=56, testnet=97)
+            //
+            // This library primarily targets Ethereum PoS networks. BSC does NOT have the Ethereum deposit contract
+            // or beacon-chain timestamps, so those values are placeholders.
+            //
+            // - depositContractAddress is set to address(0) so that any accidental use of the ETH-only `stake()` flow
+            //   (which calls ETH_POS.deposit) will revert on BSC.
+            // - other params are set to sensible defaults / non-zero placeholders to satisfy contracts that require
+            //   a non-zero value but do not actually use them on BSC (e.g. when BNBCapsule is used).
+            return NetworkParams(address(0), 1, SLOTS_PER_EPOCH_DEFAULT, SECONDS_PER_SLOT_DEFAULT, 1, 1);
         } else {
             // note that goerli is deprecated
             revert("Unsupported network");

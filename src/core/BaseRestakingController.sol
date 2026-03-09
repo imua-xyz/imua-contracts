@@ -30,6 +30,8 @@ abstract contract BaseRestakingController is
     ClientChainGatewayStorage
 {
 
+    error OnlySelfCall();
+
     using OptionsBuilder for bytes;
 
     receive() external payable {}
@@ -114,6 +116,19 @@ abstract contract BaseRestakingController is
             _registeredRequests[requestNonce] = encodedRequest;
             _registeredRequestActions[requestNonce] = action;
         }
+    }
+
+    /// @dev Helper to reuse `_processRequest` in a self-call context.
+    /// This enables payable entrypoints to split `msg.value` into multiple internal calls where `_payNative`
+    /// requires `msg.value == nativeFee`.
+    function __processRequest(Action action, bytes calldata actionArgs, bytes calldata encodedRequest)
+        external
+        payable
+    {
+        if (msg.sender != address(this)) {
+            revert OnlySelfCall();
+        }
+        _processRequest(action, actionArgs, encodedRequest);
     }
 
     /// @dev Sends a message to Imuachain.

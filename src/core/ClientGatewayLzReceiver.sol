@@ -90,10 +90,18 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
             if (requestAct.isNST()) {
                 (, address staker, uint256 amount) = _decodeCachedRequest(cachedRequest);
                 IImuaCapsule capsule = _getCapsule(staker);
-                capsule.endClaimNST(); // we should end the claim progress to set the inClaimProgress flag to false no
-                // matter the success or failure of the request
-                if (requestSuccess) {
-                    capsule.unlockETHPrincipal(amount);
+                // BNBNST: if capsule supports finalizeClaimNST(amount, success), let it handle:
+                // - executing BSC claim to move BNB into capsule
+                // - unlocking withdrawableBalance
+                // - releasing claim flag after claim
+                (bool ok,) = address(capsule)
+                    .call(abi.encodeWithSignature("finalizeClaimNST(uint256,bool)", amount, requestSuccess));
+                if (!ok) {
+                    // Default (ETH NST): always end claim flag, and unlock on success.
+                    capsule.endClaimNST();
+                    if (requestSuccess) {
+                        capsule.unlockETHPrincipal(amount);
+                    }
                 }
             } else if (requestAct.isLST()) {
                 if (requestSuccess) {

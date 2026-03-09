@@ -62,9 +62,10 @@ contract DepositScript is BaseScript {
     function run() public {
         bytes memory msg_ = abi.encodePacked(
             Action.REQUEST_WITHDRAW_LST,
-            abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
+            // ImuachainGateway expects: staker | amount | token
             abi.encodePacked(bytes32(bytes20(depositor.addr))),
-            uint256(WITHDRAW_AMOUNT)
+            uint256(WITHDRAW_AMOUNT),
+            abi.encodePacked(bytes32(bytes20(address(restakeToken))))
         );
 
         vm.selectFork(clientChain);

@@ -79,7 +79,10 @@ contract BaseScript is Script, StdCheats {
 
     uint16 constant imuachainEndpointId = 40_259;
     address constant imuachainEndpointV2 = 0x6EDCE65403992e310A62460808c4b910D972f10f;
-    address erc20TokenAddress = 0xF79F563571f7D8122611D0219A0d5449B5304F79;
+    /// @dev For public testnets we keep a default, but for local Anvil runs you
+    /// should set `ERC20_TOKEN_ADDRESS` after deploying a mock ERC20.
+    address internal constant DEFAULT_ERC20_TOKEN_ADDRESS = 0xF79F563571f7D8122611D0219A0d5449B5304F79;
+    address erc20TokenAddress;
 
     uint256 constant DEPOSIT_AMOUNT = 1 ether;
     uint256 constant WITHDRAW_AMOUNT = 1 ether;
@@ -110,32 +113,51 @@ contract BaseScript is Script, StdCheats {
         useImuachainPrecompileMock = vm.envBool("USE_IMUACHAIN_PRECOMPILE_MOCK");
         console.log("NOTICE: using imuachain precompiles mock", useImuachainPrecompileMock);
 
+        // for local runs, set ERC20_TOKEN_ADDRESS; otherwise fall back to our
+        // default deployed token (e.g. Sepolia/Holesky).
+        erc20TokenAddress = vm.envOr("ERC20_TOKEN_ADDRESS", DEFAULT_ERC20_TOKEN_ADDRESS);
+
         chainIdToName[233] = "imuachain";
         chainIdToName[11_155_111] = "sepolia";
         chainIdToName[17_000] = "holesky";
+        chainIdToName[56] = "bsc";
 
         chainIdToEndpointId[233] = imuachainEndpointId;
         chainIdToEndpointId[11_155_111] = 40_161;
         chainIdToEndpointId[17_000] = 40_217;
+        // LayerZero v2 EID for BSC mainnet
+        chainIdToEndpointId[56] = 30_102;
 
         chainIdToEndpointV2Address[233] = imuachainEndpointV2;
         chainIdToEndpointV2Address[11_155_111] = 0x6EDCE65403992e310A62460808c4b910D972f10f;
         chainIdToEndpointV2Address[17_000] = 0x6EDCE65403992e310A62460808c4b910D972f10f;
+        // BSC mainnet endpoint v2 address
+        chainIdToEndpointV2Address[56] = 0x1a44076050125825900e736c501f859c50fE728c;
 
-        clientChainRPCURL = vm.envString("CLIENT_CHAIN_RPC");
-        clientChain = vm.createSelectFork(clientChainRPCURL);
-        clientChainName = chainIdToName[block.chainid];
-        clientChainEndpointId = chainIdToEndpointId[block.chainid];
-        clientChainEndpointV2 = chainIdToEndpointV2Address[block.chainid];
-        require(bytes(clientChainName).length > 0, "not supported chain");
-        require(clientChainEndpointId != 0, "not supported chain");
-        require(clientChainEndpointV2 != address(0), "not supported chain");
+        // Optional forks:
+        // - Multi-fork scripts (e.g. 1/3/4) should set BOTH RPC env vars.
+        // - Single-chain scripts should set ONLY one RPC env var to avoid Foundry's current
+        //   multi-fork + library-linking limitation.
+        clientChainRPCURL = vm.envOr("CLIENT_CHAIN_RPC", string(""));
+        if (bytes(clientChainRPCURL).length != 0) {
+            clientChain = vm.createSelectFork(clientChainRPCURL);
+            clientChainName = chainIdToName[block.chainid];
+            clientChainEndpointId = chainIdToEndpointId[block.chainid];
+            clientChainEndpointV2 = chainIdToEndpointV2Address[block.chainid];
+            require(bytes(clientChainName).length > 0, "not supported chain");
+            require(clientChainEndpointId != 0, "not supported chain");
+            require(clientChainEndpointV2 != address(0), "not supported chain");
+        }
 
-        imuachainRPCURL = vm.envString("IMUACHAIN_TESTNET_RPC");
-        imuachain = vm.createSelectFork(imuachainRPCURL);
+        imuachainRPCURL = vm.envOr("IMUACHAIN_TESTNET_RPC", string(""));
+        if (bytes(imuachainRPCURL).length != 0) {
+            imuachain = vm.createSelectFork(imuachainRPCURL);
+        }
     }
 
     function _bindPrecompileMocks() internal {
+        require(imuachain != 0, "imuachain fork not created");
+        require(clientChainEndpointId != 0, "client chain not configured");
         uint256 previousFork = type(uint256).max;
         try vm.activeFork() returns (uint256 forkId) {
             previousFork = forkId;

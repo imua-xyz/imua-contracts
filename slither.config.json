@@ -1,6 +1,6 @@
 {
     "detectors_to_exclude": "pragma,assembly,solc-version,naming-convention,timestamp,low-level-calls,too-many-digits,similar-names,calls-loop,reentrancy-benign,reentrancy-events,dead-code,mapping-deletion",
-    "filter_paths": "lib/|test/|mocks/|BytesLib|script/",
+    "filter_paths": "lib/|test/|mocks/|BytesLib|script/|src/utils/Dependencies.sol",
     "solc_remaps": [
         "forge-std/=lib/forge-std/src/",
         "ds-test/=lib/forge-std/lib/ds-test/src/",

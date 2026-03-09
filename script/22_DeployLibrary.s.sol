@@ -25,9 +25,9 @@ contract DeployNetworkConstants is BaseScript {
 
         vm.stopBroadcast();
 
-        string memory subkey = vm.serializeAddress("sepolia", "networkConstants", libraryAddress);
+        string memory subkey = vm.serializeAddress(clientChainName, "networkConstants", libraryAddress);
 
-        string memory finalJson = vm.serializeString("libraries", "sepolia", subkey);
+        string memory finalJson = vm.serializeString("libraries", clientChainName, subkey);
 
         vm.writeJson(finalJson, "script/deployments/libraries.json");
     }

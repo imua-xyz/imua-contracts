@@ -287,11 +287,33 @@ library Errors {
     /// @dev NativeRestakingController: message sender has already created the capsule
     error NativeRestakingControllerCapsuleAlreadyCreated();
 
+    /// @dev NativeRestakingController: the capsule doesn't support this native deposit mode
+    error NativeRestakingControllerUnsupportedNativeDeposit();
+
     /// @dev ImuaCapsule: claim already in progress
     error ClaimAlreadyInProgress();
 
     /// @dev ImuaCapsule: too early before last claim
     error TooEarlySinceLastClaim();
+
+    ////////////////////////////////////////
+    //       ImuaCapsuleBSC Errors         //
+    ////////////////////////////////////////
+
+    /// @dev ImuaCapsuleBSC: stakeHub not configured
+    error ImuaCapsuleBSCStakeHubNotSet();
+
+    /// @dev ImuaCapsuleBSC: validator id is invalid
+    error ImuaCapsuleBSCInvalidValidatorId();
+
+    /// @dev ImuaCapsuleBSC: claimable locked BNB is insufficient
+    error ImuaCapsuleBSCInsufficientClaimable();
+
+    /// @dev ImuaCapsuleBSC: claim amount must match sum of whole claimable requests
+    error ImuaCapsuleBSCClaimAmountNotAligned();
+
+    /// @dev ImuaCapsuleBSC: finalize called but no claim in progress
+    error ImuaCapsuleBSCNoClaimInProgress();
 
     ////////////////////
     //  Vault Errors  //
