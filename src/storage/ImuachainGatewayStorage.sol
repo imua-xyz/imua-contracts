@@ -133,8 +133,17 @@ contract ImuachainGatewayStorage is GatewayStorage {
     /// @param clientChainId The LayerZero chain ID of chain to which it is destined.
     event BootstrapRequestSent(uint32 clientChainId);
 
+    /// @notice Emitted when a message is received and executed via the oracle bridge.
+    /// @param srcChainId The LayerZero endpoint ID of the source chain.
+    /// @param nonce The oracle-assigned nonce for this message.
+    /// @param act The action that was executed.
+    event OracleReceived(uint32 indexed srcChainId, uint64 nonce, Action act);
+
+    /// @notice The address authorized to call oracleReceive (oracle module EVM address).
+    address public oracleCaller;
+
     /// @dev Storage gap to allow for future upgrades.
-    uint256[40] private __gap;
+    uint256[39] private __gap;
 
     /**
      * @dev Validates the message length based on the action.

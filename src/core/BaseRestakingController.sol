@@ -29,6 +29,11 @@ abstract contract BaseRestakingController is
     IBaseRestakingController,
     ClientChainGatewayStorage
 {
+    /// @notice Emitted when a cross-chain payload is created for Imuachain.
+    /// @param nonce The LayerZero nonce for the request.
+    /// @param msgId The LayerZero guid for the request.
+    /// @param payload The raw payload sent to Imuachain.
+    event XChainMessage(uint64 nonce, bytes32 msgId, bytes payload);
 
     using OptionsBuilder for bytes;
 
@@ -129,6 +134,7 @@ abstract contract BaseRestakingController is
         MessagingReceipt memory receipt =
             _lzSend(IMUACHAIN_CHAIN_ID, payload, options, MessagingFee(fee.nativeFee, 0), msg.sender, false);
         emit MessageSent(action, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
+        emit XChainMessage(receipt.nonce, receipt.guid, payload);
 
         return receipt.nonce;
     }

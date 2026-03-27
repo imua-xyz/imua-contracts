@@ -360,6 +360,39 @@ contract ImuachainGatewayMock is
         emit MessageExecuted(act, _origin.nonce);
     }
 
+    function oracleReceive(uint32 srcChainId, uint64 nonce, bytes calldata message)
+        external
+        whenNotPaused
+        nonReentrant
+    {
+        if (msg.sender != oracleCaller) {
+            revert Errors.ImuachainGatewayNotOracleCaller();
+        }
+        _validateMessageLength(message);
+
+        Action act = Action(uint8(message[0]));
+        bytes calldata payload = message[1:];
+        bytes4 selector_ = _whiteListFunctionSelectors[act];
+        if (selector_ == bytes4(0)) {
+            revert Errors.UnsupportedRequest(act);
+        }
+
+        (bool success, bytes memory responseOrReason) =
+            address(this).call(abi.encodePacked(selector_, abi.encode(srcChainId, nonce, act, payload)));
+        if (!success) {
+            revert Errors.RequestOrResponseExecuteFailed(act, nonce, responseOrReason);
+        }
+
+        emit OracleReceived(srcChainId, nonce, act);
+    }
+
+    function setOracleCaller(address oracleCaller_) external onlyOwner {
+        if (oracleCaller_ == address(0)) {
+            revert Errors.ZeroAddress();
+        }
+        oracleCaller = oracleCaller_;
+    }
+
     /// @notice Handles LST transfer from a client chain.
     /// @dev Can only be called from this contract via low-level call.
     /// @dev Returns empty bytes if the action is deposit, otherwise returns the lzNonce and success flag.

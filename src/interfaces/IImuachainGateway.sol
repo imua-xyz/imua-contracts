@@ -77,4 +77,17 @@ interface IImuachainGateway is IOAppReceiver, IOAppCore {
     /// @param clientChainId The LayerZero chain id of the client chain.
     function markBootstrap(uint32 clientChainId) external payable;
 
+    /// @notice Receives a cross-chain message delivered by the oracle module instead of LayerZero.
+    /// @dev The message format is identical to what _lzReceive expects: [action_byte][payload].
+    ///      Only callable by the configured oracleCaller address. Unlike _lzReceive, this does
+    ///      not send LayerZero responses back to the source chain.
+    /// @param srcChainId The LayerZero endpoint ID of the source chain.
+    /// @param nonce The oracle-assigned nonce for this message.
+    /// @param message The raw message bytes (action + args), same format as LayerZero payload.
+    function oracleReceive(uint32 srcChainId, uint64 nonce, bytes calldata message) external;
+
+    /// @notice Sets the address authorized to call oracleReceive.
+    /// @param oracleCaller_ The oracle module's EVM address.
+    function setOracleCaller(address oracleCaller_) external;
+
 }

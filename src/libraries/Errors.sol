@@ -224,6 +224,9 @@ library Errors {
     /// @dev ImuachainGateway: can only be called from this contract itself with a low-level call
     error ImuachainGatewayOnlyCalledFromThis();
 
+    /// @dev ImuachainGateway: caller is not the authorized oracle module address
+    error ImuachainGatewayNotOracleCaller();
+
     /// @dev ImuachainGateway: failed to get client chain ids
     error ImuachainGatewayFailedToGetClientChainIds();
 
