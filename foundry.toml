@@ -16,6 +16,7 @@ deny = "warnings"
 # optimization is no longer enabled by default
 optimizer = true
 optimizer_runs = 100
+via_ir = true
 solc = "0.8.28"
 libraries = ["src/libraries/NetworkConstants.sol:NetworkConstants:0xf718DcEC914835d47a5e428A5397BF2F7276808b"]
 

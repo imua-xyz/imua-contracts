@@ -42,8 +42,11 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     /// @notice The reward vault contract.
     IRewardVault public rewardVault;
 
+    /// @notice The address of the BridgeVerifier contract authorized to call oracleDeliver.
+    address public bridgeVerifier;
+
     /// @dev Storage gap to allow for future upgrades.
-    uint256[39] private __gap;
+    uint256[38] private __gap;
 
     /* ----------------------------- restaking events     ------------------------------ */
 
@@ -69,6 +72,10 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     /// @notice Emitted when a reward vault is created.
     /// @param vault Address of the reward vault.
     event RewardVaultCreated(address vault);
+
+    /// @notice Emitted when a message is delivered via oracle relay.
+    /// @param act The action that was delivered.
+    event OracleDelivered(Action indexed act);
 
     /// @notice Initializes the ClientChainGatewayStorage contract.
     /// @param config The parameters to initialize the contract immutable variables.

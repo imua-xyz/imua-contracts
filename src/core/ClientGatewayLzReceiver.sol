@@ -168,6 +168,54 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         rewardVault.unlockReward(token, staker, amount);
     }
 
+    /// @notice Receives a cross-chain message delivered by the oracle relay instead of LayerZero.
+    /// @dev The message format is identical to what _lzReceive expects: [action_byte][payload].
+    ///      Only callable by the configured bridgeVerifier address.
+    ///      For RESPOND messages, delegates to _handleResponse which validates via _registeredRequests.
+    ///      For other actions (e.g. ADD_WHITELIST_TOKEN, MARK_BOOTSTRAP), dispatches via whitelisted selectors.
+    /// @param message The raw message bytes (action + args).
+    function oracleDeliver(bytes calldata message) external whenNotPaused {
+        if (msg.sender != bridgeVerifier) {
+            revert Errors.UnauthorizedBridgeVerifier();
+        }
+        if (message.length < 1) {
+            revert Errors.InvalidMessageLength();
+        }
+
+        Action act = Action(uint8(message[0]));
+        if (act == Action.RESPOND) {
+            // _handleResponse reads response[1:9] and response[9]; require at least 10 bytes.
+            if (message.length < 10) {
+                revert Errors.InvalidMessageLength();
+            }
+            _handleResponse(message);
+        } else {
+            bytes calldata payload = message[1:];
+            bytes4 selector_ = _whiteListFunctionSelectors[act];
+            if (selector_ == bytes4(0)) {
+                revert Errors.UnsupportedRequest(act);
+            }
+            (bool success, bytes memory reason) = address(this).call(abi.encodePacked(selector_, abi.encode(payload)));
+            if (!success) {
+                revert Errors.OracleDeliveryFailed(act, reason);
+            }
+        }
+        emit OracleDelivered(act);
+    }
+
+    /// @notice Sets the address authorized to call oracleDeliver.
+    /// @param relayer_ The oracle relayer's address.
+    function setBridgeVerifier(address relayer_) external {
+        // Only owner can set. We use the bootstrap owner check since OwnableUpgradeable is in the inheritance chain.
+        if (msg.sender != owner()) {
+            revert Errors.NotOwner();
+        }
+        if (relayer_ == address(0)) {
+            revert Errors.ZeroAddress();
+        }
+        bridgeVerifier = relayer_;
+    }
+
     /// @notice Called after an add-whitelist-token response is received.
     /// @param payload The request payload.
     /// @dev Though `_deployVault` would make external call to newly created `Vault` contract and initialize it,

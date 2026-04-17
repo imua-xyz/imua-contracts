@@ -50,7 +50,6 @@ interface IImuachainGateway is IOAppReceiver, IOAppCore {
     /// @param oracleInfo The oracle information of the token.
     /// @param tvlLimit The TVL limit of the token to set on the client chain.
     /// @dev The chain must be registered before adding tokens.
-    /// @dev This function is payable because it sends a message to the client chain.
     /// @dev The tvlLimit is a `uint128` so that it can work on Solana easily. Within this uint,
     /// we can fit 1 trillion tokens with 18 decimals.
     function addWhitelistToken(
@@ -72,9 +71,24 @@ interface IImuachainGateway is IOAppReceiver, IOAppCore {
 
     /// @notice Marks the network as bootstrapped, on the client chain.
     /// @dev Causes an upgrade of the Bootstrap contract to the ClientChainGateway contract.
-    /// @dev Only works if LZ infrastructure is set up and SetPeer has been called.
-    /// @dev This is payable because it requires a fee to be paid to LZ.
     /// @param clientChainId The LayerZero chain id of the client chain.
     function markBootstrap(uint32 clientChainId) external payable;
+
+    /// @notice Receives a cross-chain message delivered by the oracle module instead of LayerZero.
+    /// @dev The message format is identical to what _lzReceive expects: [action_byte][payload].
+    ///      Only callable by the configured oracleCaller address. Unlike _lzReceive, this does
+    ///      not send LayerZero responses back to the source chain — responses are emitted as
+    ///      `OutboundResponse` for relay via the oracle bridge.
+    /// @param srcChainId The LayerZero endpoint ID of the source chain.
+    /// @param nonce The original request nonce emitted by `BaseRestakingController.XChainMessage`
+    ///              on the source chain. This value is echoed back into any response payload and
+    ///              used on the source side as the `_registeredRequests` key, so it MUST match the
+    ///              nonce that produced this request rather than an oracle-local counter.
+    /// @param message The raw message bytes (action + args), same format as LayerZero payload.
+    function oracleReceive(uint32 srcChainId, uint64 nonce, bytes calldata message) external;
+
+    /// @notice Sets the address authorized to call oracleReceive.
+    /// @param oracleCaller_ The oracle module's EVM address.
+    function setOracleCaller(address oracleCaller_) external;
 
 }
